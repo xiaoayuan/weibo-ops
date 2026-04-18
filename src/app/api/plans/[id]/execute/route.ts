@@ -40,6 +40,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       targetUrl: plan.targetUrl,
       content: plan.content?.content || null,
       topicName: plan.task?.superTopic.name || null,
+      topicUrl: plan.task?.superTopic.topicUrl || null,
     });
 
     const updated = await prisma.dailyPlan.update({

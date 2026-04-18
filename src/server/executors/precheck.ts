@@ -32,6 +32,14 @@ export function validatePlanPrecheck(input: ExecutePlanInput, executor: Executor
     });
   }
 
+  if (input.planType === "CHECK_IN" && !input.topicUrl?.trim()) {
+    return buildBlockedResult("签到计划缺少超话链接，无法进入真实执行阶段。", executor, "MISSING_TOPIC_URL", {
+      planId: input.planId,
+      planType: input.planType,
+      topicName: input.topicName,
+    });
+  }
+
   const trimmedContent = input.content?.trim() ?? "";
 
   if (input.planType === "POST" && !trimmedContent) {

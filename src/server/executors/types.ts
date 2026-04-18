@@ -15,6 +15,7 @@ export type ExecutePlanInput = {
   targetUrl?: string | null;
   content?: string | null;
   topicName?: string | null;
+  topicUrl?: string | null;
 };
 
 export type ExecuteInteractionInput = {
