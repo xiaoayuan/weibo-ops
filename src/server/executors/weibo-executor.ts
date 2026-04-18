@@ -60,7 +60,12 @@ function tryExtractTopicId(topicUrl?: string | null) {
     return undefined;
   }
 
-  const patterns = [/containerid=(\d{6,})/i, /topicid=(\d{6,})/i, /super(?:_index)?\/(\d{6,})/i];
+  const patterns = [
+    /containerid=([a-zA-Z0-9]{6,})/i,
+    /topicid=([a-zA-Z0-9]{6,})/i,
+    /super(?:_index)?\/([a-zA-Z0-9]{6,})/i,
+    /\/p\/([a-zA-Z0-9]{10,})\//i,
+  ];
 
   for (const pattern of patterns) {
     const matched = topicUrl.match(pattern);
@@ -83,6 +88,18 @@ function summarizePayload(payload: unknown) {
   } catch {
     return String(payload);
   }
+}
+
+function getHostPlatform() {
+  if (process.platform === "darwin") {
+    return "MacIntel";
+  }
+
+  if (process.platform === "win32") {
+    return "Win32";
+  }
+
+  return "Linux x86_64";
 }
 
 function blockedResult(message: string, responsePayload?: unknown): ExecutorActionResult {
@@ -154,6 +171,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
   const xsrfToken = getXsrfToken(cookieMap);
   const topicId = tryExtractTopicId(input.topicUrl);
   const endpoints = getCheckInEndpoints();
+  const now = Date.now();
 
   const form = new URLSearchParams();
   if (input.topicName) {
@@ -183,6 +201,66 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
   ];
 
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+
+  if (topicId) {
+    const legacyUrl = new URL("https://weibo.com/p/aj/general/button");
+    legacyUrl.searchParams.set("ajwvr", "6");
+    legacyUrl.searchParams.set("api", "http://i.huati.weibo.com/aj/super/checkin");
+    legacyUrl.searchParams.set("texta", "已签到");
+    legacyUrl.searchParams.set("textb", "已签到");
+    legacyUrl.searchParams.set("status", "1");
+    legacyUrl.searchParams.set("id", topicId);
+    legacyUrl.searchParams.set("location", "page_100808_super_index");
+    legacyUrl.searchParams.set("timezone", "GMT+0800");
+    legacyUrl.searchParams.set("lang", "zh-cn");
+    legacyUrl.searchParams.set("plat", getHostPlatform());
+    legacyUrl.searchParams.set(
+      "ua",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    );
+    legacyUrl.searchParams.set("screen", "1920*1080");
+    legacyUrl.searchParams.set("__rnd", String(now));
+
+    const legacyResponse = await sendHttpRequestWithRetry(
+      {
+        url: legacyUrl.toString(),
+        method: "GET",
+        headers: {
+          Cookie: cookie,
+          Referer: input.topicUrl || "https://weibo.com/",
+          Origin: "https://weibo.com",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        timeoutMs: 12_000,
+      },
+      {
+        retries: 1,
+      },
+    );
+
+    const legacySummary = legacyResponse.json ?? legacyResponse.text.slice(0, 220);
+    const legacyBusinessOk = tryExtractBusinessOk(legacySummary);
+    attempts.push({
+      endpoint: "https://weibo.com/p/aj/general/button",
+      mode: "legacy-get",
+      ok: legacyResponse.ok,
+      status: legacyResponse.status,
+      summary: legacySummary,
+      businessOk: legacyBusinessOk,
+    });
+
+    if (legacyResponse.ok && legacyBusinessOk !== false && legacyResponse.json !== undefined) {
+      return {
+        ok: true,
+        status: legacyResponse.status,
+        summary: legacySummary,
+        endpoint: "https://weibo.com/p/aj/general/button",
+        mode: "legacy-get",
+        businessOk: legacyBusinessOk,
+        attempts,
+      };
+    }
+  }
 
   for (const endpoint of endpoints) {
     for (const payload of attemptPayloads) {
@@ -259,6 +337,20 @@ function tryExtractBusinessOk(payload: unknown) {
 
   if (typeof record.success === "boolean") {
     return record.success;
+  }
+
+  if (typeof record.code === "string") {
+    return record.code === "100000" || record.code === "A00006";
+  }
+
+  if (typeof record.result === "number") {
+    return record.result === 1;
+  }
+
+  if (typeof record.msg === "string") {
+    if (record.msg.includes("已签到") || record.msg.includes("签到成功")) {
+      return true;
+    }
   }
 
   return undefined;
