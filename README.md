@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 微博运营台
 
-## Getting Started
+一个基于 `Next.js 16 + Prisma + PostgreSQL` 的后台项目，用于管理多账号、超话任务、文案库、每日计划、互动任务和执行日志。
 
-First, run the development server:
+## 功能概览
+
+- 登录鉴权
+- 账号管理
+- 超话管理
+- 任务配置
+- 文案库
+- 每日计划生成与编辑
+- 互动任务管理
+- 执行日志
+- 控制台统计
+
+## 技术栈
+
+- `Next.js 16`
+- `React 19`
+- `TypeScript`
+- `Tailwind CSS 4`
+- `Prisma 7`
+- `PostgreSQL`
+
+## 本地开发
+
+1. 安装依赖
+
+```bash
+npm install
+```
+
+2. 复制环境变量
+
+```bash
+cp .env.example .env
+```
+
+3. 启动 PostgreSQL
+
+如果你本机没有数据库，可以直接使用：
+
+```bash
+docker compose up -d db
+```
+
+4. 初始化数据库
+
+```bash
+npm run db:generate
+npm run db:push
+```
+
+5. 写入演示数据
+
+```bash
+npm run seed
+```
+
+6. 启动开发环境
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问：`http://localhost:3000/login`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+默认管理员账号：
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- 用户名：`admin`
+- 密码：`admin123456`
 
-## Learn More
+## Docker 启动
 
-To learn more about Next.js, take a look at the following resources:
+直接启动完整环境：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+docker compose up --build -d
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+首次启动后，在宿主机执行数据库初始化：
 
-## Deploy on Vercel
+```bash
+npm run db:generate
+npm run db:push
+npm run seed
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+然后访问：`http://localhost:3000/login`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 常用命令
+
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+npm run db:generate
+npm run db:push
+npm run db:migrate
+npm run db:studio
+npm run seed
+```
+
+## 环境变量
+
+`.env.example` 中已提供模板：
+
+```env
+DATABASE_URL="postgresql://postgres:password@db:5432/weibo_ops?schema=public"
+JWT_SECRET="replace_me_with_a_strong_secret"
+```
+
+## 当前状态
+
+当前项目已经具备一套可演示的一期 MVP 后台，适合继续接真实执行逻辑、权限体系和部署流程。
