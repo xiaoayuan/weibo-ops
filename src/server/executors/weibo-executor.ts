@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sendHttpRequestWithRetry } from "@/server/executors/http-client";
 import { validateInteractionPrecheck, validatePlanPrecheck } from "@/server/executors/precheck";
 import type { ExecuteInteractionInput, ExecutePlanInput, ExecutorActionResult, SocialExecutor } from "@/server/executors/types";
+import { randomUUID } from "node:crypto";
 
 type CookieMap = Record<string, string>;
 
@@ -79,6 +80,62 @@ function getPostEndpoints() {
   }
 
   return ["https://weibo.com/ajax/statuses/update", "https://weibo.com/aj/mblog/add?ajwvr=6"];
+}
+
+function extractSuperTagId(topicUrl?: string | null) {
+  if (!topicUrl) {
+    return process.env.WEIBO_DEFAULT_SUPER_TAG_ID;
+  }
+
+  const patterns = [
+    /__(\d+)_-_tag_comment_sort/i,
+    /[?&]super_tag_id=(\d+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const matched = topicUrl.match(pattern);
+
+    if (matched?.[1]) {
+      return matched[1];
+    }
+  }
+
+  return process.env.WEIBO_DEFAULT_SUPER_TAG_ID;
+}
+
+function toTopicObjectId(topicUrl?: string | null) {
+  const raw = tryExtractTopicId(topicUrl);
+
+  if (!raw) {
+    return undefined;
+  }
+
+  if (raw.includes(":")) {
+    return raw;
+  }
+
+  return `1022:${raw}`;
+}
+
+function getAppSendEndpoint() {
+  const endpoint = process.env.WEIBO_APP_SEND_ENDPOINT || "https://api.weibo.cn/2/statuses/send";
+  const query = new URLSearchParams(
+    process.env.WEIBO_APP_SEND_QUERY ||
+      "aid=01A3HlOH9I_DDX-VXUqpvWcDxsbp96_b3Qf2fmNCXwJo9HqpI.&b=0&c=iphone&dlang=zh-Hans-CN&from=10G4293010&ft=1&lang=zh_CN&networktype=wifi&sflag=1&skin=default&v_f=1&v_p=93&wm=3333_2001",
+  );
+
+  const gsid = process.env.WEIBO_APP_GSID;
+
+  if (gsid) {
+    query.set("gsid", gsid);
+  }
+
+  const url = new URL(endpoint);
+  query.forEach((value, key) => {
+    url.searchParams.set(key, value);
+  });
+
+  return url.toString();
 }
 
 function tryExtractTopicId(topicUrl?: string | null) {
@@ -491,13 +548,92 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
   };
 }
 
-async function sendPostRequest(content: string, topicName: string | undefined, cookie: string) {
+async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, cookie: string) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
   const endpoints = getPostEndpoints();
   const text = topicName ? `${content}\n#${topicName}#` : content;
 
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+
+  const appAuthorization = process.env.WEIBO_APP_AUTHORIZATION;
+  const appSessionId = process.env.WEIBO_APP_SESSION_ID;
+  const appLogUid = process.env.WEIBO_APP_LOG_UID;
+  const topicObjectId = toTopicObjectId(topicUrl);
+  const superTagId = extractSuperTagId(topicUrl);
+
+  if (appAuthorization && topicObjectId && superTagId) {
+    const appBody = new URLSearchParams();
+    const superTopicTag = topicName ? `#${topicName}[超话]#  ${content}` : content;
+
+    appBody.set("act", "add");
+    appBody.set("content", superTopicTag);
+    appBody.set("rcontent", superTopicTag);
+    appBody.set("topic_id", topicObjectId);
+    appBody.set("super_tag_id", superTagId);
+    appBody.set("extparam", `sg_user_type#2|super_tag_id=>${superTagId}`);
+    appBody.set("featurecode", "10000086");
+    appBody.set("moduleID", "composer");
+    appBody.set("retry", "0");
+    appBody.set("sync_mblog", "0");
+    appBody.set("uicode", "10000708");
+    appBody.set("user_input", "1");
+    appBody.set("check_id", String(Date.now()));
+    appBody.set("client_mblogid", `OpenCode-${randomUUID()}`);
+
+    const appHeaders: Record<string, string> = {
+      Authorization: appAuthorization,
+      "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+      "User-Agent": process.env.WEIBO_APP_USER_AGENT || "Weibo/99026 (iPhone; iOS 26.3.1; Scale/3.00)",
+      Cookie: cookie,
+      Referer: topicUrl || "https://weibo.com/",
+      Origin: "https://api.weibo.cn",
+    };
+
+    if (appSessionId) {
+      appHeaders["X-Sessionid"] = appSessionId;
+    }
+
+    if (appLogUid) {
+      appHeaders["X-Log-Uid"] = appLogUid;
+    }
+
+    const appResponse = await sendHttpRequestWithRetry(
+      {
+        url: getAppSendEndpoint(),
+        method: "POST",
+        headers: appHeaders,
+        body: appBody.toString(),
+        timeoutMs: 12_000,
+      },
+      {
+        retries: 1,
+      },
+    );
+
+    const appSummary = appResponse.json ?? appResponse.text.slice(0, 220);
+    const appBusinessOk = tryExtractBusinessOk(appSummary);
+    attempts.push({
+      endpoint: "https://api.weibo.cn/2/statuses/send",
+      mode: "app-form-post",
+      ok: appResponse.ok,
+      status: appResponse.status,
+      summary: appSummary,
+      businessOk: appBusinessOk,
+    });
+
+    if (appResponse.ok && appBusinessOk !== false) {
+      return {
+        ok: true,
+        status: appResponse.status,
+        summary: appSummary,
+        endpoint: "https://api.weibo.cn/2/statuses/send",
+        mode: "app-form-post",
+        businessOk: appBusinessOk,
+        attempts,
+      };
+    }
+  }
 
   for (const endpoint of endpoints) {
     const form = new URLSearchParams();
@@ -766,7 +902,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.planType === "POST" && input.content) {
-        const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, account.cookie);
+        const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, account.cookie);
         const businessOk = tryExtractBusinessOk(postResult.summary);
 
         if (!postResult.ok || businessOk === false) {
