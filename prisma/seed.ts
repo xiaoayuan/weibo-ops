@@ -1,10 +1,10 @@
 import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 
 import { PrismaClient } from "../src/generated/prisma/client";
-import { hashPassword } from "../src/lib/auth";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -14,6 +14,10 @@ if (!connectionString) {
 
 const pool = new Pool({ connectionString });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+
+async function hashPassword(password: string) {
+  return bcrypt.hash(password, 10);
+}
 
 async function main() {
   const passwordHash = await hashPassword("admin123456");
