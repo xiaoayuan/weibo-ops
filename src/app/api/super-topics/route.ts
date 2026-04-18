@@ -3,6 +3,12 @@ import { requireApiRole } from "@/lib/permissions";
 import { createSuperTopicSchema } from "@/server/validators/super-topic";
 
 export async function GET() {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const topics = await prisma.superTopic.findMany({
     orderBy: { createdAt: "desc" },
   });

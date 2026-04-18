@@ -1,6 +1,8 @@
 "use client";
 
 import type { InteractionTarget, InteractionTask, WeiboAccount } from "@/generated/prisma/client";
+import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
+import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useState } from "react";
 
 type InteractionTaskWithRelations = InteractionTask & {
@@ -21,9 +23,11 @@ const statusText: Record<InteractionStatus, string> = {
 
 export function InteractionsManager({
   accounts,
+  currentUserRole,
   initialTasks,
 }: {
   accounts: WeiboAccount[];
+  currentUserRole: AppRole;
   initialTasks: InteractionTaskWithRelations[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);
@@ -33,6 +37,8 @@ export function InteractionsManager({
   const [statusFilter, setStatusFilter] = useState<InteractionStatus | "ALL">("ALL");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canManage = canManageBusinessData(currentUserRole);
+  const canExecute = canReviewAndExecuteTasks(currentUserRole);
 
   const filteredTasks = tasks.filter((task) => {
     const matchesStatus = statusFilter === "ALL" || task.status === statusFilter;
@@ -168,9 +174,10 @@ export function InteractionsManager({
         <p className="mt-1 text-sm text-slate-500">录入评论链接并为多个账号批量生成点赞任务。</p>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-medium">新增互动任务</h3>
-        <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
+      {canManage ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">新增互动任务</h3>
+          <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
           <input
             value={targetUrl}
             onChange={(event) => setTargetUrl(event.target.value)}
@@ -204,8 +211,9 @@ export function InteractionsManager({
               {submitting ? "提交中..." : "生成点赞任务"}
             </button>
           </div>
-        </form>
-      </section>
+          </form>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6 py-4">
@@ -261,33 +269,37 @@ export function InteractionsManager({
                   <td className="px-6 py-4">{statusText[task.status]}</td>
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      {task.status === "PENDING" ? (
-                        <>
-                          <button onClick={() => handleApprove(task.id)} className="text-sky-600 hover:text-sky-700">
-                            确认
-                          </button>
-                          <button onClick={() => handleReject(task.id)} className="text-rose-600 hover:text-rose-700">
-                            驳回
-                          </button>
-                        </>
-                      ) : null}
-                      <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
-                        执行预检
-                      </button>
-                      <button onClick={() => handleStatusChange(task.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
-                        成功
-                      </button>
-                      <button onClick={() => handleStatusChange(task.id, "FAILED")} className="text-amber-600 hover:text-amber-700">
-                        失败
-                      </button>
-                      <button onClick={() => handleStatusChange(task.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
-                        取消
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                     {canExecute ? (
+                       <div className="flex flex-wrap gap-2">
+                         {task.status === "PENDING" ? (
+                           <>
+                             <button onClick={() => handleApprove(task.id)} className="text-sky-600 hover:text-sky-700">
+                               确认
+                             </button>
+                             <button onClick={() => handleReject(task.id)} className="text-rose-600 hover:text-rose-700">
+                               驳回
+                             </button>
+                           </>
+                         ) : null}
+                         <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
+                           执行预检
+                         </button>
+                         <button onClick={() => handleStatusChange(task.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
+                           成功
+                         </button>
+                         <button onClick={() => handleStatusChange(task.id, "FAILED")} className="text-amber-600 hover:text-amber-700">
+                           失败
+                         </button>
+                         <button onClick={() => handleStatusChange(task.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
+                           取消
+                         </button>
+                       </div>
+                     ) : (
+                       <span className="text-slate-400">只读</span>
+                     )}
+                   </td>
+                 </tr>
+               ))
             )}
           </tbody>
         </table>

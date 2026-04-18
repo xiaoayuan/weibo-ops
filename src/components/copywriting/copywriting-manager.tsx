@@ -1,6 +1,8 @@
 "use client";
 
 import type { CopywritingTemplate } from "@/generated/prisma/client";
+import { canManageBusinessData } from "@/lib/permission-rules";
+import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useState } from "react";
 
 type FormState = {
@@ -17,12 +19,13 @@ const initialForm: FormState = {
   status: "ACTIVE",
 };
 
-export function CopywritingManager({ initialItems }: { initialItems: CopywritingTemplate[] }) {
+export function CopywritingManager({ currentUserRole, initialItems }: { currentUserRole: AppRole; initialItems: CopywritingTemplate[] }) {
   const [items, setItems] = useState(initialItems);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canManage = canManageBusinessData(currentUserRole);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -106,9 +109,10 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
         <p className="mt-1 text-sm text-slate-500">维护发帖文案、标签和启用状态。</p>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-medium">{editingId ? "编辑文案" : "新增文案"}</h3>
-        <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
+      {canManage ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">{editingId ? "编辑文案" : "新增文案"}</h3>
+          <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
           <input
             value={form.title}
             onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
@@ -160,8 +164,9 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
               ) : null}
             </div>
           </div>
-        </form>
-      </section>
+          </form>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
@@ -171,16 +176,16 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
               <th className="px-6 py-3 font-medium">内容</th>
               <th className="px-6 py-3 font-medium">标签</th>
               <th className="px-6 py-3 font-medium">状态</th>
-              <th className="px-6 py-3 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-slate-500">
-                  暂无文案，先新增一条内容。
-                </td>
-              </tr>
+               {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
+             </tr>
+           </thead>
+           <tbody>
+             {items.length === 0 ? (
+               <tr>
+                 <td colSpan={canManage ? 5 : 4} className="px-6 py-8 text-slate-500">
+                   暂无文案，先新增一条内容。
+                 </td>
+               </tr>
             ) : (
               items.map((item) => (
                 <tr key={item.id} className="border-t border-slate-200 align-top">
@@ -188,14 +193,16 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
                   <td className="max-w-xl px-6 py-4 text-slate-600">{item.content}</td>
                   <td className="px-6 py-4">{item.tags.join("、") || "-"}</td>
                   <td className="px-6 py-4">{item.status === "ACTIVE" ? "启用" : "停用"}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => handleEdit(item)} className="mr-4 text-sky-600 hover:text-sky-700">
-                      编辑
-                    </button>
-                    <button onClick={() => handleDelete(item.id)} className="text-rose-600 hover:text-rose-700">
-                      删除
-                    </button>
-                  </td>
+                   {canManage ? (
+                     <td className="px-6 py-4">
+                       <button onClick={() => handleEdit(item)} className="mr-4 text-sky-600 hover:text-sky-700">
+                         编辑
+                       </button>
+                       <button onClick={() => handleDelete(item.id)} className="text-rose-600 hover:text-rose-700">
+                         删除
+                       </button>
+                     </td>
+                   ) : null}
                 </tr>
               ))
             )}

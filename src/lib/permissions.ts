@@ -2,12 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { AUTH_COOKIE_NAME, type SessionUser, verifyToken } from "@/lib/auth";
-
-const roleWeight: Record<SessionUser["role"], number> = {
-  VIEWER: 1,
-  OPERATOR: 2,
-  ADMIN: 3,
-};
+import { hasRequiredRole as hasRequiredRoleRule } from "@/lib/permission-rules";
 
 export async function getSessionUserFromCookies() {
   const cookieStore = await cookies();
@@ -21,7 +16,7 @@ export async function getSessionUserFromCookies() {
 }
 
 export function hasRequiredRole(userRole: SessionUser["role"], requiredRole: SessionUser["role"]) {
-  return roleWeight[userRole] >= roleWeight[requiredRole];
+  return hasRequiredRoleRule(userRole, requiredRole);
 }
 
 export async function requireApiRole(requiredRole: SessionUser["role"]) {

@@ -3,6 +3,12 @@ import { requireApiRole } from "@/lib/permissions";
 import { createTopicTaskSchema } from "@/server/validators/topic-task";
 
 export async function GET() {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const tasks = await prisma.accountTopicTask.findMany({
     include: {
       account: true,

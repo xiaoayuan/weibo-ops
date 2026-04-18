@@ -1,6 +1,8 @@
 "use client";
 
 import type { WeiboAccount } from "@/generated/prisma/client";
+import { canManageBusinessData } from "@/lib/permission-rules";
+import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useMemo, useState } from "react";
 
 type AccountStatus = "ACTIVE" | "DISABLED" | "RISKY" | "EXPIRED";
@@ -46,7 +48,7 @@ const loginStatusText: Record<AccountLoginStatus, string> = {
   FAILED: "检测失败",
 };
 
-export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAccount[] }) {
+export function AccountsManager({ currentUserRole, initialAccounts }: { currentUserRole: AppRole; initialAccounts: WeiboAccount[] }) {
   const [accounts, setAccounts] = useState(initialAccounts);
   const [form, setForm] = useState<FormState>(initialForm);
   const [sessionForm, setSessionForm] = useState<SessionFormState>(initialSessionForm);
@@ -58,6 +60,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canManage = canManageBusinessData(currentUserRole);
 
   const groupOptions = useMemo(
     () => Array.from(new Set(accounts.map((account) => account.groupName?.trim()).filter(Boolean))) as string[],
@@ -263,10 +266,11 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
         <p className="mt-1 text-sm text-slate-500">管理微博账号、分组、登录态和检测状态。</p>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-medium">{editingId ? "编辑账号" : "新增账号"}</h3>
+      {canManage ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">{editingId ? "编辑账号" : "新增账号"}</h3>
 
-        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">账号昵称</label>
             <input
@@ -335,10 +339,11 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
               ) : null}
             </div>
           </div>
-        </form>
-      </section>
+          </form>
+        </section>
+      ) : null}
 
-      {sessionEditingId ? (
+      {canManage && sessionEditingId ? (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-lg font-medium">录入微博 Cookie</h3>
           <form className="mt-4 grid gap-4" onSubmit={handleSessionSubmit}>
@@ -434,7 +439,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
                   <th className="px-6 py-3 font-medium">登录状态</th>
                   <th className="px-6 py-3 font-medium">最近检测</th>
                   <th className="px-6 py-3 font-medium">错误信息</th>
-                  <th className="px-6 py-3 font-medium">操作</th>
+                  {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -452,35 +457,37 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
                       {account.lastCheckAt ? new Date(account.lastCheckAt).toLocaleString("zh-CN") : "-"}
                     </td>
                     <td className="max-w-xs px-6 py-4 text-slate-600">{account.loginErrorMessage || "-"}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          onClick={() => handleEdit(account)}
-                          className="text-sm text-sky-600 transition hover:text-sky-700"
-                        >
-                          编辑
-                        </button>
-                        <button
-                          onClick={() => handleOpenSessionForm(account)}
-                          className="text-sm text-indigo-600 transition hover:text-indigo-700"
-                        >
-                          录入 Cookie
-                        </button>
-                        <button
-                          onClick={() => handleCheckSession(account.id)}
-                          disabled={checkingId === account.id}
-                          className="text-sm text-emerald-600 transition hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {checkingId === account.id ? "检测中..." : "检测登录态"}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(account.id)}
-                          className="text-sm text-rose-600 transition hover:text-rose-700"
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </td>
+                    {canManage ? (
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={() => handleEdit(account)}
+                            className="text-sm text-sky-600 transition hover:text-sky-700"
+                          >
+                            编辑
+                          </button>
+                          <button
+                            onClick={() => handleOpenSessionForm(account)}
+                            className="text-sm text-indigo-600 transition hover:text-indigo-700"
+                          >
+                            录入 Cookie
+                          </button>
+                          <button
+                            onClick={() => handleCheckSession(account.id)}
+                            disabled={checkingId === account.id}
+                            className="text-sm text-emerald-600 transition hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {checkingId === account.id ? "检测中..." : "检测登录态"}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(account.id)}
+                            className="text-sm text-rose-600 transition hover:text-rose-700"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

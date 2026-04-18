@@ -1,6 +1,8 @@
 "use client";
 
 import type { SuperTopic } from "@/generated/prisma/client";
+import { canManageBusinessData } from "@/lib/permission-rules";
+import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useState } from "react";
 
 type FormState = {
@@ -15,7 +17,7 @@ const initialForm: FormState = {
   topicUrl: "",
 };
 
-export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopic[] }) {
+export function SuperTopicsManager({ currentUserRole, initialTopics }: { currentUserRole: AppRole; initialTopics: SuperTopic[] }) {
   const [topics, setTopics] = useState(initialTopics);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,6 +25,7 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
   const [boardFilter, setBoardFilter] = useState("ALL");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canManage = canManageBusinessData(currentUserRole);
 
   const boardOptions = Array.from(new Set(topics.map((topic) => topic.boardName?.trim()).filter(Boolean))) as string[];
   const filteredTopics = topics.filter((topic) => {
@@ -111,9 +114,10 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
         <p className="mt-1 text-sm text-slate-500">维护超话名称、板块信息和跳转链接。</p>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-medium">{editingId ? "编辑超话" : "新增超话"}</h3>
-        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+      {canManage ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">{editingId ? "编辑超话" : "新增超话"}</h3>
+          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
           <input
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -153,8 +157,9 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
               ) : null}
             </div>
           </div>
-        </form>
-      </section>
+          </form>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6 py-4">
@@ -188,16 +193,16 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
               <th className="px-6 py-3 font-medium">超话名称</th>
               <th className="px-6 py-3 font-medium">板块</th>
               <th className="px-6 py-3 font-medium">链接</th>
-              <th className="px-6 py-3 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTopics.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-slate-500">
-                  暂无超话，先新增一条记录。
-                </td>
-              </tr>
+               {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
+             </tr>
+           </thead>
+           <tbody>
+             {filteredTopics.length === 0 ? (
+               <tr>
+                 <td colSpan={canManage ? 4 : 3} className="px-6 py-8 text-slate-500">
+                   暂无超话，先新增一条记录。
+                 </td>
+               </tr>
             ) : (
               filteredTopics.map((topic) => (
                 <tr key={topic.id} className="border-t border-slate-200">
@@ -212,14 +217,16 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
                       "-"
                     )}
                   </td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => handleEdit(topic)} className="mr-4 text-sky-600 hover:text-sky-700">
-                      编辑
-                    </button>
-                    <button onClick={() => handleDelete(topic.id)} className="text-rose-600 hover:text-rose-700">
-                      删除
-                    </button>
-                  </td>
+                  {canManage ? (
+                    <td className="px-6 py-4">
+                      <button onClick={() => handleEdit(topic)} className="mr-4 text-sky-600 hover:text-sky-700">
+                        编辑
+                      </button>
+                      <button onClick={() => handleDelete(topic.id)} className="text-rose-600 hover:text-rose-700">
+                        删除
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))
             )}

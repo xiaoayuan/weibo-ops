@@ -1,6 +1,13 @@
+import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
 

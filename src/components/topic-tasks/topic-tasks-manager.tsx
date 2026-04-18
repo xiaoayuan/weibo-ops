@@ -1,6 +1,8 @@
 "use client";
 
 import type { AccountTopicTask, SuperTopic, WeiboAccount } from "@/generated/prisma/client";
+import { canManageBusinessData } from "@/lib/permission-rules";
+import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useState } from "react";
 
 type TaskWithRelations = AccountTopicTask & {
@@ -24,10 +26,12 @@ export function TopicTasksManager({
   initialTasks,
   accounts,
   topics,
+  currentUserRole,
 }: {
   initialTasks: TaskWithRelations[];
   accounts: WeiboAccount[];
   topics: SuperTopic[];
+  currentUserRole: AppRole;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,6 +50,7 @@ export function TopicTasksManager({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canManage = canManageBusinessData(currentUserRole);
 
   const filteredTasks = tasks.filter((task) => {
     const matchesKeyword =
@@ -168,12 +173,13 @@ export function TopicTasksManager({
         <p className="mt-1 text-sm text-slate-500">为账号绑定超话并配置签到、发帖和时间窗口。</p>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-medium">{editingId ? "编辑任务" : "新增任务"}</h3>
-        {accounts.length === 0 || topics.length === 0 ? (
-          <p className="mt-4 text-sm text-amber-600">请先创建账号和超话，再配置任务。</p>
-        ) : (
-          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+      {canManage ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">{editingId ? "编辑任务" : "新增任务"}</h3>
+          {accounts.length === 0 || topics.length === 0 ? (
+            <p className="mt-4 text-sm text-amber-600">请先创建账号和超话，再配置任务。</p>
+          ) : (
+            <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
             <select
               value={form.accountId}
               onChange={(event) => setForm((current) => ({ ...current, accountId: event.target.value }))}
@@ -269,9 +275,10 @@ export function TopicTasksManager({
                 ) : null}
               </div>
             </div>
-          </form>
-        )}
-      </section>
+            </form>
+          )}
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6 py-4">
@@ -305,16 +312,16 @@ export function TopicTasksManager({
               <th className="px-6 py-3 font-medium">频次</th>
               <th className="px-6 py-3 font-medium">时间窗口</th>
               <th className="px-6 py-3 font-medium">状态</th>
-              <th className="px-6 py-3 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTasks.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-8 text-slate-500">
-                  暂无任务配置。
-                </td>
-              </tr>
+               {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
+             </tr>
+           </thead>
+           <tbody>
+             {filteredTasks.length === 0 ? (
+               <tr>
+                 <td colSpan={canManage ? 7 : 6} className="px-6 py-8 text-slate-500">
+                   暂无任务配置。
+                 </td>
+               </tr>
             ) : (
               filteredTasks.map((task) => (
                 <tr key={task.id} className="border-t border-slate-200">
@@ -326,20 +333,22 @@ export function TopicTasksManager({
                   <td className="px-6 py-4">{task.minPostsPerDay}-{task.maxPostsPerDay}</td>
                   <td className="px-6 py-4">{task.startTime || "09:00"} - {task.endTime || "22:00"}</td>
                   <td className="px-6 py-4">{task.status ? "启用" : "停用"}</td>
-                  <td className="px-6 py-4">
-                    <button onClick={() => handleEdit(task)} className="mr-4 text-sky-600 hover:text-sky-700">
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(task)}
-                      className="mr-4 text-amber-600 hover:text-amber-700"
-                    >
-                      {task.status ? "停用" : "启用"}
-                    </button>
-                    <button onClick={() => handleDelete(task.id)} className="text-rose-600 hover:text-rose-700">
-                      删除
-                    </button>
-                  </td>
+                   {canManage ? (
+                     <td className="px-6 py-4">
+                       <button onClick={() => handleEdit(task)} className="mr-4 text-sky-600 hover:text-sky-700">
+                         编辑
+                       </button>
+                       <button
+                         onClick={() => handleToggleStatus(task)}
+                         className="mr-4 text-amber-600 hover:text-amber-700"
+                       >
+                         {task.status ? "停用" : "启用"}
+                       </button>
+                       <button onClick={() => handleDelete(task.id)} className="text-rose-600 hover:text-rose-700">
+                         删除
+                       </button>
+                     </td>
+                   ) : null}
                 </tr>
               ))
             )}

@@ -3,6 +3,12 @@ import { requireApiRole } from "@/lib/permissions";
 import { createCopywritingSchema } from "@/server/validators/copywriting";
 
 export async function GET() {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const items = await prisma.copywritingTemplate.findMany({
     orderBy: { createdAt: "desc" },
   });

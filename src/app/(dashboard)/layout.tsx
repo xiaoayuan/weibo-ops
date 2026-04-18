@@ -15,7 +15,7 @@ const navItems = [
   { href: "/interactions", label: "互动任务", icon: MessageCircleHeart },
   { href: "/logs", label: "执行日志", icon: Bell },
   { href: "/users", label: "用户管理", icon: Shield, minRole: "ADMIN" as const },
-  { href: "/settings", label: "系统设置", icon: Settings },
+  { href: "/settings", label: "系统设置", icon: Settings, minRole: "ADMIN" as const },
 ];
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {

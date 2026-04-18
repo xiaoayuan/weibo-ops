@@ -3,6 +3,12 @@ import { requireApiRole } from "@/lib/permissions";
 import { createAccountSchema } from "@/server/validators/account";
 
 export async function GET(_request: Request, context: RouteContext<"/api/accounts/[id]">) {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   const account = await prisma.weiboAccount.findUnique({

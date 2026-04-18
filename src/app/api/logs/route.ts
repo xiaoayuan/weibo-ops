@@ -1,6 +1,13 @@
+import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const logs = await prisma.executionLog.findMany({
     include: {
       account: true,

@@ -3,6 +3,12 @@ import { requireApiRole } from "@/lib/permissions";
 import { createAccountSchema } from "@/server/validators/account";
 
 export async function GET() {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const accounts = await prisma.weiboAccount.findMany({
     orderBy: { createdAt: "desc" },
   });

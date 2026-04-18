@@ -1,6 +1,8 @@
 "use client";
 
 import type { CopywritingTemplate, DailyPlan, SuperTopic, WeiboAccount } from "@/generated/prisma/client";
+import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
+import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useState } from "react";
 
 type PlanWithRelations = DailyPlan & {
@@ -33,10 +35,12 @@ export function PlansManager({
   initialPlans,
   initialDate,
   contents,
+  currentUserRole,
 }: {
   initialPlans: PlanWithRelations[];
   initialDate: string;
   contents: CopywritingTemplate[];
+  currentUserRole: AppRole;
 }) {
   const [plans, setPlans] = useState(initialPlans);
   const [date, setDate] = useState(initialDate);
@@ -48,6 +52,8 @@ export function PlansManager({
   const [editContentId, setEditContentId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canManage = canManageBusinessData(currentUserRole);
+  const canExecute = canReviewAndExecuteTasks(currentUserRole);
 
   const accountOptions = Array.from(new Set(plans.map((plan) => plan.account.nickname)));
   const topicOptions = Array.from(new Set(plans.map((plan) => plan.task?.superTopic.name).filter(Boolean))) as string[];
@@ -288,13 +294,15 @@ export function PlansManager({
             >
               {loading ? "读取中..." : "查看当日计划"}
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? "生成中..." : "生成当日计划"}
-            </button>
+            {canManage ? (
+              <button
+                type="submit"
+                disabled={loading}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "生成中..." : "生成当日计划"}
+              </button>
+            ) : null}
           </div>
         </form>
       </section>
@@ -326,10 +334,10 @@ export function PlansManager({
                 return (
                   <tr key={plan.id} className="border-t border-slate-200 align-top">
                     <td className="px-6 py-4">
-                      {isEditing ? (
-                        <input
-                          type="datetime-local"
-                          value={editScheduledTime}
+                       {isEditing && canManage ? (
+                         <input
+                           type="datetime-local"
+                           value={editScheduledTime}
                           onChange={(event) => setEditScheduledTime(event.target.value)}
                           className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
                         />
@@ -341,10 +349,10 @@ export function PlansManager({
                     <td className="px-6 py-4">{plan.task?.superTopic.name || "-"}</td>
                     <td className="px-6 py-4">{plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "发帖" : "点赞"}</td>
                     <td className="max-w-sm px-6 py-4 text-slate-600">
-                      {isEditing ? (
-                        <select
-                          value={editContentId}
-                          onChange={(event) => setEditContentId(event.target.value)}
+                       {isEditing && canManage ? (
+                         <select
+                           value={editContentId}
+                           onChange={(event) => setEditContentId(event.target.value)}
                           className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
                         >
                           <option value="">不绑定文案</option>
@@ -360,47 +368,55 @@ export function PlansManager({
                     </td>
                     <td className="px-6 py-4">{statusText[plan.status]}</td>
                     <td className="px-6 py-4">
-                      {isEditing ? (
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => saveEdit(plan.id)} className="text-emerald-600 hover:text-emerald-700">
-                            保存
+                       {isEditing && canManage ? (
+                         <div className="flex flex-wrap gap-2">
+                           <button onClick={() => saveEdit(plan.id)} className="text-emerald-600 hover:text-emerald-700">
+                             保存
                           </button>
                           <button onClick={cancelEdit} className="text-slate-600 hover:text-slate-700">
                             取消
                           </button>
                         </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => startEdit(plan)} className="text-sky-600 hover:text-sky-700">
-                            编辑
-                          </button>
-                          <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">
-                            执行预检
-                          </button>
-                          {plan.status === "PENDING" ? (
-                            <>
-                              <button onClick={() => handleApprove(plan.id)} className="text-sky-600 hover:text-sky-700">
-                                确认
+                       ) : canManage || canExecute ? (
+                         <div className="flex flex-wrap gap-2">
+                           {canManage ? (
+                             <button onClick={() => startEdit(plan)} className="text-sky-600 hover:text-sky-700">
+                               编辑
+                             </button>
+                           ) : null}
+                           {canExecute ? (
+                             <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">
+                               执行预检
+                             </button>
+                           ) : null}
+                           {canExecute && plan.status === "PENDING" ? (
+                             <>
+                               <button onClick={() => handleApprove(plan.id)} className="text-sky-600 hover:text-sky-700">
+                                 确认
                               </button>
                               <button onClick={() => handleReject(plan.id)} className="text-rose-600 hover:text-rose-700">
                                 驳回
                               </button>
                             </>
                           ) : null}
-                          <button onClick={() => handleStatusChange(plan.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
-                            成功
-                          </button>
-                          <button onClick={() => handleStatusChange(plan.id, "FAILED")} className="text-amber-600 hover:text-amber-700">
-                            失败
-                          </button>
-                          <button onClick={() => handleStatusChange(plan.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
-                            取消
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
+                           {canExecute ? (
+                             <>
+                               <button onClick={() => handleStatusChange(plan.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
+                                 成功
+                               </button>
+                               <button onClick={() => handleStatusChange(plan.id, "FAILED")} className="text-amber-600 hover:text-amber-700">
+                                 失败
+                               </button>
+                               <button onClick={() => handleStatusChange(plan.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
+                                 取消
+                               </button>
+                             </>
+                           ) : null}
+                         </div>
+                       ) : <span className="text-slate-400">只读</span>}
+                     </td>
+                   </tr>
+                 );
               })
             )}
           </tbody>
