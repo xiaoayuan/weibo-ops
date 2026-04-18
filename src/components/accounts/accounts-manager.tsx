@@ -1,15 +1,22 @@
 "use client";
 
 import type { WeiboAccount } from "@/generated/prisma/client";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 type AccountStatus = "ACTIVE" | "DISABLED" | "RISKY" | "EXPIRED";
+type AccountLoginStatus = "UNKNOWN" | "ONLINE" | "EXPIRED" | "FAILED";
 
 type FormState = {
   nickname: string;
   remark: string;
   groupName: string;
   status: AccountStatus;
+};
+
+type SessionFormState = {
+  uid: string;
+  username: string;
+  cookie: string;
 };
 
 const initialForm: FormState = {
@@ -19,6 +26,12 @@ const initialForm: FormState = {
   status: "ACTIVE",
 };
 
+const initialSessionForm: SessionFormState = {
+  uid: "",
+  username: "",
+  cookie: "",
+};
+
 const statusText: Record<AccountStatus, string> = {
   ACTIVE: "正常",
   DISABLED: "停用",
@@ -26,21 +39,39 @@ const statusText: Record<AccountStatus, string> = {
   EXPIRED: "失效",
 };
 
+const loginStatusText: Record<AccountLoginStatus, string> = {
+  UNKNOWN: "未检测",
+  ONLINE: "在线",
+  EXPIRED: "已过期",
+  FAILED: "检测失败",
+};
+
 export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAccount[] }) {
   const [accounts, setAccounts] = useState(initialAccounts);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [sessionForm, setSessionForm] = useState<SessionFormState>(initialSessionForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sessionEditingId, setSessionEditingId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [groupFilter, setGroupFilter] = useState("ALL");
   const [submitting, setSubmitting] = useState(false);
+  const [sessionSubmitting, setSessionSubmitting] = useState(false);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const groupOptions = Array.from(new Set(accounts.map((account) => account.groupName?.trim()).filter(Boolean))) as string[];
+  const groupOptions = useMemo(
+    () => Array.from(new Set(accounts.map((account) => account.groupName?.trim()).filter(Boolean))) as string[],
+    [accounts],
+  );
+
   const filteredAccounts = accounts.filter((account) => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
     const matchesKeyword =
-      keyword.trim() === "" ||
-      account.nickname.toLowerCase().includes(keyword.trim().toLowerCase()) ||
-      (account.remark || "").toLowerCase().includes(keyword.trim().toLowerCase());
+      normalizedKeyword === "" ||
+      account.nickname.toLowerCase().includes(normalizedKeyword) ||
+      (account.remark || "").toLowerCase().includes(normalizedKeyword) ||
+      (account.username || "").toLowerCase().includes(normalizedKeyword) ||
+      (account.uid || "").toLowerCase().includes(normalizedKeyword);
     const matchesGroup = groupFilter === "ALL" || (account.groupName || "") === groupFilter;
 
     return matchesKeyword && matchesGroup;
@@ -99,6 +130,106 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
     setError(null);
   }
 
+  function handleOpenSessionForm(account: WeiboAccount) {
+    setSessionEditingId(account.id);
+    setSessionForm({
+      uid: account.uid || "",
+      username: account.username || "",
+      cookie: "",
+    });
+    setError(null);
+  }
+
+  function handleCancelSessionEdit() {
+    setSessionEditingId(null);
+    setSessionForm(initialSessionForm);
+    setError(null);
+  }
+
+  async function handleSessionSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!sessionEditingId) {
+      return;
+    }
+
+    try {
+      setSessionSubmitting(true);
+      setError(null);
+
+      const response = await fetch(`/api/accounts/${sessionEditingId}/session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(sessionForm),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "保存 Cookie 失败");
+      }
+
+      setAccounts((current) =>
+        current.map((item) =>
+          item.id === sessionEditingId
+            ? {
+                ...item,
+                uid: result.data.uid,
+                username: result.data.username,
+                loginStatus: result.data.loginStatus,
+                cookieUpdatedAt: result.data.cookieUpdatedAt,
+                loginErrorMessage: null,
+                consecutiveFailures: 0,
+              }
+            : item,
+        ),
+      );
+
+      handleCancelSessionEdit();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存 Cookie 失败");
+    } finally {
+      setSessionSubmitting(false);
+    }
+  }
+
+  async function handleCheckSession(id: string) {
+    try {
+      setCheckingId(id);
+      setError(null);
+
+      const response = await fetch(`/api/accounts/${id}/check-session`, {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "检测登录态失败");
+      }
+
+      setAccounts((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                loginStatus: result.data.loginStatus,
+                lastCheckAt: result.data.lastCheckAt,
+                loginErrorMessage: result.data.loginErrorMessage,
+                consecutiveFailures: result.data.consecutiveFailures,
+              }
+            : item,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "检测登录态失败");
+    } finally {
+      setCheckingId(null);
+    }
+  }
+
   async function handleDelete(id: string) {
     const confirmed = window.confirm("确认删除这个账号吗？");
 
@@ -129,7 +260,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">账号管理</h2>
-        <p className="mt-1 text-sm text-slate-500">管理微博账号、分组和风险状态。</p>
+        <p className="mt-1 text-sm text-slate-500">管理微博账号、分组、登录态和检测状态。</p>
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -185,25 +316,82 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
           <div className="md:col-span-2 flex items-center justify-between gap-3">
             {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? "提交中..." : editingId ? "保存修改" : "新增账号"}
-            </button>
-            {editingId ? (
+            <div className="flex items-center gap-3">
               <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                type="submit"
+                disabled={submitting}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                取消编辑
+                {submitting ? "提交中..." : editingId ? "保存修改" : "新增账号"}
               </button>
-            ) : null}
+              {editingId ? (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  取消编辑
+                </button>
+              ) : null}
+            </div>
           </div>
         </form>
       </section>
+
+      {sessionEditingId ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">录入微博 Cookie</h3>
+          <form className="mt-4 grid gap-4" onSubmit={handleSessionSubmit}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">微博 UID</label>
+                <input
+                  value={sessionForm.uid}
+                  onChange={(event) => setSessionForm((current) => ({ ...current, uid: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                  placeholder="请输入微博 UID"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">微博用户名</label>
+                <input
+                  value={sessionForm.username}
+                  onChange={(event) => setSessionForm((current) => ({ ...current, username: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                  placeholder="请输入微博用户名"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Cookie</label>
+              <textarea
+                value={sessionForm.cookie}
+                onChange={(event) => setSessionForm((current) => ({ ...current, cookie: event.target.value }))}
+                className="min-h-36 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                placeholder="粘贴完整的微博 Cookie"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={sessionSubmitting}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {sessionSubmitting ? "保存中..." : "保存 Cookie"}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelSessionEdit}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                取消
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6 py-4">
@@ -213,7 +401,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
               <input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                placeholder="搜索昵称或备注"
+                placeholder="搜索昵称、备注、微博用户名或 UID"
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
               />
               <select
@@ -236,40 +424,62 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
           <div className="px-6 py-8 text-sm text-slate-500">暂无账号，先新增一条账号记录。</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-6 py-3 font-medium">账号昵称</th>
+                  <th className="px-6 py-3 font-medium">微博用户名</th>
+                  <th className="px-6 py-3 font-medium">UID</th>
                   <th className="px-6 py-3 font-medium">分组</th>
-                  <th className="px-6 py-3 font-medium">备注</th>
-                  <th className="px-6 py-3 font-medium">状态</th>
-                  <th className="px-6 py-3 font-medium">风险等级</th>
-                  <th className="px-6 py-3 font-medium">创建时间</th>
+                  <th className="px-6 py-3 font-medium">登录状态</th>
+                  <th className="px-6 py-3 font-medium">最近检测</th>
+                  <th className="px-6 py-3 font-medium">错误信息</th>
                   <th className="px-6 py-3 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAccounts.map((account) => (
-                  <tr key={account.id} className="border-t border-slate-200">
-                    <td className="px-6 py-4">{account.nickname}</td>
-                    <td className="px-6 py-4">{account.groupName || "-"}</td>
-                    <td className="px-6 py-4">{account.remark || "-"}</td>
-                    <td className="px-6 py-4">{statusText[account.status]}</td>
-                    <td className="px-6 py-4">{account.riskLevel}</td>
-                    <td className="px-6 py-4">{new Date(account.createdAt).toLocaleString("zh-CN")}</td>
+                  <tr key={account.id} className="border-t border-slate-200 align-top">
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleEdit(account)}
-                        className="mr-4 text-sm text-sky-600 transition hover:text-sky-700"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        onClick={() => handleDelete(account.id)}
-                        className="text-sm text-rose-600 transition hover:text-rose-700"
-                      >
-                        删除
-                      </button>
+                      <div className="font-medium text-slate-900">{account.nickname}</div>
+                      <div className="mt-1 text-xs text-slate-500">{statusText[account.status]} / 风险 {account.riskLevel}</div>
+                    </td>
+                    <td className="px-6 py-4">{account.username || "-"}</td>
+                    <td className="px-6 py-4">{account.uid || "-"}</td>
+                    <td className="px-6 py-4">{account.groupName || "-"}</td>
+                    <td className="px-6 py-4">{loginStatusText[account.loginStatus]}</td>
+                    <td className="px-6 py-4">
+                      {account.lastCheckAt ? new Date(account.lastCheckAt).toLocaleString("zh-CN") : "-"}
+                    </td>
+                    <td className="max-w-xs px-6 py-4 text-slate-600">{account.loginErrorMessage || "-"}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={() => handleEdit(account)}
+                          className="text-sm text-sky-600 transition hover:text-sky-700"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          onClick={() => handleOpenSessionForm(account)}
+                          className="text-sm text-indigo-600 transition hover:text-indigo-700"
+                        >
+                          录入 Cookie
+                        </button>
+                        <button
+                          onClick={() => handleCheckSession(account.id)}
+                          disabled={checkingId === account.id}
+                          className="text-sm text-emerald-600 transition hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {checkingId === account.id ? "检测中..." : "检测登录态"}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(account.id)}
+                          className="text-sm text-rose-600 transition hover:text-rose-700"
+                        >
+                          删除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

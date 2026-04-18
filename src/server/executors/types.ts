@@ -1,0 +1,31 @@
+export type ExecutorActionResult = {
+  success: boolean;
+  status: "READY" | "SUCCESS" | "FAILED";
+  message: string;
+  responsePayload?: unknown;
+};
+
+export type ExecutePlanInput = {
+  planId: string;
+  accountId: string;
+  accountNickname: string;
+  accountLoginStatus: string;
+  planType: "CHECK_IN" | "POST" | "LIKE";
+  targetUrl?: string | null;
+  content?: string | null;
+  topicName?: string | null;
+};
+
+export type ExecuteInteractionInput = {
+  interactionTaskId: string;
+  accountId: string;
+  accountNickname: string;
+  accountLoginStatus: string;
+  actionType: "CHECK_IN" | "POST" | "LIKE";
+  targetUrl: string;
+};
+
+export interface SocialExecutor {
+  executePlan(input: ExecutePlanInput): Promise<ExecutorActionResult>;
+  executeInteraction(input: ExecuteInteractionInput): Promise<ExecutorActionResult>;
+}

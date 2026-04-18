@@ -128,6 +128,25 @@ export function PlansManager({
     }
   }
 
+  async function handleExecute(id: string) {
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/plans/${id}/execute`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "执行计划失败");
+      }
+
+      setPlans((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "执行计划失败");
+    }
+  }
+
   function startEdit(plan: PlanWithRelations) {
     setEditingId(plan.id);
     setEditScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
@@ -316,6 +335,9 @@ export function PlansManager({
                         <div className="flex flex-wrap gap-2">
                           <button onClick={() => startEdit(plan)} className="text-sky-600 hover:text-sky-700">
                             编辑
+                          </button>
+                          <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">
+                            执行预检
                           </button>
                           <button onClick={() => handleStatusChange(plan.id, "READY")} className="text-sky-600 hover:text-sky-700">
                             待确认

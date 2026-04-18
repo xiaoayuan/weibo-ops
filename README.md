@@ -111,6 +111,7 @@ npm run seed
 DATABASE_URL="postgresql://postgres:password@db:5432/weibo_ops?schema=public"
 JWT_SECRET="replace_me_with_a_strong_secret"
 AUTH_COOKIE_SECURE="false"
+ACCOUNT_SECRET_KEY="replace_me_with_a_32_char_secret"
 ```
 
 说明：
@@ -121,3 +122,10 @@ AUTH_COOKIE_SECURE="false"
 ## 当前状态
 
 当前项目已经具备一套可演示的一期 MVP 后台，适合继续接真实执行逻辑、权限体系和部署流程。
+
+## 执行器说明
+
+- 当前项目默认接入的是 `mock executor`
+- `执行预检` 会校验账号登录态并写入日志
+- 当前不会直接对外部平台发起真实发帖、签到或互动动作
+- 如果后续要扩展真实执行器，建议在 `src/server/executors/` 下新增实现，并保持统一接口

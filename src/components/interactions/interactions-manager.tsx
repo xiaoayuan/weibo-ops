@@ -104,6 +104,25 @@ export function InteractionsManager({
     }
   }
 
+  async function handleExecute(id: string) {
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/interaction-tasks/${id}/execute`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "执行互动任务失败");
+      }
+
+      setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "执行互动任务失败");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -207,6 +226,9 @@ export function InteractionsManager({
                     <div className="flex flex-wrap gap-2">
                       <button onClick={() => handleStatusChange(task.id, "READY")} className="text-sky-600 hover:text-sky-700">
                         待确认
+                      </button>
+                      <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
+                        执行预检
                       </button>
                       <button onClick={() => handleStatusChange(task.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
                         成功
