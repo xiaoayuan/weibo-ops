@@ -2,20 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { checkWeiboSession } from "@/server/weibo/session-checker";
 
-function formatCheckMessage(result: Awaited<ReturnType<typeof checkWeiboSession>>) {
-  if (result.success) {
-    return result.message || "登录态有效";
-  }
-
-  const extras = [
-    result.httpStatus ? `HTTP ${result.httpStatus}` : null,
-    result.matchedRule ? `规则: ${result.matchedRule}` : null,
-    result.responseSummary ? `摘要: ${result.responseSummary}` : null,
-  ].filter(Boolean);
-
-  return [result.message || "检测失败", ...extras].join(" | ");
-}
-
 export async function POST(_request: Request, context: RouteContext<"/api/accounts/[id]/check-session">) {
   const { id } = await context.params;
 
@@ -31,13 +17,12 @@ export async function POST(_request: Request, context: RouteContext<"/api/accoun
     }
 
     const result = await checkWeiboSession(account.cookieEncrypted);
-    const formattedMessage = formatCheckMessage(result);
     const updated = await prisma.weiboAccount.update({
       where: { id },
       data: {
         loginStatus: result.loginStatus,
         lastCheckAt: new Date(),
-        loginErrorMessage: result.success ? null : formattedMessage,
+        loginErrorMessage: result.success ? null : result.message || "检测失败",
         consecutiveFailures: result.success ? 0 : { increment: 1 },
       },
     });
@@ -49,15 +34,16 @@ export async function POST(_request: Request, context: RouteContext<"/api/accoun
         httpStatus: result.httpStatus,
         matchedRule: result.matchedRule,
         responseSummary: result.responseSummary,
+        attempts: result.attempts,
         responsePayload: result.responsePayload,
       },
       success: result.success,
-      errorMessage: result.success ? undefined : formattedMessage,
+      errorMessage: result.success ? undefined : result.message,
     });
 
     return Response.json({
       success: result.success,
-      message: formattedMessage,
+      message: result.message,
       data: {
         id: updated.id,
         loginStatus: updated.loginStatus,
