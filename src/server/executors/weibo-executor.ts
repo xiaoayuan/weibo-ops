@@ -55,6 +55,19 @@ function getCheckInEndpoints() {
   return [primary, "https://weibo.com/ajax/super/checkin"];
 }
 
+function getLikeEndpoints() {
+  const envList = process.env.WEIBO_LIKE_ENDPOINTS
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (envList && envList.length > 0) {
+    return envList;
+  }
+
+  return ["https://weibo.com/ajax/statuses/setLike", "https://weibo.com/aj/v6/like/add?ajwvr=6"];
+}
+
 function tryExtractTopicId(topicUrl?: string | null) {
   if (!topicUrl) {
     return undefined;
@@ -69,6 +82,28 @@ function tryExtractTopicId(topicUrl?: string | null) {
 
   for (const pattern of patterns) {
     const matched = topicUrl.match(pattern);
+
+    if (matched?.[1]) {
+      return matched[1];
+    }
+  }
+
+  return undefined;
+}
+
+function tryExtractStatusId(targetUrl?: string | null) {
+  if (!targetUrl) {
+    return undefined;
+  }
+
+  const patterns = [
+    /[?&]mid=([a-zA-Z0-9]+)/i,
+    /\/status\/([a-zA-Z0-9]+)/i,
+    /\/detail\/([a-zA-Z0-9]+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const matched = targetUrl.match(pattern);
 
     if (matched?.[1]) {
       return matched[1];
@@ -320,6 +355,92 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
   };
 }
 
+async function sendLikeRequest(targetUrl: string, cookie: string) {
+  const cookieMap = parseCookieMap(cookie);
+  const xsrfToken = getXsrfToken(cookieMap);
+  const statusId = tryExtractStatusId(targetUrl);
+
+  if (!statusId) {
+    return {
+      ok: false,
+      status: 0,
+      summary: "目标链接中未识别到微博 ID",
+      endpoint: "N/A",
+      mode: "none",
+      businessOk: false,
+      attempts: [] as Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }>,
+    };
+  }
+
+  const endpoints = getLikeEndpoints();
+  const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+
+  for (const endpoint of endpoints) {
+    const form = new URLSearchParams();
+    form.set("id", statusId);
+    form.set("mid", statusId);
+    form.set("object_id", statusId);
+    form.set("target_id", statusId);
+    form.set("attitude", "heart");
+    form.set("location", "v6_content_home");
+
+    const headers: Record<string, string> = {
+      Cookie: cookie,
+      Referer: targetUrl,
+      Origin: "https://weibo.com",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "X-Requested-With": "XMLHttpRequest",
+    };
+
+    if (xsrfToken) {
+      headers["X-XSRF-TOKEN"] = xsrfToken;
+    }
+
+    const response = await sendHttpRequestWithRetry(
+      {
+        url: endpoint,
+        method: "POST",
+        headers,
+        body: form.toString(),
+        timeoutMs: 12_000,
+      },
+      {
+        retries: 1,
+      },
+    );
+
+    const summary = response.json ?? response.text.slice(0, 220);
+    const businessOk = tryExtractBusinessOk(summary);
+    attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
+
+    if (response.ok && businessOk !== false) {
+      return {
+        ok: true,
+        status: response.status,
+        summary,
+        endpoint,
+        mode: "form-post",
+        businessOk,
+        statusId,
+        attempts,
+      };
+    }
+  }
+
+  const latest = attempts[attempts.length - 1];
+
+  return {
+    ok: latest?.ok ?? false,
+    status: latest?.status ?? 0,
+    summary: latest?.summary ?? "点赞请求未返回可用结果",
+    endpoint: latest?.endpoint || endpoints[0],
+    mode: latest?.mode || "form-post",
+    businessOk: latest?.businessOk,
+    statusId,
+    attempts,
+  };
+}
+
 function tryExtractBusinessOk(payload: unknown) {
   if (!payload || typeof payload !== "object") {
     return undefined;
@@ -348,7 +469,7 @@ function tryExtractBusinessOk(payload: unknown) {
   }
 
   if (typeof record.msg === "string") {
-    if (record.msg.includes("已签到") || record.msg.includes("签到成功")) {
+    if (record.msg.includes("已签到") || record.msg.includes("签到成功") || record.msg.includes("已赞") || record.msg.includes("点赞成功")) {
       return true;
     }
   }
@@ -423,6 +544,36 @@ export class WeiboExecutor implements SocialExecutor {
         });
       }
 
+      if (input.planType === "LIKE" && input.targetUrl) {
+        const likeResult = await sendLikeRequest(input.targetUrl, account.cookie);
+        const businessOk = tryExtractBusinessOk(likeResult.summary);
+
+        if (!likeResult.ok || businessOk === false) {
+          return blockedResult("点赞请求未通过，请检查目标链接和账号登录态。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "LIKE_REQUEST_FAILED",
+            summary: summarizePayload(likeResult.summary),
+            planType: input.planType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+            likeResult,
+          });
+        }
+
+        return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
+          executor: "weibo",
+          action: "LIKE",
+          summary: summarizePayload(likeResult.summary),
+          planType: input.planType,
+          targetUrl: input.targetUrl,
+          loginStatus: account.loginStatus,
+          probe,
+          likeResult,
+        });
+      }
+
       return pendingActionResult(
         `weibo executor 骨架已就绪：账号 ${input.accountNickname} 的 ${input.planType} 计划通过了基础连通性探测，但尚未实现具体平台请求。`,
         {
@@ -461,6 +612,36 @@ export class WeiboExecutor implements SocialExecutor {
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
           probe,
+        });
+      }
+
+      if (input.actionType === "LIKE") {
+        const likeResult = await sendLikeRequest(input.targetUrl, account.cookie);
+        const businessOk = tryExtractBusinessOk(likeResult.summary);
+
+        if (!likeResult.ok || businessOk === false) {
+          return blockedResult("点赞请求未通过，请检查目标链接和账号登录态。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "LIKE_REQUEST_FAILED",
+            summary: summarizePayload(likeResult.summary),
+            actionType: input.actionType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+            likeResult,
+          });
+        }
+
+        return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
+          executor: "weibo",
+          action: "LIKE",
+          summary: summarizePayload(likeResult.summary),
+          actionType: input.actionType,
+          targetUrl: input.targetUrl,
+          loginStatus: account.loginStatus,
+          probe,
+          likeResult,
         });
       }
 
