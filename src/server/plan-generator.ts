@@ -47,16 +47,18 @@ export async function generateDailyPlans(dateText: string) {
   });
 
   for (const task of tasks) {
-    const existingCount = await prisma.dailyPlan.count({
+    const existingPlans = await prisma.dailyPlan.findMany({
       where: {
         taskId: task.id,
         planDate,
       },
+      select: {
+        planType: true,
+      },
     });
 
-    if (existingCount > 0) {
-      continue;
-    }
+    const hasCheckInPlan = existingPlans.some((plan) => plan.planType === "CHECK_IN");
+    const hasPostPlan = existingPlans.some((plan) => plan.planType === "POST");
 
     const createPayload: Array<{
       taskId: string;
@@ -71,7 +73,7 @@ export async function generateDailyPlans(dateText: string) {
     const startTime = task.startTime || "09:00";
     const endTime = task.endTime || "22:00";
 
-    if (task.signEnabled) {
+    if (task.signEnabled && !hasCheckInPlan) {
       createPayload.push({
         taskId: task.id,
         accountId: task.accountId,
@@ -82,7 +84,7 @@ export async function generateDailyPlans(dateText: string) {
       });
     }
 
-    if (task.postEnabled && task.maxPostsPerDay > 0) {
+    if (task.postEnabled && task.maxPostsPerDay > 0 && !hasPostPlan) {
       const count = randomInt(task.minPostsPerDay, task.maxPostsPerDay);
       const scheduledTimes = randomTimes(planDate, startTime, endTime, count);
 

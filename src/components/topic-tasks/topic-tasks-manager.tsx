@@ -170,7 +170,7 @@ export function TopicTasksManager({
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">任务配置</h2>
-        <p className="mt-1 text-sm text-slate-500">为账号绑定超话并配置签到、发帖和时间窗口。</p>
+        <p className="mt-1 text-sm text-slate-500">为账号绑定超话，并分别配置签到任务与发帖任务。</p>
       </div>
 
       {canManage ? (
@@ -195,31 +195,56 @@ export function TopicTasksManager({
               value={form.superTopicId}
               onChange={(event) => setForm((current) => ({ ...current, superTopicId: event.target.value }))}
               className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-            >
-              {topics.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.name}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-6 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">
-              <label className="flex items-center gap-2">
+              >
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.name}
+                  </option>
+                ))}
+              </select>
+
+            <div className="rounded-lg border border-slate-200 p-4 text-sm md:col-span-2">
+              <p className="font-medium text-slate-700">签到任务</p>
+              <label className="mt-3 inline-flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={form.signEnabled}
                   onChange={(event) => setForm((current) => ({ ...current, signEnabled: event.target.checked }))}
                 />
-                开启签到
+                启用签到任务
               </label>
-              <label className="flex items-center gap-2">
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-4 text-sm md:col-span-2">
+              <p className="font-medium text-slate-700">发帖任务</p>
+              <label className="mt-3 inline-flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={form.postEnabled}
                   onChange={(event) => setForm((current) => ({ ...current, postEnabled: event.target.checked }))}
                 />
-                开启发帖
+                启用发帖任务
               </label>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <input
+                  type="number"
+                  value={form.minPostsPerDay}
+                  onChange={(event) => setForm((current) => ({ ...current, minPostsPerDay: Number(event.target.value) }))}
+                  className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                  placeholder="最小发帖数"
+                  disabled={!form.postEnabled}
+                />
+                <input
+                  type="number"
+                  value={form.maxPostsPerDay}
+                  onChange={(event) => setForm((current) => ({ ...current, maxPostsPerDay: Number(event.target.value) }))}
+                  className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                  placeholder="最大发帖数"
+                  disabled={!form.postEnabled}
+                />
+              </div>
             </div>
+
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">
               <input
                 type="checkbox"
@@ -228,20 +253,6 @@ export function TopicTasksManager({
               />
               启用该任务
             </label>
-            <input
-              type="number"
-              value={form.minPostsPerDay}
-              onChange={(event) => setForm((current) => ({ ...current, minPostsPerDay: Number(event.target.value) }))}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-              placeholder="最小发帖数"
-            />
-            <input
-              type="number"
-              value={form.maxPostsPerDay}
-              onChange={(event) => setForm((current) => ({ ...current, maxPostsPerDay: Number(event.target.value) }))}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-              placeholder="最大发帖数"
-            />
             <input
               type="time"
               value={form.startTime}
@@ -308,29 +319,29 @@ export function TopicTasksManager({
             <tr>
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">超话</th>
-              <th className="px-6 py-3 font-medium">能力</th>
-              <th className="px-6 py-3 font-medium">频次</th>
+              <th className="px-6 py-3 font-medium">签到任务</th>
+              <th className="px-6 py-3 font-medium">发帖任务</th>
+              <th className="px-6 py-3 font-medium">发帖频次</th>
               <th className="px-6 py-3 font-medium">时间窗口</th>
               <th className="px-6 py-3 font-medium">状态</th>
-               {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
+                {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
              </tr>
            </thead>
            <tbody>
              {filteredTasks.length === 0 ? (
                <tr>
-                 <td colSpan={canManage ? 7 : 6} className="px-6 py-8 text-slate-500">
-                   暂无任务配置。
-                 </td>
-               </tr>
+                  <td colSpan={canManage ? 8 : 7} className="px-6 py-8 text-slate-500">
+                    暂无任务配置。
+                  </td>
+                </tr>
             ) : (
               filteredTasks.map((task) => (
                 <tr key={task.id} className="border-t border-slate-200">
                   <td className="px-6 py-4">{task.account.nickname}</td>
                   <td className="px-6 py-4">{task.superTopic.name}</td>
-                  <td className="px-6 py-4">
-                    {[task.signEnabled ? "签到" : null, task.postEnabled ? "发帖" : null].filter(Boolean).join("、")}
-                  </td>
-                  <td className="px-6 py-4">{task.minPostsPerDay}-{task.maxPostsPerDay}</td>
+                  <td className="px-6 py-4">{task.signEnabled ? "已启用" : "未启用"}</td>
+                  <td className="px-6 py-4">{task.postEnabled ? "已启用" : "未启用"}</td>
+                  <td className="px-6 py-4">{task.postEnabled ? `${task.minPostsPerDay}-${task.maxPostsPerDay}` : "-"}</td>
                   <td className="px-6 py-4">{task.startTime || "09:00"} - {task.endTime || "22:00"}</td>
                   <td className="px-6 py-4">{task.status ? "启用" : "停用"}</td>
                    {canManage ? (
