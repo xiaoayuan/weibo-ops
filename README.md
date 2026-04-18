@@ -110,7 +110,13 @@ npm run seed
 ```env
 DATABASE_URL="postgresql://postgres:password@db:5432/weibo_ops?schema=public"
 JWT_SECRET="replace_me_with_a_strong_secret"
+AUTH_COOKIE_SECURE="false"
 ```
+
+说明：
+
+- 如果你当前通过 `http://NASIP:3007` 访问，`AUTH_COOKIE_SECURE` 请保持为 `false`
+- 只有在你已经配置 `HTTPS` 时，才改成 `true`
 
 ## 当前状态
 

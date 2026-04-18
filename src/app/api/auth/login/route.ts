@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { AUTH_COOKIE_NAME, comparePassword, signToken } from "@/lib/auth";
 import { loginSchema } from "@/server/validators/auth";
 
+function shouldUseSecureCookie() {
+  return process.env.AUTH_COOKIE_SECURE === "true";
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -49,7 +53,7 @@ export async function POST(request: Request) {
           "Set-Cookie": serialize(AUTH_COOKIE_NAME, token, {
             httpOnly: true,
             sameSite: "lax",
-            secure: process.env.NODE_ENV === "production",
+            secure: shouldUseSecureCookie(),
             path: "/",
             maxAge: 60 * 60 * 24 * 7,
           }),

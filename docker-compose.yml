@@ -25,6 +25,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:password@db:5432/weibo_ops?schema=public
       JWT_SECRET: replace_me_with_a_strong_secret
+      AUTH_COOKIE_SECURE: "false"
       NODE_ENV: production
       PORT: 3000
     ports:

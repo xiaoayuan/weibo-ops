@@ -2,6 +2,10 @@ import { serialize } from "cookie";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 
+function shouldUseSecureCookie() {
+  return process.env.AUTH_COOKIE_SECURE === "true";
+}
+
 export async function POST() {
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
@@ -10,7 +14,7 @@ export async function POST() {
       "Set-Cookie": serialize(AUTH_COOKIE_NAME, "", {
         httpOnly: true,
         sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: shouldUseSecureCookie(),
         path: "/",
         maxAge: 0,
       }),
