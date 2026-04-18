@@ -9,6 +9,7 @@ type RequestOptions = {
 export type HttpClientResult = {
   ok: boolean;
   status: number;
+  finalUrl: string;
   headers: Record<string, string>;
   text: string;
   json?: unknown;
@@ -56,6 +57,7 @@ export async function sendHttpRequest(options: RequestOptions): Promise<HttpClie
     return {
       ok: response.ok,
       status: response.status,
+      finalUrl: response.url,
       headers: toHeaderRecord(response.headers),
       text,
       json,

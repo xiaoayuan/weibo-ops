@@ -97,7 +97,8 @@ function tryExtractStatusId(targetUrl?: string | null) {
   }
 
   const patterns = [
-    /[?&]mid=([a-zA-Z0-9]+)/i,
+    /[?&](?:mid|id|weibo_id|bid)=([a-zA-Z0-9]+)/i,
+    /\/\d+\/([a-zA-Z0-9]+)/i,
     /\/status\/([a-zA-Z0-9]+)/i,
     /\/detail\/([a-zA-Z0-9]+)/i,
   ];
@@ -111,6 +112,29 @@ function tryExtractStatusId(targetUrl?: string | null) {
   }
 
   return undefined;
+}
+
+async function resolveLikeTargetUrl(targetUrl: string, cookie: string) {
+  try {
+    const response = await sendHttpRequestWithRetry(
+      {
+        url: targetUrl,
+        method: "GET",
+        headers: {
+          Cookie: cookie,
+          Referer: "https://weibo.com/",
+        },
+        timeoutMs: 10_000,
+      },
+      {
+        retries: 1,
+      },
+    );
+
+    return response.finalUrl || targetUrl;
+  } catch {
+    return targetUrl;
+  }
 }
 
 function summarizePayload(payload: unknown) {
@@ -358,7 +382,14 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
 async function sendLikeRequest(targetUrl: string, cookie: string) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
-  const statusId = tryExtractStatusId(targetUrl);
+
+  let resolvedTargetUrl = targetUrl;
+  let statusId = tryExtractStatusId(resolvedTargetUrl);
+
+  if (!statusId) {
+    resolvedTargetUrl = await resolveLikeTargetUrl(targetUrl, cookie);
+    statusId = tryExtractStatusId(resolvedTargetUrl);
+  }
 
   if (!statusId) {
     return {
@@ -368,6 +399,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
       endpoint: "N/A",
       mode: "none",
       businessOk: false,
+      resolvedTargetUrl,
       attempts: [] as Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }>,
     };
   }
@@ -386,7 +418,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
 
     const headers: Record<string, string> = {
       Cookie: cookie,
-      Referer: targetUrl,
+      Referer: resolvedTargetUrl,
       Origin: "https://weibo.com",
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       "X-Requested-With": "XMLHttpRequest",
@@ -422,6 +454,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
         mode: "form-post",
         businessOk,
         statusId,
+        resolvedTargetUrl,
         attempts,
       };
     }
@@ -437,6 +470,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
     mode: latest?.mode || "form-post",
     businessOk: latest?.businessOk,
     statusId,
+    resolvedTargetUrl,
     attempts,
   };
 }
