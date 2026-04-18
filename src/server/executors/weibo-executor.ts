@@ -546,6 +546,75 @@ function isLikeConfirmed(payload: unknown): boolean {
   return false;
 }
 
+function extractLikeResultId(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (typeof record.idStr === "string" && record.idStr.trim()) {
+    return record.idStr;
+  }
+
+  if (typeof record.id === "string" && record.id.trim()) {
+    return record.id;
+  }
+
+  if (typeof record.id === "number") {
+    return String(record.id);
+  }
+
+  if (record.data && typeof record.data === "object") {
+    return extractLikeResultId(record.data);
+  }
+
+  return undefined;
+}
+
+async function verifyLikeState(cookie: string, referer: string, candidateIds: Array<string | undefined>) {
+  const ids = Array.from(new Set(candidateIds.filter((id): id is string => Boolean(id && id.trim()))));
+
+  const attempts: Array<{ endpoint: string; status: number; summary: unknown }> = [];
+
+  for (const id of ids) {
+    const endpoint = `https://weibo.com/ajax/statuses/show?id=${encodeURIComponent(id)}`;
+    const response = await sendHttpRequestWithRetry(
+      {
+        url: endpoint,
+        method: "GET",
+        headers: {
+          Cookie: cookie,
+          Referer: referer || "https://weibo.com/",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        timeoutMs: 10_000,
+      },
+      {
+        retries: 1,
+      },
+    );
+
+    const summary = response.json ?? response.text.slice(0, 220);
+    attempts.push({ endpoint, status: response.status, summary });
+
+    if (response.ok && isLikeConfirmed(summary)) {
+      return {
+        ok: true,
+        confirmedId: id,
+        summary,
+        attempts,
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    summary: attempts[attempts.length - 1]?.summary ?? "点赞回查未拿到可用数据",
+    attempts,
+  };
+}
+
 function successResult(message: string, status: ExecutorActionResult["status"], responsePayload?: unknown): ExecutorActionResult {
   return {
     success: true,
@@ -632,6 +701,26 @@ export class WeiboExecutor implements SocialExecutor {
           });
         }
 
+        const verifyResult = await verifyLikeState(account.cookie, input.targetUrl, [
+          likeResult.statusId,
+          extractLikeResultId(likeResult.summary),
+        ]);
+
+        if (!verifyResult.ok) {
+          return blockedResult("点赞回查未确认成功，请检查目标链接是否可点赞。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "LIKE_VERIFY_FAILED",
+            summary: summarizePayload(verifyResult.summary),
+            planType: input.planType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+            likeResult,
+            verifyResult,
+          });
+        }
+
         return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
           action: "LIKE",
@@ -641,6 +730,7 @@ export class WeiboExecutor implements SocialExecutor {
           loginStatus: account.loginStatus,
           probe,
           likeResult,
+          verifyResult,
         });
       }
 
@@ -704,6 +794,26 @@ export class WeiboExecutor implements SocialExecutor {
           });
         }
 
+        const verifyResult = await verifyLikeState(account.cookie, input.targetUrl, [
+          likeResult.statusId,
+          extractLikeResultId(likeResult.summary),
+        ]);
+
+        if (!verifyResult.ok) {
+          return blockedResult("点赞回查未确认成功，请检查目标链接是否可点赞。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "LIKE_VERIFY_FAILED",
+            summary: summarizePayload(verifyResult.summary),
+            actionType: input.actionType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+            likeResult,
+            verifyResult,
+          });
+        }
+
         return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
           action: "LIKE",
@@ -713,6 +823,7 @@ export class WeiboExecutor implements SocialExecutor {
           loginStatus: account.loginStatus,
           probe,
           likeResult,
+          verifyResult,
         });
       }
 
