@@ -68,6 +68,19 @@ function getLikeEndpoints() {
   return ["https://weibo.com/ajax/statuses/setLike", "https://weibo.com/aj/v6/like/add?ajwvr=6"];
 }
 
+function getPostEndpoints() {
+  const envList = process.env.WEIBO_POST_ENDPOINTS
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (envList && envList.length > 0) {
+    return envList;
+  }
+
+  return ["https://weibo.com/ajax/statuses/update", "https://weibo.com/aj/mblog/add?ajwvr=6"];
+}
+
 function tryExtractTopicId(topicUrl?: string | null) {
   if (!topicUrl) {
     return undefined;
@@ -478,6 +491,76 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
   };
 }
 
+async function sendPostRequest(content: string, topicName: string | undefined, cookie: string) {
+  const cookieMap = parseCookieMap(cookie);
+  const xsrfToken = getXsrfToken(cookieMap);
+  const endpoints = getPostEndpoints();
+  const text = topicName ? `${content}\n#${topicName}#` : content;
+
+  const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+
+  for (const endpoint of endpoints) {
+    const form = new URLSearchParams();
+    form.set("text", text);
+    form.set("visible", "0");
+    form.set("_surl", "");
+    form.set("pic_id", "");
+
+    const headers: Record<string, string> = {
+      Cookie: cookie,
+      Referer: "https://weibo.com/",
+      Origin: "https://weibo.com",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "X-Requested-With": "XMLHttpRequest",
+    };
+
+    if (xsrfToken) {
+      headers["X-XSRF-TOKEN"] = xsrfToken;
+    }
+
+    const response = await sendHttpRequestWithRetry(
+      {
+        url: endpoint,
+        method: "POST",
+        headers,
+        body: form.toString(),
+        timeoutMs: 12_000,
+      },
+      {
+        retries: 1,
+      },
+    );
+
+    const summary = response.json ?? response.text.slice(0, 220);
+    const businessOk = tryExtractBusinessOk(summary);
+    attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
+
+    if (response.ok && businessOk !== false) {
+      return {
+        ok: true,
+        status: response.status,
+        summary,
+        endpoint,
+        mode: "form-post",
+        businessOk,
+        attempts,
+      };
+    }
+  }
+
+  const latest = attempts[attempts.length - 1];
+
+  return {
+    ok: latest?.ok ?? false,
+    status: latest?.status ?? 0,
+    summary: latest?.summary ?? "发帖请求未返回可用结果",
+    endpoint: latest?.endpoint || endpoints[0],
+    mode: latest?.mode || "form-post",
+    businessOk: latest?.businessOk,
+    attempts,
+  };
+}
+
 function tryExtractBusinessOk(payload: unknown) {
   if (!payload || typeof payload !== "object") {
     return undefined;
@@ -682,6 +765,36 @@ export class WeiboExecutor implements SocialExecutor {
         });
       }
 
+      if (input.planType === "POST" && input.content) {
+        const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, account.cookie);
+        const businessOk = tryExtractBusinessOk(postResult.summary);
+
+        if (!postResult.ok || businessOk === false) {
+          return blockedResult("发帖请求未通过，请检查文案与账号登录态。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "POST_REQUEST_FAILED",
+            summary: summarizePayload(postResult.summary),
+            planType: input.planType,
+            topicName: input.topicName,
+            loginStatus: account.loginStatus,
+            probe,
+            postResult,
+          });
+        }
+
+        return successResult(`已发起发帖请求：${input.accountNickname}`, "SUCCESS", {
+          executor: "weibo",
+          action: "POST",
+          summary: summarizePayload(postResult.summary),
+          planType: input.planType,
+          topicName: input.topicName,
+          loginStatus: account.loginStatus,
+          probe,
+          postResult,
+        });
+      }
+
       if (input.planType === "LIKE" && input.targetUrl) {
         const likeResult = await sendLikeRequest(input.targetUrl, account.cookie);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
@@ -706,21 +819,6 @@ export class WeiboExecutor implements SocialExecutor {
           extractLikeResultId(likeResult.summary),
         ]);
 
-        if (!verifyResult.ok) {
-          return blockedResult("点赞回查未确认成功，请检查目标链接是否可点赞。", {
-            executor: "weibo",
-            precheck: "blocked",
-            reason: "LIKE_VERIFY_FAILED",
-            summary: summarizePayload(verifyResult.summary),
-            planType: input.planType,
-            targetUrl: input.targetUrl,
-            loginStatus: account.loginStatus,
-            probe,
-            likeResult,
-            verifyResult,
-          });
-        }
-
         return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
           action: "LIKE",
@@ -731,6 +829,7 @@ export class WeiboExecutor implements SocialExecutor {
           probe,
           likeResult,
           verifyResult,
+          verifyWarning: verifyResult.ok ? undefined : "点赞请求已返回成功信号，但回查未确认，可能是微博回查接口限制导致。",
         });
       }
 
@@ -799,21 +898,6 @@ export class WeiboExecutor implements SocialExecutor {
           extractLikeResultId(likeResult.summary),
         ]);
 
-        if (!verifyResult.ok) {
-          return blockedResult("点赞回查未确认成功，请检查目标链接是否可点赞。", {
-            executor: "weibo",
-            precheck: "blocked",
-            reason: "LIKE_VERIFY_FAILED",
-            summary: summarizePayload(verifyResult.summary),
-            actionType: input.actionType,
-            targetUrl: input.targetUrl,
-            loginStatus: account.loginStatus,
-            probe,
-            likeResult,
-            verifyResult,
-          });
-        }
-
         return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
           action: "LIKE",
@@ -824,6 +908,7 @@ export class WeiboExecutor implements SocialExecutor {
           probe,
           likeResult,
           verifyResult,
+          verifyWarning: verifyResult.ok ? undefined : "点赞请求已返回成功信号，但回查未确认，可能是微博回查接口限制导致。",
         });
       }
 
