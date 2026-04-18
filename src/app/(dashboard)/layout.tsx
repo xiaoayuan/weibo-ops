@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, MessageCircleHeart, Settings, Tags, Users } from "lucide-react";
+import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, MessageCircleHeart, Settings, Shield, Tags, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { hasRequiredRole, requirePageRole } from "@/lib/permissions";
 
 const navItems = [
   { href: "/", label: "控制台", icon: LayoutDashboard },
@@ -13,10 +14,13 @@ const navItems = [
   { href: "/plans", label: "每日计划", icon: CalendarRange },
   { href: "/interactions", label: "互动任务", icon: MessageCircleHeart },
   { href: "/logs", label: "执行日志", icon: Bell },
+  { href: "/users", label: "用户管理", icon: Shield, minRole: "ADMIN" as const },
   { href: "/settings", label: "系统设置", icon: Settings },
 ];
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  const session = await requirePageRole("VIEWER");
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:grid-cols-[240px_1fr]">
@@ -27,7 +31,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-            {navItems.map((item) => {
+            {navItems
+              .filter((item) => !item.minRole || hasRequiredRole(session.role, item.minRole))
+              .map((item) => {
               const Icon = item.icon;
 
               return (
@@ -40,12 +46,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   <span>{item.label}</span>
                 </Link>
               );
-            })}
+              })}
           </nav>
         </aside>
 
         <main className="p-6 lg:p-8">
-          <div className="mb-6 flex items-center justify-end">
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <div className="text-sm text-slate-500">
+              当前用户：<span className="font-medium text-slate-700">{session.username}</span> / {session.role}
+            </div>
             <LogoutButton />
           </div>
           {children}

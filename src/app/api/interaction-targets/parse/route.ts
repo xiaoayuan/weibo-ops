@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { parseInteractionTargetSchema } from "@/server/validators/interaction";
 
 export async function POST(request: Request) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const body = await request.json();
     const parsed = parseInteractionTargetSchema.safeParse(body);

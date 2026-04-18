@@ -1,8 +1,15 @@
+import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { checkWeiboSession } from "@/server/weibo/session-checker";
 
 export async function POST(_request: Request, context: RouteContext<"/api/accounts/[id]/check-session">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

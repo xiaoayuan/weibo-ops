@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { createSuperTopicSchema } from "@/server/validators/super-topic";
 
 export async function PATCH(request: Request, context: RouteContext<"/api/super-topics/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {
@@ -28,6 +35,12 @@ export async function PATCH(request: Request, context: RouteContext<"/api/super-
 }
 
 export async function DELETE(_request: Request, context: RouteContext<"/api/super-topics/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { writeExecutionLog } from "@/server/logs";
 
 export async function POST(_request: Request, context: RouteContext<"/api/interaction-tasks/[id]/reject">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

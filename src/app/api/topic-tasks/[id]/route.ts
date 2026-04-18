@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { updateTopicTaskSchema } from "@/server/validators/topic-task";
 
 export async function PATCH(request: Request, context: RouteContext<"/api/topic-tasks/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {
@@ -38,6 +45,12 @@ export async function PATCH(request: Request, context: RouteContext<"/api/topic-
 }
 
 export async function DELETE(_request: Request, context: RouteContext<"/api/topic-tasks/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

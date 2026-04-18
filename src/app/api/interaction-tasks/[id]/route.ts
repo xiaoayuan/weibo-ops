@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { writeExecutionLog } from "@/server/logs";
 
 const allowedStatuses = ["PENDING", "READY", "RUNNING", "SUCCESS", "FAILED", "CANCELLED"] as const;
@@ -6,6 +7,12 @@ const allowedStatuses = ["PENDING", "READY", "RUNNING", "SUCCESS", "FAILED", "CA
 type InteractionTaskStatus = (typeof allowedStatuses)[number];
 
 export async function PATCH(request: Request, context: RouteContext<"/api/interaction-tasks/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

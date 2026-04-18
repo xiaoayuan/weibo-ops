@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { createAccountSchema } from "@/server/validators/account";
 
 export async function GET(_request: Request, context: RouteContext<"/api/accounts/[id]">) {
@@ -25,6 +26,12 @@ export async function GET(_request: Request, context: RouteContext<"/api/account
 }
 
 export async function PATCH(request: Request, context: RouteContext<"/api/accounts/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {
@@ -82,6 +89,12 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
 }
 
 export async function DELETE(_request: Request, context: RouteContext<"/api/accounts/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

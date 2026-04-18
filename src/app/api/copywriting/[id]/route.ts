@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { createCopywritingSchema } from "@/server/validators/copywriting";
 
 export async function PATCH(request: Request, context: RouteContext<"/api/copywriting/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {
@@ -24,6 +31,12 @@ export async function PATCH(request: Request, context: RouteContext<"/api/copywr
 }
 
 export async function DELETE(_request: Request, context: RouteContext<"/api/copywriting/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

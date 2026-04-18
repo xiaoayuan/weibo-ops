@@ -1,9 +1,16 @@
 import { encryptText } from "@/lib/encrypt";
+import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { saveAccountSessionSchema } from "@/server/validators/account-session";
 
 export async function POST(request: Request, context: RouteContext<"/api/accounts/[id]/session">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {

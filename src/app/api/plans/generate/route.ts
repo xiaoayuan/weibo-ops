@@ -1,7 +1,14 @@
 import { generateDailyPlans } from "@/server/plan-generator";
 import { generatePlansSchema } from "@/server/validators/plan";
+import { requireApiRole } from "@/lib/permissions";
 
 export async function POST(request: Request) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const body = await request.json();
     const parsed = generatePlansSchema.safeParse(body);

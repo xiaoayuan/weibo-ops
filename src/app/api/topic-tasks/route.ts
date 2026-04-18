@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/permissions";
 import { createTopicTaskSchema } from "@/server/validators/topic-task";
 
 export async function GET() {
@@ -14,6 +15,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   try {
     const body = await request.json();
     const parsed = createTopicTaskSchema.safeParse(body);

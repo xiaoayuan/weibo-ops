@@ -1,8 +1,15 @@
+import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { updatePlanSchema } from "@/server/validators/plan";
 
 export async function PATCH(request: Request, context: RouteContext<"/api/plans/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const { id } = await context.params;
 
   try {
