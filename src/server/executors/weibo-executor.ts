@@ -443,9 +443,10 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
 
     const summary = response.json ?? response.text.slice(0, 220);
     const businessOk = tryExtractBusinessOk(summary);
+    const likeConfirmed = isLikeConfirmed(summary);
     attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
 
-    if (response.ok && businessOk !== false) {
+    if (response.ok && (businessOk === true || likeConfirmed)) {
       return {
         ok: true,
         status: response.status,
@@ -453,6 +454,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
         endpoint,
         mode: "form-post",
         businessOk,
+        likeConfirmed,
         statusId,
         resolvedTargetUrl,
         attempts,
@@ -469,6 +471,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
     endpoint: latest?.endpoint || endpoints[0],
     mode: latest?.mode || "form-post",
     businessOk: latest?.businessOk,
+    likeConfirmed: false,
     statusId,
     resolvedTargetUrl,
     attempts,
@@ -509,6 +512,38 @@ function tryExtractBusinessOk(payload: unknown) {
   }
 
   return undefined;
+}
+
+function isLikeConfirmed(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (record.attitude === "heart" || record.attitude === "like") {
+    return true;
+  }
+
+  if (typeof record.like === "boolean" && record.like) {
+    return true;
+  }
+
+  if (typeof record.liked === "boolean" && record.liked) {
+    return true;
+  }
+
+  if (typeof record.msg === "string") {
+    if (record.msg.includes("已赞") || record.msg.includes("点赞成功") || record.msg.includes("赞过")) {
+      return true;
+    }
+  }
+
+  if (record.data && typeof record.data === "object") {
+    return isLikeConfirmed(record.data);
+  }
+
+  return false;
 }
 
 function successResult(message: string, status: ExecutorActionResult["status"], responsePayload?: unknown): ExecutorActionResult {
@@ -581,8 +616,9 @@ export class WeiboExecutor implements SocialExecutor {
       if (input.planType === "LIKE" && input.targetUrl) {
         const likeResult = await sendLikeRequest(input.targetUrl, account.cookie);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
+        const likeConfirmed = isLikeConfirmed(likeResult.summary) || Boolean(likeResult.likeConfirmed);
 
-        if (!likeResult.ok || businessOk === false) {
+        if (!likeResult.ok || businessOk === false || !likeConfirmed) {
           return blockedResult("点赞请求未通过，请检查目标链接和账号登录态。", {
             executor: "weibo",
             precheck: "blocked",
@@ -652,8 +688,9 @@ export class WeiboExecutor implements SocialExecutor {
       if (input.actionType === "LIKE") {
         const likeResult = await sendLikeRequest(input.targetUrl, account.cookie);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
+        const likeConfirmed = isLikeConfirmed(likeResult.summary) || Boolean(likeResult.likeConfirmed);
 
-        if (!likeResult.ok || businessOk === false) {
+        if (!likeResult.ok || businessOk === false || !likeConfirmed) {
           return blockedResult("点赞请求未通过，请检查目标链接和账号登录态。", {
             executor: "weibo",
             precheck: "blocked",
