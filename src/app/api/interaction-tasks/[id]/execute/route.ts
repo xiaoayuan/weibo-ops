@@ -25,17 +25,6 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 
-    if (task.account.loginStatus !== "ONLINE") {
-      await writeExecutionLog({
-        accountId: task.accountId,
-        actionType: "INTERACTION_EXECUTE_BLOCKED",
-        success: false,
-        errorMessage: "账号登录态无效，无法执行互动任务",
-      });
-
-      return Response.json({ success: false, message: "账号登录态无效，请先检测并更新 Cookie" }, { status: 400 });
-    }
-
     const executor = getExecutor();
     const executionResult = await executor.executeInteraction({
       interactionTaskId: task.id,
@@ -58,15 +47,22 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       },
     });
 
+    const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "INTERACTION_EXECUTE_BLOCKED" : "INTERACTION_EXECUTE_PRECHECKED";
+
     await writeExecutionLog({
       accountId: updated.accountId,
-      actionType: "INTERACTION_EXECUTE_PRECHECKED",
-      requestPayload: { actionType: updated.actionType, targetUrl: updated.target.targetUrl },
+      actionType,
+      requestPayload: {
+        actionType: updated.actionType,
+        targetUrl: updated.target.targetUrl,
+        stage: executionResult.stage,
+      },
       responsePayload: executionResult.responsePayload,
       success: executionResult.success,
+      errorMessage: executionResult.success ? undefined : executionResult.message,
     });
 
-    return Response.json({ success: true, data: updated, message: executionResult.message });
+    return Response.json({ success: executionResult.success, data: updated, message: executionResult.message });
   } catch {
     return Response.json({ success: false, message: "执行互动任务失败" }, { status: 500 });
   }

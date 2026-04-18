@@ -25,11 +25,35 @@ export function validatePlanPrecheck(input: ExecutePlanInput, executor: Executor
     });
   }
 
-  if (input.planType === "POST" && !input.content?.trim()) {
+  if (!input.topicName?.trim()) {
+    return buildBlockedResult("计划未绑定超话信息，无法进入真实执行阶段。", executor, "MISSING_TOPIC", {
+      planId: input.planId,
+      planType: input.planType,
+    });
+  }
+
+  const trimmedContent = input.content?.trim() ?? "";
+
+  if (input.planType === "POST" && !trimmedContent) {
     return buildBlockedResult("发帖计划缺少文案内容，无法进入真实执行阶段。", executor, "MISSING_CONTENT", {
       planId: input.planId,
       planType: input.planType,
       topicName: input.topicName,
+    });
+  }
+
+  if (input.planType === "POST" && trimmedContent.length < 5) {
+    return buildBlockedResult("发帖文案过短，无法进入真实执行阶段。", executor, "CONTENT_TOO_SHORT", {
+      planId: input.planId,
+      planType: input.planType,
+      contentLength: trimmedContent.length,
+    });
+  }
+
+  if (input.planType === "LIKE" && !input.targetUrl?.trim()) {
+    return buildBlockedResult("点赞计划缺少目标链接，无法进入真实执行阶段。", executor, "MISSING_TARGET_URL", {
+      planId: input.planId,
+      planType: input.planType,
     });
   }
 
@@ -49,6 +73,14 @@ export function validateInteractionPrecheck(input: ExecuteInteractionInput, exec
     return buildBlockedResult("互动任务缺少目标链接，无法进入真实执行阶段。", executor, "MISSING_TARGET_URL", {
       interactionTaskId: input.interactionTaskId,
       actionType: input.actionType,
+    });
+  }
+
+  if (!/^https?:\/\//.test(input.targetUrl.trim())) {
+    return buildBlockedResult("互动任务目标链接格式无效，必须以 http 或 https 开头。", executor, "INVALID_TARGET_URL", {
+      interactionTaskId: input.interactionTaskId,
+      actionType: input.actionType,
+      targetUrl: input.targetUrl,
     });
   }
 

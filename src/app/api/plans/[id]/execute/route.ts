@@ -17,23 +17,17 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       where: { id },
       include: {
         account: true,
+        content: true,
+        task: {
+          include: {
+            superTopic: true,
+          },
+        },
       },
     });
 
     if (!plan) {
       return Response.json({ success: false, message: "计划不存在" }, { status: 404 });
-    }
-
-    if (plan.account.loginStatus !== "ONLINE") {
-      await writeExecutionLog({
-        accountId: plan.accountId,
-        planId: plan.id,
-        actionType: "PLAN_EXECUTE_BLOCKED",
-        success: false,
-        errorMessage: "账号登录态无效，无法执行计划",
-      });
-
-      return Response.json({ success: false, message: "账号登录态无效，请先检测并更新 Cookie" }, { status: 400 });
     }
 
     const executor = getExecutor();
@@ -44,8 +38,8 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       accountLoginStatus: plan.account.loginStatus,
       planType: plan.planType,
       targetUrl: plan.targetUrl,
-      content: null,
-      topicName: null,
+      content: plan.content?.content || null,
+      topicName: plan.task?.superTopic.name || null,
     });
 
     const updated = await prisma.dailyPlan.update({
@@ -65,16 +59,22 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       },
     });
 
+    const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "PLAN_EXECUTE_BLOCKED" : "PLAN_EXECUTE_PRECHECKED";
+
     await writeExecutionLog({
       accountId: updated.accountId,
       planId: updated.id,
-      actionType: "PLAN_EXECUTE_PRECHECKED",
-      requestPayload: { planType: updated.planType },
+      actionType,
+      requestPayload: {
+        planType: updated.planType,
+        stage: executionResult.stage,
+      },
       responsePayload: executionResult.responsePayload,
       success: executionResult.success,
+      errorMessage: executionResult.success ? undefined : executionResult.message,
     });
 
-    return Response.json({ success: true, data: updated, message: executionResult.message });
+    return Response.json({ success: executionResult.success, data: updated, message: executionResult.message });
   } catch {
     return Response.json({ success: false, message: "执行计划失败" }, { status: 500 });
   }

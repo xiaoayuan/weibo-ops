@@ -26,6 +26,14 @@ export async function PATCH(request: Request, context: RouteContext<"/api/users/
       return Response.json({ success: false, message: "用户不存在" }, { status: 404 });
     }
 
+    if (existing.role === "ADMIN" && parsed.data.role !== "ADMIN") {
+      const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+
+      if (adminCount <= 1) {
+        return Response.json({ success: false, message: "系统至少需要保留一个管理员" }, { status: 400 });
+      }
+    }
+
     if (existing.id === auth.session.id && parsed.data.role !== "ADMIN") {
       return Response.json({ success: false, message: "不能将当前登录管理员降级" }, { status: 400 });
     }
@@ -72,6 +80,14 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/user
 
     if (existing.id === auth.session.id) {
       return Response.json({ success: false, message: "不能删除当前登录用户" }, { status: 400 });
+    }
+
+    if (existing.role === "ADMIN") {
+      const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+
+      if (adminCount <= 1) {
+        return Response.json({ success: false, message: "系统至少需要保留一个管理员" }, { status: 400 });
+      }
     }
 
     await prisma.user.delete({ where: { id } });
