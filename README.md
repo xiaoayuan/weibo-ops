@@ -64,7 +64,7 @@ npm run seed
 npm run dev
 ```
 
-访问：`http://localhost:3000/login`
+访问：`http://localhost:3007/login`
 
 默认管理员账号：
 
@@ -87,7 +87,7 @@ npm run db:push
 npm run seed
 ```
 
-然后访问：`http://localhost:3000/login`
+然后访问：`http://localhost:3007/login`
 
 ## 常用命令
 
