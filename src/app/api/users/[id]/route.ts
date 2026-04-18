@@ -26,6 +26,10 @@ export async function PATCH(request: Request, context: RouteContext<"/api/users/
       return Response.json({ success: false, message: "用户不存在" }, { status: 404 });
     }
 
+    if (existing.id === auth.session.id && parsed.data.role !== "ADMIN") {
+      return Response.json({ success: false, message: "不能将当前登录管理员降级" }, { status: 400 });
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
