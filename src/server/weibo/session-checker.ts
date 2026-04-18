@@ -4,6 +4,9 @@ type SessionCheckResult = {
   success: boolean;
   loginStatus: "ONLINE" | "EXPIRED" | "FAILED";
   message?: string;
+  httpStatus?: number;
+  matchedRule?: string;
+  responseSummary?: string;
   responsePayload?: unknown;
 };
 
@@ -45,6 +48,22 @@ function detectLoginFromPayload(payload: unknown) {
   return false;
 }
 
+function summarizePayload(payload: unknown) {
+  if (typeof payload === "string") {
+    return payload.replace(/\s+/g, " ").slice(0, 200);
+  }
+
+  if (payload && typeof payload === "object") {
+    try {
+      return JSON.stringify(payload).slice(0, 300);
+    } catch {
+      return "对象响应无法序列化";
+    }
+  }
+
+  return "空响应";
+}
+
 export async function checkWeiboSession(cookieEncrypted: string): Promise<SessionCheckResult> {
   try {
     const cookie = decryptText(cookieEncrypted);
@@ -64,6 +83,9 @@ export async function checkWeiboSession(cookieEncrypted: string): Promise<Sessio
         success: false,
         loginStatus: "EXPIRED",
         message: "登录态已失效或权限不足",
+        httpStatus: response.status,
+        matchedRule: "http_401_403",
+        responseSummary: summarizePayload(payload),
         responsePayload: payload,
       };
     }
@@ -73,6 +95,9 @@ export async function checkWeiboSession(cookieEncrypted: string): Promise<Sessio
         success: true,
         loginStatus: "ONLINE",
         message: "登录态有效",
+        httpStatus: response.status,
+        matchedRule: "payload_contains_user_identity",
+        responseSummary: summarizePayload(payload),
         responsePayload: payload,
       };
     }
@@ -84,6 +109,9 @@ export async function checkWeiboSession(cookieEncrypted: string): Promise<Sessio
           success: false,
           loginStatus: "EXPIRED",
           message: "响应内容显示需要重新登录",
+          httpStatus: response.status,
+          matchedRule: "html_contains_login_keyword",
+          responseSummary: summarizePayload(payload),
           responsePayload: payload,
         };
       }
@@ -93,6 +121,9 @@ export async function checkWeiboSession(cookieEncrypted: string): Promise<Sessio
       success: false,
       loginStatus: "FAILED",
       message: "无法从微博响应中确认当前登录态",
+      httpStatus: response.status,
+      matchedRule: "unknown_response_shape",
+      responseSummary: summarizePayload(payload),
       responsePayload: payload,
     };
   } catch (error) {
@@ -100,6 +131,8 @@ export async function checkWeiboSession(cookieEncrypted: string): Promise<Sessio
       success: false,
       loginStatus: "FAILED",
       message: error instanceof Error ? error.message : "检测登录态失败",
+      matchedRule: "runtime_exception",
+      responseSummary: error instanceof Error ? error.message : "未知异常",
     };
   }
 }

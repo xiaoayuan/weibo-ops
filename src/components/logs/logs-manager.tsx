@@ -7,6 +7,20 @@ type LogWithRelations = ExecutionLog & {
   account: WeiboAccount | null;
 };
 
+function getResponseSummary(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return "-";
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (typeof record.responseSummary === "string") {
+    return record.responseSummary;
+  }
+
+  return "-";
+}
+
 export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }) {
   const [keyword, setKeyword] = useState("");
   const [resultFilter, setResultFilter] = useState<"ALL" | "SUCCESS" | "FAILED">("ALL");
@@ -89,6 +103,7 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
               <th className="px-6 py-3 font-medium">动作</th>
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">结果</th>
+              <th className="px-6 py-3 font-medium">响应摘要</th>
               <th className="px-6 py-3 font-medium">错误信息</th>
               <th className="px-6 py-3 font-medium">时间</th>
             </tr>
@@ -96,7 +111,7 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-slate-500">
+                <td colSpan={6} className="px-6 py-8 text-slate-500">
                   当前筛选条件下暂无日志数据。
                 </td>
               </tr>
@@ -106,6 +121,7 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
                   <td className="px-6 py-4">{log.actionType}</td>
                   <td className="px-6 py-4">{log.account?.nickname || "-"}</td>
                   <td className="px-6 py-4">{log.success ? "成功" : "失败"}</td>
+                  <td className="max-w-sm px-6 py-4 text-slate-600">{getResponseSummary(log.responsePayload)}</td>
                   <td className="px-6 py-4 text-slate-600">{log.errorMessage || "-"}</td>
                   <td className="px-6 py-4">{new Date(log.executedAt).toLocaleString("zh-CN")}</td>
                 </tr>
