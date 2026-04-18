@@ -117,6 +117,10 @@ function toTopicObjectId(topicUrl?: string | null) {
   return `1022:${raw}`;
 }
 
+function toTopicRawId(topicUrl?: string | null) {
+  return tryExtractTopicId(topicUrl);
+}
+
 function getAppSendEndpoint() {
   const endpoint = process.env.WEIBO_APP_SEND_ENDPOINT || "https://api.weibo.cn/2/statuses/send";
   const query = new URLSearchParams(
@@ -560,23 +564,38 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
   const appSessionId = process.env.WEIBO_APP_SESSION_ID;
   const appLogUid = process.env.WEIBO_APP_LOG_UID;
   const topicObjectId = toTopicObjectId(topicUrl);
+  const topicRawId = toTopicRawId(topicUrl);
   const superTagId = extractSuperTagId(topicUrl);
 
-  if (appAuthorization && topicObjectId && superTagId) {
+  if (appAuthorization && topicObjectId && superTagId && topicRawId) {
     const appBody = new URLSearchParams();
     const superTopicTag = topicName ? `#${topicName}[超话]#  ${content}` : content;
+    const lfid = `${topicRawId}__${superTagId}_-_tag_comment_sort`;
 
     appBody.set("act", "add");
     appBody.set("content", superTopicTag);
     appBody.set("rcontent", superTopicTag);
     appBody.set("topic_id", topicObjectId);
     appBody.set("super_tag_id", superTagId);
+    appBody.set("lfid", lfid);
+    appBody.set("flowId", lfid);
+    appBody.set("orifid", `profile_me$$${lfid}`);
+    appBody.set("oriuicode", process.env.WEIBO_APP_ORI_UICODE || "10000011_10000011");
     appBody.set("extparam", `sg_user_type#2|super_tag_id=>${superTagId}`);
-    appBody.set("featurecode", "10000086");
-    appBody.set("moduleID", "composer");
+    appBody.set(
+      "ext",
+      process.env.WEIBO_APP_POST_EXT || "effectname:|network:wifi|sg_user_type#2|activity_picnum:0|content_change:1",
+    );
+    appBody.set("featurecode", process.env.WEIBO_APP_FEATURECODE || "10000086");
+    appBody.set("moduleID", process.env.WEIBO_APP_MODULE_ID || "composer");
+    appBody.set("luicode", process.env.WEIBO_APP_LUICODE || "10000011");
+    appBody.set("uicode", process.env.WEIBO_APP_UICODE || "10000708");
+    appBody.set("source_code", process.env.WEIBO_APP_SOURCE_CODE || "10000011_profile_me");
+    appBody.set("source_text", "");
+    appBody.set("phone_id", process.env.WEIBO_APP_PHONE_ID || "1399");
+    appBody.set("is_vip_paid", "0");
     appBody.set("retry", "0");
     appBody.set("sync_mblog", "0");
-    appBody.set("uicode", "10000708");
     appBody.set("user_input", "1");
     appBody.set("check_id", String(Date.now()));
     appBody.set("client_mblogid", `OpenCode-${randomUUID()}`);
@@ -613,6 +632,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
 
     const appSummary = appResponse.json ?? appResponse.text.slice(0, 220);
     const appBusinessOk = tryExtractBusinessOk(appSummary);
+    const postConfirmed = isPostConfirmed(appSummary);
     attempts.push({
       endpoint: "https://api.weibo.cn/2/statuses/send",
       mode: "app-form-post",
@@ -622,7 +642,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
       businessOk: appBusinessOk,
     });
 
-    if (appResponse.ok && appBusinessOk !== false) {
+    if (appResponse.ok && (appBusinessOk === true || postConfirmed)) {
       return {
         ok: true,
         status: appResponse.status,
@@ -669,9 +689,10 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
 
     const summary = response.json ?? response.text.slice(0, 220);
     const businessOk = tryExtractBusinessOk(summary);
+    const postConfirmed = isPostConfirmed(summary);
     attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
 
-    if (response.ok && businessOk !== false) {
+    if (response.ok && (businessOk === true || postConfirmed)) {
       return {
         ok: true,
         status: response.status,
@@ -731,6 +752,36 @@ function tryExtractBusinessOk(payload: unknown) {
   }
 
   return undefined;
+}
+
+function isPostConfirmed(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (typeof record.idstr === "string" && record.idstr.trim()) {
+    return true;
+  }
+
+  if (typeof record.idStr === "string" && record.idStr.trim()) {
+    return true;
+  }
+
+  if (typeof record.id === "string" && record.id.trim()) {
+    return true;
+  }
+
+  if (typeof record.id === "number") {
+    return true;
+  }
+
+  if (record.data && typeof record.data === "object") {
+    return isPostConfirmed(record.data);
+  }
+
+  return false;
 }
 
 function isLikeConfirmed(payload: unknown): boolean {
