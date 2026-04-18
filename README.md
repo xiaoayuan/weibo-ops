@@ -112,12 +112,14 @@ DATABASE_URL="postgresql://postgres:password@db:5432/weibo_ops?schema=public"
 JWT_SECRET="replace_me_with_a_strong_secret"
 AUTH_COOKIE_SECURE="false"
 ACCOUNT_SECRET_KEY="replace_me_with_a_32_char_secret"
+EXECUTOR_MODE="mock"
 ```
 
 说明：
 
 - 如果你当前通过 `http://NASIP:3007` 访问，`AUTH_COOKIE_SECURE` 请保持为 `false`
 - 只有在你已经配置 `HTTPS` 时，才改成 `true`
+- `EXECUTOR_MODE` 默认使用 `mock`，切到 `weibo` 时会启用真实执行器骨架与连通性探测
 
 ## 当前状态
 
@@ -129,3 +131,5 @@ ACCOUNT_SECRET_KEY="replace_me_with_a_32_char_secret"
 - `执行预检` 会校验账号登录态并写入日志
 - 当前不会直接对外部平台发起真实发帖、签到或互动动作
 - 如果后续要扩展真实执行器，建议在 `src/server/executors/` 下新增实现，并保持统一接口
+- `src/server/executors/http-client.ts` 提供统一请求封装
+- `src/server/executors/weibo-executor.ts` 提供真实执行器骨架，当前仅做基础连通性探测与结构化返回

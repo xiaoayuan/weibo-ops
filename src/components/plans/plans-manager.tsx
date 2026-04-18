@@ -14,8 +14,8 @@ type PlanWithRelations = DailyPlan & {
 type PlanStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
 const statusText: Record<PlanStatus, string> = {
-  PENDING: "待执行",
-  READY: "待确认",
+  PENDING: "待审核",
+  READY: "已确认",
   RUNNING: "执行中",
   SUCCESS: "成功",
   FAILED: "失败",
@@ -144,6 +144,44 @@ export function PlansManager({
       setPlans((current) => current.map((item) => (item.id === id ? result.data : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "执行计划失败");
+    }
+  }
+
+  async function handleApprove(id: string) {
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/plans/${id}/approve`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "确认计划失败");
+      }
+
+      setPlans((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "确认计划失败");
+    }
+  }
+
+  async function handleReject(id: string) {
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/plans/${id}/reject`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "驳回计划失败");
+      }
+
+      setPlans((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "驳回计划失败");
     }
   }
 
@@ -339,9 +377,16 @@ export function PlansManager({
                           <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">
                             执行预检
                           </button>
-                          <button onClick={() => handleStatusChange(plan.id, "READY")} className="text-sky-600 hover:text-sky-700">
-                            待确认
-                          </button>
+                          {plan.status === "PENDING" ? (
+                            <>
+                              <button onClick={() => handleApprove(plan.id)} className="text-sky-600 hover:text-sky-700">
+                                确认
+                              </button>
+                              <button onClick={() => handleReject(plan.id)} className="text-rose-600 hover:text-rose-700">
+                                驳回
+                              </button>
+                            </>
+                          ) : null}
                           <button onClick={() => handleStatusChange(plan.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
                             成功
                           </button>

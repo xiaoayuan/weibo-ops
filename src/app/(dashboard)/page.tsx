@@ -34,11 +34,11 @@ export default async function DashboardPage() {
     },
   ];
 
-  const [todayPlans, activeAccounts, failedPlans, readyPlans, recentLogs, copywritingCount, recentPlans] = await Promise.all([
+  const [todayPlans, activeAccounts, failedPlans, pendingPlans, recentLogs, copywritingCount, recentPlans] = await Promise.all([
     prisma.dailyPlan.count({ where: { planDate: today } }),
     prisma.weiboAccount.count({ where: { status: "ACTIVE" } }),
     prisma.dailyPlan.count({ where: { planDate: today, status: "FAILED" } }),
-    prisma.dailyPlan.count({ where: { planDate: today, status: "READY" } }),
+    prisma.dailyPlan.count({ where: { planDate: today, status: "PENDING" } }),
     prisma.executionLog.findMany({
       where: { success: false },
       include: { account: true },
@@ -65,13 +65,13 @@ export default async function DashboardPage() {
     { label: "今日计划", value: String(todayPlans) },
     { label: "活跃账号", value: String(activeAccounts) },
     { label: "失败任务", value: String(failedPlans) },
-    { label: "待审核", value: String(readyPlans) },
+    { label: "待审核", value: String(pendingPlans) },
   ];
 
   const recentAlerts = [
     ...recentLogs.map((log) => `${log.account?.nickname || "系统"} 在 ${new Date(log.executedAt).toLocaleString("zh-CN")} 执行 ${log.actionType} 失败。`),
     copywritingCount < 5 ? `当前启用文案仅剩 ${copywritingCount} 条，建议尽快补充文案池。` : null,
-    readyPlans > 0 ? `当前有 ${readyPlans} 条计划处于待确认状态。` : null,
+    pendingPlans > 0 ? `当前有 ${pendingPlans} 条计划处于待审核状态。` : null,
   ].filter(Boolean) as string[];
 
   return (

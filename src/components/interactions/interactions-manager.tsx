@@ -11,8 +11,8 @@ type InteractionTaskWithRelations = InteractionTask & {
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
 const statusText: Record<InteractionStatus, string> = {
-  PENDING: "待执行",
-  READY: "待确认",
+  PENDING: "待审核",
+  READY: "已确认",
   RUNNING: "执行中",
   SUCCESS: "成功",
   FAILED: "失败",
@@ -123,6 +123,44 @@ export function InteractionsManager({
     }
   }
 
+  async function handleApprove(id: string) {
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/interaction-tasks/${id}/approve`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "确认互动任务失败");
+      }
+
+      setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "确认互动任务失败");
+    }
+  }
+
+  async function handleReject(id: string) {
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/interaction-tasks/${id}/reject`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "驳回互动任务失败");
+      }
+
+      setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "驳回互动任务失败");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -224,9 +262,16 @@ export function InteractionsManager({
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => handleStatusChange(task.id, "READY")} className="text-sky-600 hover:text-sky-700">
-                        待确认
-                      </button>
+                      {task.status === "PENDING" ? (
+                        <>
+                          <button onClick={() => handleApprove(task.id)} className="text-sky-600 hover:text-sky-700">
+                            确认
+                          </button>
+                          <button onClick={() => handleReject(task.id)} className="text-rose-600 hover:text-rose-700">
+                            驳回
+                          </button>
+                        </>
+                      ) : null}
                       <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
                         执行预检
                       </button>
