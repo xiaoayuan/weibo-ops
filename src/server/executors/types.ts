@@ -2,6 +2,7 @@ export type ExecutorActionResult = {
   success: boolean;
   status: "READY" | "SUCCESS" | "FAILED";
   message: string;
+  stage?: "PRECHECK_BLOCKED" | "PRECHECK_PASSED" | "ACTION_PENDING";
   responsePayload?: unknown;
 };
 

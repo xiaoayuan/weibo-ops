@@ -20,20 +20,41 @@ async function hashPassword(password: string) {
 }
 
 async function main() {
-  const passwordHash = await hashPassword("admin123456");
+  const [adminPasswordHash, demoPasswordHash] = await Promise.all([
+    hashPassword("admin123456"),
+    hashPassword("demo123456"),
+  ]);
 
   await prisma.user.upsert({
     where: { username: "admin" },
     update: {
-      passwordHash,
+      passwordHash: adminPasswordHash,
       role: "ADMIN",
     },
     create: {
       username: "admin",
-      passwordHash,
+      passwordHash: adminPasswordHash,
       role: "ADMIN",
     },
   });
+
+  for (const userSeed of [
+    { username: "operator", role: "OPERATOR" as const },
+    { username: "viewer", role: "VIEWER" as const },
+  ]) {
+    await prisma.user.upsert({
+      where: { username: userSeed.username },
+      update: {
+        passwordHash: demoPasswordHash,
+        role: userSeed.role,
+      },
+      create: {
+        username: userSeed.username,
+        passwordHash: demoPasswordHash,
+        role: userSeed.role,
+      },
+    });
+  }
 
   const accountSeeds = [
     { nickname: "账号A", remark: "娱乐组主号", groupName: "娱乐组", status: "ACTIVE" as const },
@@ -244,6 +265,7 @@ async function main() {
   }
 
   console.log("已初始化管理员账号：admin / admin123456");
+  console.log("已初始化演示账号：operator / demo123456，viewer / demo123456");
   console.log("已写入演示数据：账号、超话、文案、任务、计划、互动任务、日志");
 }
 

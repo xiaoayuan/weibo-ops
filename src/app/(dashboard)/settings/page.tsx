@@ -67,12 +67,31 @@ export default async function SettingsPage() {
   await requirePageRole("ADMIN");
 
   const today = startOfToday();
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count(),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
     prisma.dailyPlan.count({ where: { planDate: today } }),
     prisma.executionLog.count({ where: { success: false } }),
+    prisma.dailyPlan.findMany({
+      where: { status: "FAILED" },
+      orderBy: { updatedAt: "desc" },
+      take: 3,
+      include: {
+        account: true,
+        task: { include: { superTopic: true } },
+      },
+    }),
+    prisma.interactionTask.findMany({
+      where: { status: "FAILED" },
+      orderBy: { updatedAt: "desc" },
+      take: 3,
+      include: {
+        account: true,
+        target: true,
+      },
+    }),
+    prisma.$queryRaw`SELECT 1`,
   ]);
 
   const executorMode = process.env.EXECUTOR_MODE === "weibo" ? "weibo" : "mock";
@@ -80,6 +99,25 @@ export default async function SettingsPage() {
   const jwtSecretStatus = getSecretStatus(process.env.JWT_SECRET, 16);
   const accountSecretStatus = getSecretStatus(process.env.ACCOUNT_SECRET_KEY, 32);
   const databaseUrlSummary = maskDatabaseUrl(process.env.DATABASE_URL);
+  const dbStatus = Array.isArray(dbHealth) ? "已连接" : "检测异常";
+  const recentFailures = [
+    ...recentFailedPlans.map((plan) => ({
+      id: plan.id,
+      type: "计划" as const,
+      title: `${plan.account.nickname} / ${plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "发帖" : "点赞"}`,
+      subtitle: plan.task?.superTopic.name || "未绑定超话",
+      detail: plan.resultMessage || "无失败说明",
+      occurredAt: plan.updatedAt,
+    })),
+    ...recentFailedInteractions.map((task) => ({
+      id: task.id,
+      type: "互动" as const,
+      title: `${task.account.nickname} / ${task.actionType}`,
+      subtitle: task.target.targetUrl,
+      detail: task.resultMessage || "无失败说明",
+      occurredAt: task.updatedAt,
+    })),
+  ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()).slice(0, 5);
 
   const summaryCards = [
     { label: "后台用户", value: String(userCount) },
@@ -120,6 +158,12 @@ export default async function SettingsPage() {
       detail: "仅展示脱敏后的连接摘要",
       tone: process.env.DATABASE_URL ? "slate" : "rose",
     },
+    {
+      label: "数据库状态",
+      value: dbStatus,
+      detail: dbStatus === "已连接" ? "Prisma 查询已通过连通性检查" : "数据库健康检查未通过",
+      tone: dbStatus === "已连接" ? "emerald" : "rose",
+    },
   ] as const;
 
   const risks = [
@@ -134,6 +178,9 @@ export default async function SettingsPage() {
       : null,
     accountSecretStatus.tone !== "emerald"
       ? { title: "账号密钥存在风险", description: "账号 Cookie 加密密钥未达到推荐安全级别。", tone: "rose" as const }
+      : null,
+    dbStatus !== "已连接"
+      ? { title: "数据库连通性异常", description: "设置页未能完成基础数据库健康检查。", tone: "rose" as const }
       : null,
   ].filter(Boolean) as Array<{ title: string; description: string; tone: "amber" | "rose" }>;
 
@@ -205,6 +252,43 @@ export default async function SettingsPage() {
             <p>3. 如果需要切换执行器或加强密钥，请更新 `.env` 后重新部署服务。</p>
             <p>4. 敏感值只展示脱敏状态，避免在后台直接暴露真实密钥内容。</p>
           </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">数据库连通性</h3>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <span>健康状态</span>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${toneClasses(dbStatus === "已连接" ? "emerald" : "rose")}`}>
+                {dbStatus}
+              </span>
+            </div>
+            <p>当前通过 Prisma 发起了一次只读探测，用于确认应用和数据库之间的连接是可用的。</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">最近失败任务</h3>
+          {recentFailures.length === 0 ? (
+            <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">最近没有失败计划或失败互动任务。</div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {recentFailures.map((item) => (
+                <div key={`${item.type}-${item.id}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">[{item.type}] {item.title}</p>
+                      <p className="mt-1 break-all text-sm text-slate-500">{item.subtitle}</p>
+                    </div>
+                    <span className="text-xs text-slate-400">{item.occurredAt.toLocaleString("zh-CN")}</span>
+                  </div>
+                  <p className="mt-3 text-sm text-rose-600">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

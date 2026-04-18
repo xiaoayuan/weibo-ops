@@ -1,13 +1,22 @@
 import type { ExecuteInteractionInput, ExecutePlanInput, ExecutorActionResult, SocialExecutor } from "@/server/executors/types";
+import { validateInteractionPrecheck, validatePlanPrecheck } from "@/server/executors/precheck";
 
 export class MockExecutor implements SocialExecutor {
   async executePlan(input: ExecutePlanInput): Promise<ExecutorActionResult> {
+    const blocked = validatePlanPrecheck(input, "mock");
+
+    if (blocked) {
+      return blocked;
+    }
+
     return {
       success: true,
       status: "READY",
+      stage: "ACTION_PENDING",
       message: `Mock executor 已接收 ${input.accountNickname} 的 ${input.planType} 计划，当前仅完成执行预检。`,
       responsePayload: {
         executor: "mock",
+        precheck: "passed",
         topicName: input.topicName,
         targetUrl: input.targetUrl,
         hasContent: Boolean(input.content),
@@ -16,12 +25,20 @@ export class MockExecutor implements SocialExecutor {
   }
 
   async executeInteraction(input: ExecuteInteractionInput): Promise<ExecutorActionResult> {
+    const blocked = validateInteractionPrecheck(input, "mock");
+
+    if (blocked) {
+      return blocked;
+    }
+
     return {
       success: true,
       status: "READY",
+      stage: "ACTION_PENDING",
       message: `Mock executor 已接收 ${input.accountNickname} 的 ${input.actionType} 互动任务，当前仅完成执行预检。`,
       responsePayload: {
         executor: "mock",
+        precheck: "passed",
         targetUrl: input.targetUrl,
       },
     };
