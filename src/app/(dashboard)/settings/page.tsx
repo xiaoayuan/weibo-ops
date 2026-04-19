@@ -64,17 +64,36 @@ function toneClasses(tone: "emerald" | "amber" | "rose" | "slate") {
 }
 
 export default async function SettingsPage() {
-  await requirePageRole("ADMIN");
+  const session = await requirePageRole("ADMIN");
 
   const today = startOfToday();
   const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth] = await Promise.all([
     prisma.user.count(),
-    prisma.weiboAccount.count(),
+    prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
-    prisma.dailyPlan.count({ where: { planDate: today } }),
-    prisma.executionLog.count({ where: { success: false } }),
+    prisma.dailyPlan.count({
+      where: {
+        planDate: today,
+        account: {
+          ownerUserId: session.id,
+        },
+      },
+    }),
+    prisma.executionLog.count({
+      where: {
+        success: false,
+        account: {
+          ownerUserId: session.id,
+        },
+      },
+    }),
     prisma.dailyPlan.findMany({
-      where: { status: "FAILED" },
+      where: {
+        status: "FAILED",
+        account: {
+          ownerUserId: session.id,
+        },
+      },
       orderBy: { updatedAt: "desc" },
       take: 3,
       include: {
@@ -83,7 +102,12 @@ export default async function SettingsPage() {
       },
     }),
     prisma.interactionTask.findMany({
-      where: { status: "FAILED" },
+      where: {
+        status: "FAILED",
+        account: {
+          ownerUserId: session.id,
+        },
+      },
       orderBy: { updatedAt: "desc" },
       take: 3,
       include: {

@@ -33,6 +33,22 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "未找到可执行的控评链接" }, { status: 400 });
     }
 
+    const availableAccounts = await prisma.weiboAccount.findMany({
+      where: {
+        id: {
+          in: parsed.data.accountIds,
+        },
+        ownerUserId: auth.session.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (availableAccounts.length !== parsed.data.accountIds.length) {
+      return Response.json({ success: false, message: "包含无权限账号" }, { status: 403 });
+    }
+
     const job = await prisma.actionJob.create({
       data: {
         jobType: "COMMENT_LIKE_BATCH",
