@@ -674,10 +674,14 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
   body.set("object_type", "comment");
   body.set("is_build", "1");
   body.set("featurecode", process.env.WEIBO_APP_FEATURECODE || "10000085");
+  body.set("lfid", process.env.WEIBO_APP_COMMENT_LFID || "0");
   body.set("moduleID", process.env.WEIBO_APP_MODULE_ID || "feed");
   body.set("luicode", process.env.WEIBO_APP_LUICODE || "80000001");
+  body.set("orifid", process.env.WEIBO_APP_COMMENT_ORIFID || "");
+  body.set("oriuicode", process.env.WEIBO_APP_COMMENT_ORIUICODE || "10000011_10000198_10000003_10000002_80000001");
   body.set("uicode", process.env.WEIBO_APP_UICODE || "10000408");
-  body.set("source_code", process.env.WEIBO_APP_SOURCE_CODE || "10000003");
+  body.set("source_code", process.env.WEIBO_APP_SOURCE_CODE || "10000003_100103type%3D401%26q%3D%E7%9B%B4%E8%BE%BE%26t%3D0");
+  body.set("source_mid", process.env.WEIBO_APP_COMMENT_SOURCE_MID || "");
   body.set("source_text", "");
   body.set("phone_id", process.env.WEIBO_APP_PHONE_ID || "1399");
   body.set(
