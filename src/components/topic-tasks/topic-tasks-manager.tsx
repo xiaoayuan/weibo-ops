@@ -41,9 +41,9 @@ export function TopicTasksManager({
     accountId: accounts[0]?.id || "",
     superTopicId: topics[0]?.id || "",
     signEnabled: true,
-    postEnabled: true,
-    minPostsPerDay: 4,
-    maxPostsPerDay: 6,
+    postEnabled: false,
+    minPostsPerDay: 0,
+    maxPostsPerDay: 0,
     startTime: "09:00",
     endTime: "22:00",
     status: true,
@@ -73,7 +73,12 @@ export function TopicTasksManager({
       const response = await fetch(editingId ? `/api/topic-tasks/${editingId}` : "/api/topic-tasks", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          postEnabled: false,
+          minPostsPerDay: 0,
+          maxPostsPerDay: 0,
+        }),
       });
       const result = await response.json();
 
@@ -116,9 +121,9 @@ export function TopicTasksManager({
       accountId: accounts[0]?.id || "",
       superTopicId: topics[0]?.id || "",
       signEnabled: true,
-      postEnabled: true,
-      minPostsPerDay: 4,
-      maxPostsPerDay: 6,
+      postEnabled: false,
+      minPostsPerDay: 0,
+      maxPostsPerDay: 0,
       startTime: "09:00",
       endTime: "22:00",
       status: true,
@@ -170,7 +175,7 @@ export function TopicTasksManager({
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">任务配置</h2>
-        <p className="mt-1 text-sm text-slate-500">为账号绑定超话，并分别配置签到任务与发帖任务。</p>
+        <p className="mt-1 text-sm text-slate-500">为账号绑定超话并配置签到任务，互动动作在互动任务页单独管理。</p>
       </div>
 
       {canManage ? (
@@ -213,36 +218,6 @@ export function TopicTasksManager({
                 />
                 启用签到任务
               </label>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 p-4 text-sm md:col-span-2">
-              <p className="font-medium text-slate-700">发帖任务</p>
-              <label className="mt-3 inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.postEnabled}
-                  onChange={(event) => setForm((current) => ({ ...current, postEnabled: event.target.checked }))}
-                />
-                启用发帖任务
-              </label>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <input
-                  type="number"
-                  value={form.minPostsPerDay}
-                  onChange={(event) => setForm((current) => ({ ...current, minPostsPerDay: Number(event.target.value) }))}
-                  className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
-                  placeholder="最小发帖数"
-                  disabled={!form.postEnabled}
-                />
-                <input
-                  type="number"
-                  value={form.maxPostsPerDay}
-                  onChange={(event) => setForm((current) => ({ ...current, maxPostsPerDay: Number(event.target.value) }))}
-                  className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
-                  placeholder="最大发帖数"
-                  disabled={!form.postEnabled}
-                />
-              </div>
             </div>
 
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">
@@ -320,8 +295,6 @@ export function TopicTasksManager({
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">超话</th>
               <th className="px-6 py-3 font-medium">签到任务</th>
-              <th className="px-6 py-3 font-medium">发帖任务</th>
-              <th className="px-6 py-3 font-medium">发帖频次</th>
               <th className="px-6 py-3 font-medium">时间窗口</th>
               <th className="px-6 py-3 font-medium">状态</th>
                 {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
@@ -330,7 +303,7 @@ export function TopicTasksManager({
            <tbody>
              {filteredTasks.length === 0 ? (
                <tr>
-                  <td colSpan={canManage ? 8 : 7} className="px-6 py-8 text-slate-500">
+                  <td colSpan={canManage ? 6 : 5} className="px-6 py-8 text-slate-500">
                     暂无任务配置。
                   </td>
                 </tr>
@@ -340,8 +313,6 @@ export function TopicTasksManager({
                   <td className="px-6 py-4">{task.account.nickname}</td>
                   <td className="px-6 py-4">{task.superTopic.name}</td>
                   <td className="px-6 py-4">{task.signEnabled ? "已启用" : "未启用"}</td>
-                  <td className="px-6 py-4">{task.postEnabled ? "已启用" : "未启用"}</td>
-                  <td className="px-6 py-4">{task.postEnabled ? `${task.minPostsPerDay}-${task.maxPostsPerDay}` : "-"}</td>
                   <td className="px-6 py-4">{task.startTime || "09:00"} - {task.endTime || "22:00"}</td>
                   <td className="px-6 py-4">{task.status ? "启用" : "停用"}</td>
                    {canManage ? (

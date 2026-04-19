@@ -20,7 +20,7 @@ export default async function DashboardPage() {
     {
       href: "/topic-tasks",
       title: "配置任务",
-      description: "绑定账号与超话，设置签到和发帖规则。",
+      description: "绑定账号与超话，设置签到规则。",
     },
     {
       href: "/plans",

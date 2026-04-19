@@ -69,6 +69,19 @@ function getLikeEndpoints() {
   return ["https://weibo.com/ajax/statuses/setLike", "https://weibo.com/aj/v6/like/add?ajwvr=6"];
 }
 
+function getRepostEndpoints() {
+  const envList = process.env.WEIBO_REPOST_ENDPOINTS
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (envList && envList.length > 0) {
+    return envList;
+  }
+
+  return ["https://weibo.com/ajax/statuses/repost", "https://weibo.com/aj/v6/mblog/forward?ajwvr=6"];
+}
+
 function getPostEndpoints() {
   const envList = process.env.WEIBO_POST_ENDPOINTS
     ?.split(",")
@@ -557,6 +570,101 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
     mode: latest?.mode || "form-post",
     businessOk: latest?.businessOk,
     likeConfirmed: false,
+    statusId,
+    resolvedTargetUrl,
+    attempts,
+  };
+}
+
+async function sendRepostRequest(targetUrl: string, cookie: string) {
+  const cookieMap = parseCookieMap(cookie);
+  const xsrfToken = getXsrfToken(cookieMap);
+
+  let resolvedTargetUrl = targetUrl;
+  let statusId = tryExtractStatusId(resolvedTargetUrl);
+
+  if (!statusId) {
+    resolvedTargetUrl = await resolveLikeTargetUrl(targetUrl, cookie);
+    statusId = tryExtractStatusId(resolvedTargetUrl);
+  }
+
+  if (!statusId) {
+    return {
+      ok: false,
+      status: 0,
+      summary: "目标链接中未识别到微博 ID",
+      endpoint: "N/A",
+      mode: "none",
+      businessOk: false,
+      resolvedTargetUrl,
+      attempts: [] as Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }>,
+    };
+  }
+
+  const endpoints = getRepostEndpoints();
+  const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+
+  for (const endpoint of endpoints) {
+    const form = new URLSearchParams();
+    form.set("id", statusId);
+    form.set("mid", statusId);
+    form.set("content", "");
+    form.set("is_comment", "0");
+
+    const headers: Record<string, string> = {
+      Cookie: cookie,
+      Referer: resolvedTargetUrl,
+      Origin: "https://weibo.com",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "X-Requested-With": "XMLHttpRequest",
+    };
+
+    if (xsrfToken) {
+      headers["X-XSRF-TOKEN"] = xsrfToken;
+    }
+
+    const response = await sendHttpRequestWithRetry(
+      {
+        url: endpoint,
+        method: "POST",
+        headers,
+        body: form.toString(),
+        timeoutMs: 12_000,
+      },
+      {
+        retries: 1,
+      },
+    );
+
+    const summary = response.json ?? response.text.slice(0, 220);
+    const businessOk = tryExtractBusinessOk(summary);
+    const repostConfirmed = isPostConfirmed(summary);
+    attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
+
+    if (response.ok && (businessOk === true || repostConfirmed)) {
+      return {
+        ok: true,
+        status: response.status,
+        summary,
+        endpoint,
+        mode: "form-post",
+        businessOk,
+        statusId,
+        resolvedTargetUrl,
+        attempts,
+      };
+    }
+  }
+
+  const latest = attempts[attempts.length - 1];
+
+  return {
+    ok: latest?.ok ?? false,
+    status: latest?.status ?? 0,
+    summary: latest?.summary ?? "转发请求未返回可用结果",
+    endpoint: latest?.endpoint || endpoints[0],
+    mode: latest?.mode || "form-post",
+    businessOk: latest?.businessOk,
     statusId,
     resolvedTargetUrl,
     attempts,
@@ -1139,6 +1247,37 @@ export class WeiboExecutor implements SocialExecutor {
           likeResult,
           verifyResult,
           verifyWarning: verifyResult.ok ? undefined : "点赞请求已返回成功信号，但回查未确认，可能是微博回查接口限制导致。",
+        });
+      }
+
+      if (input.actionType === "POST") {
+        const repostResult = await sendRepostRequest(input.targetUrl, account.cookie);
+        const businessOk = tryExtractBusinessOk(repostResult.summary);
+        const repostConfirmed = isPostConfirmed(repostResult.summary);
+
+        if (!repostResult.ok || businessOk === false || !repostConfirmed) {
+          return blockedResult("转发请求未通过，请检查目标链接和账号登录态。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "REPOST_REQUEST_FAILED",
+            summary: summarizePayload(repostResult.summary),
+            actionType: input.actionType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+            repostResult,
+          });
+        }
+
+        return successResult(`已发起转发请求：${input.accountNickname}`, "SUCCESS", {
+          executor: "weibo",
+          action: "REPOST",
+          summary: summarizePayload(repostResult.summary),
+          actionType: input.actionType,
+          targetUrl: input.targetUrl,
+          loginStatus: account.loginStatus,
+          probe,
+          repostResult,
         });
       }
 

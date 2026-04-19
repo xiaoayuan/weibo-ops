@@ -11,6 +11,7 @@ type InteractionTaskWithRelations = InteractionTask & {
 };
 
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
+type InteractionActionType = "LIKE" | "POST";
 
 const statusText: Record<InteractionStatus, string> = {
   PENDING: "待审核",
@@ -33,6 +34,7 @@ export function InteractionsManager({
   const [tasks, setTasks] = useState(initialTasks);
   const [targetUrl, setTargetUrl] = useState("");
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [actionType, setActionType] = useState<InteractionActionType>("LIKE");
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<InteractionStatus | "ALL">("ALL");
   const [submitting, setSubmitting] = useState(false);
@@ -69,7 +71,7 @@ export function InteractionsManager({
         body: JSON.stringify({
           targetUrl,
           accountIds: selectedAccounts,
-          actionType: "LIKE",
+          actionType,
         }),
       });
 
@@ -171,18 +173,26 @@ export function InteractionsManager({
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">互动任务</h2>
-        <p className="mt-1 text-sm text-slate-500">录入评论链接并为多个账号批量生成点赞任务。</p>
+        <p className="mt-1 text-sm text-slate-500">录入微博链接并为多个账号批量生成点赞或转发任务。</p>
       </div>
 
       {canManage ? (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-lg font-medium">新增互动任务</h3>
           <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
+          <select
+            value={actionType}
+            onChange={(event) => setActionType(event.target.value as InteractionActionType)}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+          >
+            <option value="LIKE">点赞</option>
+            <option value="POST">转发</option>
+          </select>
           <input
             value={targetUrl}
             onChange={(event) => setTargetUrl(event.target.value)}
             className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-            placeholder="填写评论跳转链接"
+                placeholder="填写微博详情链接"
           />
 
           <div className="rounded-lg border border-slate-200 p-4">
@@ -208,7 +218,7 @@ export function InteractionsManager({
               disabled={submitting}
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? "提交中..." : "生成点赞任务"}
+              {submitting ? "提交中..." : "生成互动任务"}
             </button>
           </div>
           </form>
@@ -265,7 +275,7 @@ export function InteractionsManager({
                 <tr key={task.id} className="border-t border-slate-200">
                   <td className="px-6 py-4 text-sky-600">{task.target.targetUrl}</td>
                   <td className="px-6 py-4">{task.account.nickname}</td>
-                  <td className="px-6 py-4">{task.actionType === "LIKE" ? "点赞" : task.actionType}</td>
+                  <td className="px-6 py-4">{task.actionType === "LIKE" ? "点赞" : "转发"}</td>
                   <td className="px-6 py-4">{statusText[task.status]}</td>
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">

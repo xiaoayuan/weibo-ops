@@ -14,8 +14,8 @@ export const topicTaskFields = {
 
 export const createTopicTaskSchema = z
   .object(topicTaskFields)
-  .refine((value) => value.signEnabled || value.postEnabled, {
-    message: "至少开启一个任务类型",
+  .refine((value) => value.signEnabled, {
+    message: "当前仅支持签到任务，请开启签到",
     path: ["signEnabled"],
   })
   .refine((value) => value.minPostsPerDay <= value.maxPostsPerDay, {

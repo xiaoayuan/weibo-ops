@@ -40,21 +40,11 @@ export function validatePlanPrecheck(input: ExecutePlanInput, executor: Executor
     });
   }
 
-  const trimmedContent = input.content?.trim() ?? "";
-
-  if (input.planType === "POST" && !trimmedContent) {
-    return buildBlockedResult("发帖计划缺少文案内容，无法进入真实执行阶段。", executor, "MISSING_CONTENT", {
+  if (input.planType === "POST") {
+    return buildBlockedResult("发帖功能已下线，请改用互动任务中的转发动作。", executor, "POST_DISABLED", {
       planId: input.planId,
       planType: input.planType,
       topicName: input.topicName,
-    });
-  }
-
-  if (input.planType === "POST" && trimmedContent.length < 5) {
-    return buildBlockedResult("发帖文案过短，无法进入真实执行阶段。", executor, "CONTENT_TOO_SHORT", {
-      planId: input.planId,
-      planType: input.planType,
-      contentLength: trimmedContent.length,
     });
   }
 

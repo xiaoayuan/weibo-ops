@@ -104,7 +104,7 @@ export default async function SettingsPage() {
     ...recentFailedPlans.map((plan) => ({
       id: plan.id,
       type: "计划" as const,
-      title: `${plan.account.nickname} / ${plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "发帖" : "点赞"}`,
+      title: `${plan.account.nickname} / ${plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "转发" : "点赞"}`,
       subtitle: plan.task?.superTopic.name || "未绑定超话",
       detail: plan.resultMessage || "无失败说明",
       occurredAt: plan.updatedAt,
@@ -168,7 +168,7 @@ export default async function SettingsPage() {
 
   const risks = [
     executorMode === "mock"
-      ? { title: "执行器仍为 mock", description: "当前执行预检不会触发真实签到、发帖或互动动作。", tone: "amber" as const }
+      ? { title: "执行器仍为 mock", description: "当前执行预检不会触发真实签到、转发或互动动作。", tone: "amber" as const }
       : null,
     !authCookieSecure
       ? { title: "Cookie 未启用 Secure", description: "如果系统已迁移到 HTTPS，建议将 AUTH_COOKIE_SECURE 调整为 true。", tone: "amber" as const }

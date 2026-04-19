@@ -106,7 +106,7 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">文案库</h2>
-        <p className="mt-1 text-sm text-slate-500">维护发帖文案、标签和启用状态。</p>
+        <p className="mt-1 text-sm text-slate-500">维护互动文案、标签和启用状态。</p>
       </div>
 
       {canManage ? (

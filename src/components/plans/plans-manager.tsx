@@ -233,7 +233,7 @@ export function PlansManager({
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">每日计划</h2>
-        <p className="mt-1 text-sm text-slate-500">按任务配置生成每日签到和发帖计划，并跟踪执行状态。</p>
+        <p className="mt-1 text-sm text-slate-500">按任务配置生成每日签到计划，并跟踪执行状态。</p>
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -347,7 +347,7 @@ export function PlansManager({
                     </td>
                     <td className="px-6 py-4">{plan.account.nickname}</td>
                     <td className="px-6 py-4">{plan.task?.superTopic.name || "-"}</td>
-                    <td className="px-6 py-4">{plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "发帖" : "点赞"}</td>
+                    <td className="px-6 py-4">{plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "转发" : "点赞"}</td>
                     <td className="max-w-sm px-6 py-4 text-slate-600">
                        {isEditing && canManage ? (
                          <select
