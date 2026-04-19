@@ -254,6 +254,7 @@ export async function pollWeiboQrLogin(sessionId: string, ownerUserId: string, a
   const checkResponse = await requestWithCookieJar(checkUrl, session.cookieJar);
   const payload = parseJsonpPayload(await checkResponse.text());
   const retcode = String(payload.retcode || "");
+  const payloadMsg = String(payload.msg || "");
 
   if (retcode === "50114001") {
     session.state = "WAITING";
@@ -273,9 +274,18 @@ export async function pollWeiboQrLogin(sessionId: string, ownerUserId: string, a
   } else if (retcode === "50114004") {
     session.state = "EXPIRED";
     session.message = "二维码已过期，请重新生成";
+  } else if (retcode === "20000000") {
+    const maybeAlt = (payload.data as { alt?: string } | undefined)?.alt;
+
+    if (maybeAlt) {
+      await finalizeQrLogin(session, maybeAlt);
+    } else {
+      session.state = "WAITING";
+      session.message = "等待扫码";
+    }
   } else {
     session.state = "FAILED";
-    session.message = String(payload.msg || "微博扫码状态异常");
+    session.message = `微博扫码状态异常（retcode=${retcode}${payloadMsg ? `, msg=${payloadMsg}` : ""}）`;
   }
 
   return {
