@@ -20,6 +20,22 @@ export async function PATCH(request: Request, context: RouteContext<"/api/plans/
       return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
     }
 
+    const existing = await prisma.dailyPlan.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "计划不存在" }, { status: 404 });
+    }
+
     const plan = await prisma.dailyPlan.update({
       where: { id },
       data: {
@@ -68,6 +84,22 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/plan
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.dailyPlan.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "计划不存在" }, { status: 404 });
+    }
+
     const plan = await prisma.dailyPlan.delete({
       where: { id },
       select: {

@@ -11,7 +11,7 @@ function toDateText(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export async function executePlanById(id: string) {
+export async function executePlanById(id: string, ownerUserId?: string) {
   const plan = await prisma.dailyPlan.findUnique({
     where: { id },
     include: {
@@ -26,6 +26,14 @@ export async function executePlanById(id: string) {
   });
 
   if (!plan) {
+    return {
+      ok: false as const,
+      status: 404,
+      message: "计划不存在",
+    };
+  }
+
+  if (ownerUserId && plan.account.ownerUserId !== ownerUserId) {
     return {
       ok: false as const,
       status: 404,

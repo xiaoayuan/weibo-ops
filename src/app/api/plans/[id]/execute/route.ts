@@ -11,7 +11,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
   const { id } = await context.params;
 
   try {
-    const result = await executePlanById(id);
+    const result = await executePlanById(id, auth.session.id);
 
     if (!result.ok) {
       return Response.json({ success: false, message: result.message }, { status: result.status });

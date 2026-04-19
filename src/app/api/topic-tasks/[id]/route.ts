@@ -19,6 +19,33 @@ export async function PATCH(request: Request, context: RouteContext<"/api/topic-
       return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
     }
 
+    const existing = await prisma.accountTopicTask.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "任务不存在" }, { status: 404 });
+    }
+
+    const targetAccount = await prisma.weiboAccount.findUnique({
+      where: { id: parsed.data.accountId },
+      select: {
+        ownerUserId: true,
+      },
+    });
+
+    if (!targetAccount || targetAccount.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
+    }
+
     const task = await prisma.accountTopicTask.update({
       where: { id },
       data: {
@@ -57,6 +84,22 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/topi
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.accountTopicTask.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "任务不存在" }, { status: 404 });
+    }
+
     await prisma.accountTopicTask.delete({ where: { id } });
     return Response.json({ success: true, message: "删除成功" });
   } catch {

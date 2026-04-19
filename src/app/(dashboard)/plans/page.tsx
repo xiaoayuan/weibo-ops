@@ -13,7 +13,12 @@ export default async function PlansPage() {
   const planDate = new Date(`${todayText()}T00:00:00`);
   const [plans, contents] = await Promise.all([
     prisma.dailyPlan.findMany({
-      where: { planDate },
+      where: {
+        planDate,
+        account: {
+          ownerUserId: session.id,
+        },
+      },
       include: {
         account: true,
         content: true,

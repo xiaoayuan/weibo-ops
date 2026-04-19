@@ -12,6 +12,22 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.interactionTask.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
+    }
+
     const task = await prisma.interactionTask.update({
       where: { id },
       data: {

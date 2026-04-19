@@ -11,7 +11,12 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
 
-  const where = date ? { planDate: new Date(`${date}T00:00:00`) } : undefined;
+  const where = {
+    ...(date ? { planDate: new Date(`${date}T00:00:00`) } : {}),
+    account: {
+      ownerUserId: auth.session.id,
+    },
+  };
 
   const plans = await prisma.dailyPlan.findMany({
     where,

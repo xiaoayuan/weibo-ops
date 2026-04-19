@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
     }
 
-    const plans = await generateDailyPlans(parsed.data.date);
+    const plans = await generateDailyPlans(parsed.data.date, auth.session.id);
     return Response.json({ success: true, data: plans });
   } catch {
     return Response.json({ success: false, message: "生成计划失败" }, { status: 500 });

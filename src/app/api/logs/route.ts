@@ -9,6 +9,11 @@ export async function GET() {
   }
 
   const logs = await prisma.executionLog.findMany({
+    where: {
+      account: {
+        ownerUserId: auth.session.id,
+      },
+    },
     include: {
       account: true,
       plan: true,

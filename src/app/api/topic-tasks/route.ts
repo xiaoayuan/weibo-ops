@@ -10,6 +10,11 @@ export async function GET() {
   }
 
   const tasks = await prisma.accountTopicTask.findMany({
+    where: {
+      account: {
+        ownerUserId: auth.session.id,
+      },
+    },
     include: {
       account: true,
       superTopic: true,
@@ -33,6 +38,22 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const availableAccounts = await prisma.weiboAccount.findMany({
+      where: {
+        id: {
+          in: parsed.data.accountIds,
+        },
+        ownerUserId: auth.session.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (availableAccounts.length !== parsed.data.accountIds.length) {
+      return Response.json({ success: false, message: "包含无权限账号" }, { status: 403 });
     }
 
     const existed = await prisma.accountTopicTask.findMany({

@@ -29,11 +29,20 @@ function randomTimes(date: Date, startTime: string, endTime: string, count: numb
   );
 }
 
-export async function generateDailyPlans(dateText: string) {
+export async function generateDailyPlans(dateText: string, ownerUserId?: string) {
   const planDate = new Date(`${dateText}T00:00:00`);
 
   const tasks = await prisma.accountTopicTask.findMany({
-    where: { status: true },
+    where: {
+      status: true,
+      ...(ownerUserId
+        ? {
+            account: {
+              ownerUserId,
+            },
+          }
+        : {}),
+    },
     include: {
       superTopic: true,
       account: true,
@@ -115,7 +124,16 @@ export async function generateDailyPlans(dateText: string) {
   }
 
   return prisma.dailyPlan.findMany({
-    where: { planDate },
+    where: {
+      planDate,
+      ...(ownerUserId
+        ? {
+            account: {
+              ownerUserId,
+            },
+          }
+        : {}),
+    },
     include: {
       account: true,
       content: true,

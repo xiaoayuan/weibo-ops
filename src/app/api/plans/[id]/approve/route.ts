@@ -12,6 +12,22 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.dailyPlan.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
+
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "计划不存在" }, { status: 404 });
+    }
+
     const plan = await prisma.dailyPlan.update({
       where: { id },
       data: {

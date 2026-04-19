@@ -5,9 +5,14 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function LogsPage() {
-  await requirePageRole("VIEWER");
+  const session = await requirePageRole("VIEWER");
 
   const logs = await prisma.executionLog.findMany({
+    where: {
+      account: {
+        ownerUserId: session.id,
+      },
+    },
     include: {
       account: true,
     },

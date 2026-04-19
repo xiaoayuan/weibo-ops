@@ -9,6 +9,11 @@ export default async function TopicTasksPage() {
 
   const [tasks, accounts, topics] = await Promise.all([
     prisma.accountTopicTask.findMany({
+      where: {
+        account: {
+          ownerUserId: session.id,
+        },
+      },
       include: {
         account: true,
         superTopic: true,
@@ -16,6 +21,9 @@ export default async function TopicTasksPage() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.weiboAccount.findMany({
+      where: {
+        ownerUserId: session.id,
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.superTopic.findMany({

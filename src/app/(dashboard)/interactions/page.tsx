@@ -9,10 +9,18 @@ export default async function InteractionsPage() {
 
   const [accounts, tasks] = await Promise.all([
     prisma.weiboAccount.findMany({
-      where: { status: "ACTIVE" },
+      where: {
+        status: "ACTIVE",
+        ownerUserId: session.id,
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.interactionTask.findMany({
+      where: {
+        account: {
+          ownerUserId: session.id,
+        },
+      },
       include: {
         account: true,
         target: true,

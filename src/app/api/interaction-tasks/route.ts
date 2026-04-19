@@ -9,6 +9,11 @@ export async function GET() {
   }
 
   const tasks = await prisma.interactionTask.findMany({
+    where: {
+      account: {
+        ownerUserId: auth.session.id,
+      },
+    },
     include: {
       account: true,
       target: true,

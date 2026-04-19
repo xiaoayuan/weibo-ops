@@ -9,7 +9,10 @@ export default async function OpsPage() {
 
   const [accounts, poolItems, jobs] = await Promise.all([
     prisma.weiboAccount.findMany({
-      where: { status: "ACTIVE" },
+      where: {
+        status: "ACTIVE",
+        ownerUserId: session.id,
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.commentLinkPoolItem.findMany({
@@ -17,8 +20,22 @@ export default async function OpsPage() {
       take: 500,
     }),
     prisma.actionJob.findMany({
+      where: {
+        accountRuns: {
+          some: {
+            account: {
+              ownerUserId: session.id,
+            },
+          },
+        },
+      },
       include: {
         accountRuns: {
+          where: {
+            account: {
+              ownerUserId: session.id,
+            },
+          },
           include: {
             account: {
               select: { id: true, nickname: true },
