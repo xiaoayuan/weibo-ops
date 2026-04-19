@@ -3,7 +3,8 @@
 import type { WeiboAccount } from "@/generated/prisma/client";
 import { canManageBusinessData } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 
 type AccountStatus = "ACTIVE" | "DISABLED" | "RISKY" | "EXPIRED";
 type AccountLoginStatus = "UNKNOWN" | "ONLINE" | "EXPIRED" | "FAILED";
@@ -19,6 +20,16 @@ type SessionFormState = {
   uid: string;
   username: string;
   cookie: string;
+};
+
+type QrLoginState = "WAITING" | "SCANNED" | "CONFIRMED" | "EXPIRED" | "FAILED";
+
+type QrLoginSession = {
+  sessionId: string;
+  state: QrLoginState;
+  qrImageDataUrl: string;
+  expiresAt: string;
+  message?: string;
 };
 
 const initialForm: FormState = {
@@ -58,12 +69,74 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
   const [groupFilter, setGroupFilter] = useState("ALL");
   const [submitting, setSubmitting] = useState(false);
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrSession, setQrSession] = useState<QrLoginSession | null>(null);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [batchChecking, setBatchChecking] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
+
+  useEffect(() => {
+    if (!sessionEditingId || !qrSession || ["CONFIRMED", "EXPIRED", "FAILED"].includes(qrSession.state)) {
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/api/accounts/${sessionEditingId}/session/qr/status?sessionId=${encodeURIComponent(qrSession.sessionId)}`, {
+          cache: "no-store",
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || "查询扫码状态失败");
+        }
+
+        setQrSession((current) =>
+          current
+            ? {
+                ...current,
+                state: result.data.state,
+                message: result.data.message,
+              }
+            : current,
+        );
+
+        if (result.data.state === "CONFIRMED" && result.data.account) {
+          setAccounts((current) =>
+            current.map((item) =>
+              item.id === sessionEditingId
+                ? {
+                    ...item,
+                    uid: result.data.account.uid,
+                    username: result.data.account.username,
+                    loginStatus: result.data.account.loginStatus,
+                    cookieUpdatedAt: result.data.account.cookieUpdatedAt,
+                    lastCheckAt: result.data.account.lastCheckAt,
+                    loginErrorMessage: result.data.account.loginErrorMessage,
+                    consecutiveFailures: result.data.account.consecutiveFailures,
+                  }
+                : item,
+            ),
+          );
+
+          setNotice(result.message || "扫码登录完成并已保存 Cookie");
+          setSessionEditingId(null);
+          setSessionForm(initialSessionForm);
+          setQrSession(null);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "查询扫码状态失败");
+      }
+    }, 2000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [sessionEditingId, qrSession]);
 
   const groupOptions = useMemo(
     () => Array.from(new Set(accounts.map((account) => account.groupName?.trim()).filter(Boolean))) as string[],
@@ -143,13 +216,49 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
       username: account.username || "",
       cookie: "",
     });
+    setQrSession(null);
     setError(null);
+    setNotice(null);
   }
 
   function handleCancelSessionEdit() {
     setSessionEditingId(null);
     setSessionForm(initialSessionForm);
+    setQrSession(null);
     setError(null);
+  }
+
+  async function handleStartQrLogin() {
+    if (!sessionEditingId) {
+      return;
+    }
+
+    try {
+      setQrLoading(true);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/accounts/${sessionEditingId}/session/qr/start`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "生成扫码二维码失败");
+      }
+
+      setQrSession({
+        sessionId: result.data.sessionId,
+        state: result.data.state,
+        qrImageDataUrl: result.data.qrImageDataUrl,
+        expiresAt: result.data.expiresAt,
+        message: "等待扫码",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "生成扫码二维码失败");
+    } finally {
+      setQrLoading(false);
+    }
   }
 
   async function handleSessionSubmit(event: FormEvent<HTMLFormElement>) {
@@ -194,6 +303,7 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
       );
 
       handleCancelSessionEdit();
+      setNotice("Cookie 已保存");
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存 Cookie 失败");
     } finally {
@@ -449,7 +559,10 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
           </div>
 
           <div className="md:col-span-2 flex items-center justify-between gap-3">
-            {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}
+            <div>
+              {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+              {notice ? <p className="text-sm text-emerald-600">{notice}</p> : null}
+            </div>
 
             <div className="flex items-center gap-3">
               <button
@@ -477,6 +590,50 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
       {canManage && sessionEditingId ? (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-lg font-medium">录入微博 Cookie</h3>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-slate-600">支持扫码自动登录微博并提取 Cookie，也可继续手动粘贴。</p>
+              <button
+                type="button"
+                onClick={handleStartQrLogin}
+                disabled={qrLoading}
+                className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {qrLoading ? "生成中..." : "生成扫码二维码"}
+              </button>
+            </div>
+
+            {qrSession ? (
+              <div className="mt-4 grid gap-4 md:grid-cols-[180px_1fr] md:items-start">
+                <Image
+                  src={qrSession.qrImageDataUrl}
+                  alt="微博扫码二维码"
+                  width={180}
+                  height={180}
+                  unoptimized
+                  className="h-[180px] w-[180px] rounded-lg border border-slate-200 bg-white p-2"
+                />
+                <div className="space-y-2 text-sm text-slate-600">
+                  <p>
+                    当前状态：
+                    <span className="ml-1 font-medium text-slate-900">
+                      {qrSession.state === "WAITING"
+                        ? "等待扫码"
+                        : qrSession.state === "SCANNED"
+                          ? "已扫码，等待确认"
+                          : qrSession.state === "CONFIRMED"
+                            ? "已确认"
+                            : qrSession.state === "EXPIRED"
+                              ? "二维码已过期"
+                              : "失败"}
+                    </span>
+                  </p>
+                  <p>过期时间：{new Date(qrSession.expiresAt).toLocaleString("zh-CN")}</p>
+                  <p>{qrSession.message || "请用微博 App 扫码并确认登录"}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <form className="mt-4 grid gap-4" onSubmit={handleSessionSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
