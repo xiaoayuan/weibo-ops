@@ -932,6 +932,10 @@ function isPostConfirmed(payload: unknown): boolean {
     return isPostConfirmed(record.data);
   }
 
+  if (record.statuses && typeof record.statuses === "object") {
+    return isPostConfirmed(record.statuses);
+  }
+
   return false;
 }
 
