@@ -254,9 +254,21 @@ function tryExtractCommentId(targetUrl?: string | null) {
         return matched[1];
       }
     }
+
+    const longDigits = candidate.match(/(\d{15,20})/g);
+
+    if (longDigits && longDigits.length > 0) {
+      return longDigits[0];
+    }
   }
 
   return undefined;
+}
+
+function isCommentLikeLink(targetUrl: string) {
+  const text = targetUrl.toLowerCase();
+
+  return text.includes("weibo.cn/comment/") || text.includes("rid=") || text.includes("/comment/") || text.includes("object_id=");
 }
 
 async function resolveLikeTargetUrl(targetUrl: string, cookie: string) {
@@ -1359,11 +1371,14 @@ export class WeiboExecutor implements SocialExecutor {
 
       if (input.actionType === "LIKE") {
         const commentId = tryExtractCommentId(input.targetUrl);
+        const commentMode = Boolean(commentId) || isCommentLikeLink(input.targetUrl);
         const likeResult = commentId
           ? await sendCommentLikeRequest(input.targetUrl, account.cookie)
-          : await sendLikeRequest(input.targetUrl, account.cookie);
+          : commentMode
+            ? await sendCommentLikeRequest(input.targetUrl, account.cookie)
+            : await sendLikeRequest(input.targetUrl, account.cookie);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
-        const likeConfirmed = commentId
+        const likeConfirmed = commentMode
           ? businessOk !== false || isPostConfirmed(likeResult.summary)
           : isLikeConfirmed(likeResult.summary) || ("likeConfirmed" in likeResult && Boolean(likeResult.likeConfirmed));
 
@@ -1371,7 +1386,7 @@ export class WeiboExecutor implements SocialExecutor {
           return blockedResult("点赞请求未通过，请检查目标链接和账号登录态。", {
             executor: "weibo",
             precheck: "blocked",
-            reason: commentId ? "COMMENT_LIKE_REQUEST_FAILED" : "LIKE_REQUEST_FAILED",
+            reason: commentMode ? "COMMENT_LIKE_REQUEST_FAILED" : "LIKE_REQUEST_FAILED",
             summary: summarizePayload(likeResult.summary),
             actionType: input.actionType,
             targetUrl: input.targetUrl,
@@ -1381,16 +1396,16 @@ export class WeiboExecutor implements SocialExecutor {
           });
         }
 
-        const verifyResult = commentId
+        const verifyResult = commentMode
           ? undefined
           : await verifyLikeState(account.cookie, input.targetUrl, [
               "statusId" in likeResult ? likeResult.statusId : undefined,
               extractLikeResultId(likeResult.summary),
             ]);
 
-        return successResult(`已发起${commentId ? "评论点赞" : "点赞"}请求：${input.accountNickname}`, "SUCCESS", {
+        return successResult(`已发起${commentMode ? "评论点赞" : "点赞"}请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
-          action: commentId ? "COMMENT_LIKE" : "LIKE",
+          action: commentMode ? "COMMENT_LIKE" : "LIKE",
           summary: summarizePayload(likeResult.summary),
           actionType: input.actionType,
           targetUrl: input.targetUrl,
