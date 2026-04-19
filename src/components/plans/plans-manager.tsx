@@ -134,10 +134,12 @@ export function PlansManager({
   }
 
   async function handleBatchExecute() {
-    const candidates = filteredPlans.filter((plan) => plan.status === "PENDING" || plan.status === "READY");
+    const candidates = filteredPlans.filter(
+      (plan) => plan.status === "PENDING" || plan.status === "READY" || plan.status === "FAILED",
+    );
 
     if (candidates.length === 0) {
-      setError("当前筛选下没有可执行的计划");
+      setError("当前筛选下没有可执行或可重试的计划");
       return;
     }
 
@@ -315,7 +317,7 @@ export function PlansManager({
                 disabled={batchExecuting || loading}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {batchExecuting ? "批量执行中..." : "执行当前筛选"}
+                {batchExecuting ? "批量执行中..." : "执行/重试当前筛选"}
               </button>
             ) : null}
             <button
