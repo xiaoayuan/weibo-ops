@@ -3,6 +3,7 @@
 import type { InteractionTarget, InteractionTask, WeiboAccount } from "@/generated/prisma/client";
 import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 type InteractionTaskWithRelations = InteractionTask & {
@@ -138,6 +139,11 @@ export function InteractionsManager({
       <div>
         <h2 className="text-2xl font-semibold">互动任务</h2>
         <p className="mt-1 text-sm text-slate-500">录入微博链接、评论直达链接或评论投诉链接，并为多个账号批量生成点赞或转发任务。</p>
+        <p className="mt-2 text-sm">
+          <Link href="/ops" className="text-sky-700 hover:text-sky-800">
+            前往控评与轮转主入口
+          </Link>
+        </p>
       </div>
 
       {canManage ? (

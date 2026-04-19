@@ -25,6 +25,7 @@ export type ExecuteInteractionInput = {
   accountLoginStatus: string;
   actionType: "CHECK_IN" | "POST" | "LIKE";
   targetUrl: string;
+  repostContent?: string | null;
 };
 
 export interface SocialExecutor {

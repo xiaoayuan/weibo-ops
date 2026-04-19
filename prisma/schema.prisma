@@ -47,6 +47,25 @@ enum PlanType {
   LIKE
 }
 
+enum ActionJobType {
+  COMMENT_LIKE_BATCH
+  REPOST_ROTATION
+}
+
+enum ActionJobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  PARTIAL_FAILED
+  FAILED
+  CANCELLED
+}
+
+enum ActionStepType {
+  COMMENT_LIKE
+  REPOST
+}
+
 enum ContentStatus {
   ACTIVE
   DISABLED
@@ -61,6 +80,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   logs         ExecutionLog[]
+  actionJobs   ActionJob[]
 }
 
 model WeiboAccount {
@@ -86,6 +106,8 @@ model WeiboAccount {
   interactionTasks InteractionTask[]
   plans            DailyPlan[]
   logs             ExecutionLog[]
+  actionJobRuns    ActionJobAccountRun[]
+  actionJobSteps   ActionJobStep[]
 }
 
 model SuperTopic {
@@ -204,4 +226,77 @@ model ExecutionLog {
 
   @@index([accountId, executedAt])
   @@index([planId])
+}
+
+model CommentLinkPoolItem {
+  id                String   @id @default(cuid())
+  sourceUrl         String
+  commentId         String?
+  note              String?
+  tags              String[]
+  isForcedDuplicate Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([commentId])
+  @@index([createdAt])
+}
+
+model ActionJob {
+  id          String          @id @default(cuid())
+  jobType     ActionJobType
+  status      ActionJobStatus @default(PENDING)
+  config      Json
+  summary     Json?
+  createdBy   String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  creator     User?               @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  accountRuns ActionJobAccountRun[]
+  steps       ActionJobStep[]
+
+  @@index([jobType, createdAt])
+  @@index([status, createdAt])
+}
+
+model ActionJobAccountRun {
+  id           String          @id @default(cuid())
+  jobId         String
+  accountId     String
+  status        ActionJobStatus @default(PENDING)
+  currentStep   Int             @default(0)
+  totalSteps    Int
+  errorMessage  String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  job           ActionJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  account       WeiboAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([accountId, createdAt])
+}
+
+model ActionJobStep {
+  id            String          @id @default(cuid())
+  jobId          String
+  accountId      String
+  stepType       ActionStepType
+  targetUrl      String
+  payload        Json?
+  sequenceNo     Int
+  status         ActionJobStatus @default(PENDING)
+  resultPayload  Json?
+  errorMessage   String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  job            ActionJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  account        WeiboAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, sequenceNo])
+  @@index([accountId, status])
 }

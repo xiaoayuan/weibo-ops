@@ -722,7 +722,7 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
   };
 }
 
-async function sendRepostRequest(targetUrl: string, cookie: string) {
+async function sendRepostRequest(targetUrl: string, cookie: string, repostContent?: string | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
 
@@ -754,7 +754,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string) {
     const form = new URLSearchParams();
     form.set("id", statusId);
     form.set("mid", statusId);
-    form.set("content", "");
+    form.set("content", repostContent || "");
     form.set("is_comment", "0");
 
     const headers: Record<string, string> = {
@@ -1418,7 +1418,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.actionType === "POST") {
-        const repostResult = await sendRepostRequest(input.targetUrl, account.cookie);
+        const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.repostContent);
         const businessOk = tryExtractBusinessOk(repostResult.summary);
         const repostConfirmed = isPostConfirmed(repostResult.summary);
 
