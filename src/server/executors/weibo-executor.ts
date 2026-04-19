@@ -566,6 +566,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
   const topicObjectId = toTopicObjectId(topicUrl);
   const topicRawId = toTopicRawId(topicUrl);
   const superTagId = extractSuperTagId(topicUrl);
+  const shouldUseSuperPostOnly = Boolean(topicUrl && appAuthorization && topicObjectId && superTagId && topicRawId);
 
   if (appAuthorization && topicObjectId && superTagId && topicRawId) {
     const appBody = new URLSearchParams();
@@ -653,6 +654,20 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
         attempts,
       };
     }
+  }
+
+  if (shouldUseSuperPostOnly) {
+    const latest = attempts[attempts.length - 1];
+
+    return {
+      ok: false,
+      status: latest?.status ?? 0,
+      summary: latest?.summary ?? "超话发帖请求未通过",
+      endpoint: "https://api.weibo.cn/2/statuses/send",
+      mode: "app-form-post",
+      businessOk: latest?.businessOk,
+      attempts,
+    };
   }
 
   for (const endpoint of endpoints) {
