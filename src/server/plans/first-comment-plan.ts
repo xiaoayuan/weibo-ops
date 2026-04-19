@@ -153,10 +153,64 @@ function getTimelineEndpoints(topicUrl: string, containerId?: string) {
   );
 }
 
+function collectStatusIdsFromTopicHtml(html: string) {
+  const ids: string[] = [];
+  const patterns = [
+    /"id":"(\d{15,20})"/g,
+    /"mid":"(\d{15,20})"/g,
+    /\bmid=(\d{15,20})\b/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const matched of html.matchAll(pattern)) {
+      if (matched[1]) {
+        ids.push(matched[1]);
+      }
+    }
+  }
+
+  return Array.from(new Set(ids));
+}
+
+async function fetchLatestPostsFromTopicPage(topicUrl: string, cookie: string, limit: number) {
+  const response = await sendHttpRequestWithRetry(
+    {
+      url: topicUrl,
+      method: "GET",
+      headers: {
+        Cookie: cookie,
+        Referer: "https://weibo.com/",
+      },
+      timeoutMs: 12_000,
+    },
+    {
+      retries: 1,
+    },
+  );
+
+  if (!response.ok) {
+    return [] as CandidatePost[];
+  }
+
+  const ids = collectStatusIdsFromTopicHtml(response.text).slice(0, limit);
+
+  return ids.map((id) => ({
+    id,
+    commentsCount: undefined,
+    targetUrl: topicUrl,
+  }));
+}
+
 export async function fetchLatestPosts(topicUrl: string, cookie: string, limit: number) {
+  const pagePosts = await fetchLatestPostsFromTopicPage(topicUrl, cookie, limit);
+
+  if (pagePosts.length >= limit) {
+    return pagePosts.slice(0, limit);
+  }
+
   const containerId = extractTopicContainerId(topicUrl);
   const endpoints = getTimelineEndpoints(topicUrl, containerId);
-  const allPosts: CandidatePost[] = [];
+  const allPosts: CandidatePost[] = [...pagePosts];
 
   for (const endpoint of endpoints) {
     try {
