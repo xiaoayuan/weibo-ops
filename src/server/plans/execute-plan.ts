@@ -142,7 +142,7 @@ export async function executePlanById(id: string) {
 
     const topicUrl = plan.task.superTopic.topicUrl || "https://weibo.com/";
     const cookie = decryptText(plan.account.cookieEncrypted);
-    const latestPosts = await fetchLatestPosts(topicUrl, cookie, 100);
+    const latestPosts = await fetchLatestPosts(topicUrl, cookie, 200);
 
     const locks = await prisma.firstCommentPostLock.findMany({
       where: {
@@ -156,7 +156,7 @@ export async function executePlanById(id: string) {
 
     const usedIds = new Set(locks.map((item) => item.statusId));
     const preferred = latestPosts.slice(0, 20).filter((post) => post.commentsCount === 0);
-    const expanded = latestPosts.slice(20, 100).filter((post) => post.commentsCount === 0);
+    const expanded = latestPosts.slice(20, 200).filter((post) => post.commentsCount === 0);
     const candidates = [...preferred, ...expanded];
 
     let executed = false;
