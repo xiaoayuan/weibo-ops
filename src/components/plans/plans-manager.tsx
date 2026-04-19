@@ -216,13 +216,27 @@ export function PlansManager({
     try {
       setError(null);
 
+      const plan = plans.find((item) => item.id === id);
+
+      if (!plan) {
+        throw new Error("计划不存在");
+      }
+
+      const payload: {
+        scheduledTime: string;
+        contentId?: string | null;
+      } = {
+        scheduledTime: new Date(editScheduledTime).toISOString(),
+      };
+
+      if (plan.planType !== "FIRST_COMMENT") {
+        payload.contentId = editContentId || null;
+      }
+
       const response = await fetch(`/api/plans/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduledTime: new Date(editScheduledTime).toISOString(),
-          contentId: editContentId || null,
-        }),
+        body: JSON.stringify(payload),
       });
       const result = await response.json();
 
@@ -375,10 +389,12 @@ export function PlansManager({
                             : "点赞"}
                     </td>
                     <td className="max-w-sm px-6 py-4 text-slate-600">
-                       {isEditing && canManage ? (
-                         <select
-                           value={editContentId}
-                           onChange={(event) => setEditContentId(event.target.value)}
+                      {plan.planType === "FIRST_COMMENT" ? (
+                        <span className="text-slate-500">自动使用任务配置中的首评文案池</span>
+                      ) : isEditing && canManage ? (
+                        <select
+                          value={editContentId}
+                          onChange={(event) => setEditContentId(event.target.value)}
                           className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
                         >
                           <option value="">不绑定文案</option>

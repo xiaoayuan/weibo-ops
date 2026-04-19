@@ -21,7 +21,6 @@ const createTopicTaskFields = {
   signEnabled: topicTaskFields.signEnabled,
   firstCommentEnabled: topicTaskFields.firstCommentEnabled,
   firstCommentPerDay: topicTaskFields.firstCommentPerDay,
-  firstCommentTemplates: topicTaskFields.firstCommentTemplates,
   postEnabled: topicTaskFields.postEnabled,
   minPostsPerDay: topicTaskFields.minPostsPerDay,
   maxPostsPerDay: topicTaskFields.maxPostsPerDay,
@@ -39,10 +38,6 @@ export const createTopicTaskSchema = z
   .refine((value) => value.minPostsPerDay <= value.maxPostsPerDay, {
     message: "最小发帖数不能大于最大发帖数",
     path: ["minPostsPerDay"],
-  })
-  .refine((value) => !value.firstCommentEnabled || value.firstCommentTemplates.length > 0, {
-    message: "启用首评任务时请至少填写一条首评文案",
-    path: ["firstCommentTemplates"],
   });
 
 export const updateTopicTaskSchema = z.object(topicTaskFields).partial();

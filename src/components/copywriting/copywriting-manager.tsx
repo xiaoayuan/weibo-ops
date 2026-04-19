@@ -9,6 +9,7 @@ type FormState = {
   title: string;
   content: string;
   tags: string;
+  firstComment: boolean;
   status: "ACTIVE" | "DISABLED";
 };
 
@@ -16,6 +17,7 @@ const initialForm: FormState = {
   title: "",
   content: "",
   tags: "",
+  firstComment: false,
   status: "ACTIVE",
 };
 
@@ -40,7 +42,15 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
         body: JSON.stringify({
           title: form.title,
           content: form.content,
-          tags: form.tags.split(",").map((item) => item.trim()).filter(Boolean),
+          tags: Array.from(
+            new Set([
+              ...form.tags
+                .split(",")
+                .map((item) => item.trim())
+                .filter((item) => Boolean(item) && item !== "首评文案" && item !== "FIRST_COMMENT"),
+              ...(form.firstComment ? ["首评文案"] : []),
+            ]),
+          ),
           status: form.status,
         }),
       });
@@ -71,6 +81,7 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
       title: item.title,
       content: item.content,
       tags: item.tags.join(", "),
+      firstComment: item.tags.includes("首评文案") || item.tags.includes("FIRST_COMMENT"),
       status: item.status,
     });
     setError(null);
@@ -143,6 +154,14 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
               <option value="DISABLED">停用</option>
             </select>
           </div>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.firstComment}
+              onChange={(event) => setForm((current) => ({ ...current, firstComment: event.target.checked }))}
+            />
+            设为首评文案（自动打上标签 `首评文案`）
+          </label>
           <div className="flex items-center justify-between gap-3">
             {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}
             <div className="flex items-center gap-3">

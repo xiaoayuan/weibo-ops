@@ -27,7 +27,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/topic-
         signEnabled: parsed.data.signEnabled,
         firstCommentEnabled: parsed.data.firstCommentEnabled,
         firstCommentPerDay: parsed.data.firstCommentPerDay,
-        firstCommentTemplates: parsed.data.firstCommentTemplates,
+        firstCommentTemplates: [],
         postEnabled: parsed.data.postEnabled,
         minPostsPerDay: parsed.data.minPostsPerDay,
         maxPostsPerDay: parsed.data.maxPostsPerDay,

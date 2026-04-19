@@ -100,14 +100,29 @@ export async function executePlanById(id: string) {
       };
     }
 
-    const templates = plan.task.firstCommentTemplates.map((item) => item.trim()).filter(Boolean);
+    const templates = (
+      await prisma.copywritingTemplate.findMany({
+        where: {
+          status: "ACTIVE",
+          OR: [
+            { tags: { has: "首评文案" } },
+            { tags: { has: "FIRST_COMMENT" } },
+          ],
+        },
+        select: {
+          content: true,
+        },
+      })
+    )
+      .map((item) => item.content.trim())
+      .filter(Boolean);
 
     if (!plan.task.firstCommentEnabled || templates.length === 0) {
       const updated = await prisma.dailyPlan.update({
         where: { id },
         data: {
           status: "FAILED",
-          resultMessage: "首评任务未启用或文案池为空",
+          resultMessage: "首评任务未启用或文案库缺少“首评文案”",
         },
         include: {
           account: true,

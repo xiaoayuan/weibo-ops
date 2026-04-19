@@ -17,7 +17,6 @@ type FormState = {
   signEnabled: boolean;
   firstCommentEnabled: boolean;
   firstCommentPerDay: number;
-  firstCommentTemplatesText: string;
   postEnabled: boolean;
   minPostsPerDay: number;
   maxPostsPerDay: number;
@@ -80,7 +79,6 @@ export function TopicTasksManager({
     signEnabled: true,
     firstCommentEnabled: false,
     firstCommentPerDay: 4,
-    firstCommentTemplatesText: "",
     postEnabled: false,
     minPostsPerDay: 0,
     maxPostsPerDay: 0,
@@ -122,10 +120,6 @@ export function TopicTasksManager({
                 signEnabled: form.signEnabled,
                 firstCommentEnabled: form.firstCommentEnabled,
                 firstCommentPerDay: form.firstCommentPerDay,
-                firstCommentTemplates: form.firstCommentTemplatesText
-                  .split(/\n+/)
-                  .map((item) => item.trim())
-                  .filter(Boolean),
                 postEnabled: false,
                 minPostsPerDay: 0,
                 maxPostsPerDay: 0,
@@ -135,10 +129,6 @@ export function TopicTasksManager({
               }),
           firstCommentEnabled: form.firstCommentEnabled,
           firstCommentPerDay: form.firstCommentPerDay,
-          firstCommentTemplates: form.firstCommentTemplatesText
-            .split(/\n+/)
-            .map((item) => item.trim())
-            .filter(Boolean),
           postEnabled: false,
           minPostsPerDay: 0,
           maxPostsPerDay: 0,
@@ -159,7 +149,6 @@ export function TopicTasksManager({
       setForm((current) => ({
         ...current,
         accountIds: accounts[0]?.id ? [accounts[0].id] : [],
-        firstCommentTemplatesText: "",
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : editingId ? "更新任务失败" : "创建任务失败");
@@ -177,7 +166,6 @@ export function TopicTasksManager({
       signEnabled: task.signEnabled,
       firstCommentEnabled: task.firstCommentEnabled,
       firstCommentPerDay: task.firstCommentPerDay,
-      firstCommentTemplatesText: task.firstCommentTemplates.join("\n"),
       postEnabled: task.postEnabled,
       minPostsPerDay: task.minPostsPerDay,
       maxPostsPerDay: task.maxPostsPerDay,
@@ -197,7 +185,6 @@ export function TopicTasksManager({
       signEnabled: true,
       firstCommentEnabled: false,
       firstCommentPerDay: 4,
-      firstCommentTemplatesText: "",
       postEnabled: false,
       minPostsPerDay: 0,
       maxPostsPerDay: 0,
@@ -379,14 +366,8 @@ export function TopicTasksManager({
                   }
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
                 />
-                <p className="text-xs text-slate-500">每天首评条数，默认 4</p>
+                <p className="text-xs text-slate-500">每天首评条数，默认 4；文案将自动从文案库的“首评文案”标签随机抽取。</p>
               </div>
-              <textarea
-                value={form.firstCommentTemplatesText}
-                onChange={(event) => setForm((current) => ({ ...current, firstCommentTemplatesText: event.target.value }))}
-                className="mt-3 min-h-28 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
-                placeholder="首评文案池（每行一条）"
-              />
             </div>
 
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">
@@ -457,6 +438,7 @@ export function TopicTasksManager({
               </select>
             </div>
           </div>
+          {canManage ? <p className="mt-4 text-xs text-slate-500">首评文案请在文案库中维护，并打上标签 `首评文案`。</p> : null}
         </div>
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
@@ -467,17 +449,17 @@ export function TopicTasksManager({
               <th className="px-6 py-3 font-medium">首评任务</th>
               <th className="px-6 py-3 font-medium">时间窗口</th>
               <th className="px-6 py-3 font-medium">状态</th>
-                {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
+              {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
              </tr>
            </thead>
            <tbody>
-             {filteredTasks.length === 0 ? (
+               {filteredTasks.length === 0 ? (
                 <tr>
                    <td colSpan={canManage ? 7 : 6} className="px-6 py-8 text-slate-500">
                      暂无任务配置。
                    </td>
                  </tr>
-            ) : (
+             ) : (
               filteredTasks.map((task) => (
                 <tr key={task.id} className="border-t border-slate-200">
                   <td className="px-6 py-4">{task.account.nickname}</td>
