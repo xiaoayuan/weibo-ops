@@ -1,13 +1,14 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123456");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,21 +19,21 @@ export default function LoginPage() {
       setSubmitting(true);
       setError(null);
 
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, inviteCode }),
       });
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "登录失败");
+        throw new Error(result.message || "注册失败");
       }
 
-      router.replace("/");
+      router.replace("/login");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败");
+      setError(err instanceof Error ? err.message : "注册失败");
     } finally {
       setSubmitting(false);
     }
@@ -42,8 +43,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-slate-900">登录</h1>
-          <p className="mt-2 text-sm text-slate-500">登录微博运营后台管理系统</p>
+          <h1 className="text-2xl font-semibold text-slate-900">注册</h1>
+          <p className="mt-2 text-sm text-slate-500">需要管理员提供的注册码</p>
         </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
@@ -64,8 +65,19 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="请输入密码"
+              placeholder="密码至少 6 位"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">注册码</label>
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
+              placeholder="请输入管理员提供的注册码"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm uppercase outline-none transition focus:border-slate-400"
             />
           </div>
 
@@ -76,14 +88,14 @@ export default function LoginPage() {
             disabled={submitting}
             className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "登录中..." : "登录"}
+            {submitting ? "注册中..." : "注册"}
           </button>
         </form>
 
         <p className="mt-5 text-center text-sm text-slate-500">
-          还没有账号？
-          <Link href="/register" className="ml-1 text-sky-700 hover:text-sky-800">
-            使用注册码注册
+          已有账号？
+          <Link href="/login" className="ml-1 text-sky-700 hover:text-sky-800">
+            去登录
           </Link>
         </p>
       </div>

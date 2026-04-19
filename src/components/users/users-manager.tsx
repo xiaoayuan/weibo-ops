@@ -1,6 +1,6 @@
 "use client";
 
-import type { UserRole } from "@/generated/prisma/client";
+import type { InviteCode, UserRole } from "@/generated/prisma/client";
 import { FormEvent, useState } from "react";
 
 type UserListItem = {
@@ -22,6 +22,12 @@ type EditState = {
   role: UserRole;
 };
 
+type InviteCodeFormState = {
+  role: "VIEWER" | "OPERATOR";
+  maxUses: number;
+  expiresInHours: number;
+};
+
 const initialForm: FormState = {
   username: "",
   password: "",
@@ -34,13 +40,69 @@ const roleText: Record<UserRole, string> = {
   VIEWER: "只读",
 };
 
-export function UsersManager({ initialUsers }: { initialUsers: UserListItem[] }) {
+export function UsersManager({
+  initialUsers,
+  initialInviteCodes,
+}: {
+  initialUsers: UserListItem[];
+  initialInviteCodes: InviteCode[];
+}) {
   const [users, setUsers] = useState(initialUsers);
+  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>(initialInviteCodes);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [inviteForm, setInviteForm] = useState<InviteCodeFormState>({ role: "VIEWER", maxUses: 1, expiresInHours: 48 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({ password: "", role: "OPERATOR" });
+  const [pageNowTs] = useState(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleCreateInviteCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      const response = await fetch("/api/invite-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inviteForm),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "生成注册码失败");
+      }
+
+      setInviteCodes((current) => [result.data, ...current]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "生成注册码失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleToggleInviteCode(id: string, disabled: boolean) {
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/invite-codes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disabled }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "更新注册码失败");
+      }
+
+      setInviteCodes((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "更新注册码失败");
+    }
+  }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,6 +195,94 @@ export function UsersManager({ initialUsers }: { initialUsers: UserListItem[] })
         <h2 className="text-2xl font-semibold">用户管理</h2>
         <p className="mt-1 text-sm text-slate-500">仅管理员可管理后台用户和角色权限。</p>
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-medium">注册码管理</h3>
+        <form className="mt-4 grid gap-4 md:grid-cols-4" onSubmit={handleCreateInviteCode}>
+          <select
+            value={inviteForm.role}
+            onChange={(event) => setInviteForm((current) => ({ ...current, role: event.target.value as InviteCodeFormState["role"] }))}
+            className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+          >
+            <option value="VIEWER">只读</option>
+            <option value="OPERATOR">运营</option>
+          </select>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={inviteForm.maxUses}
+            onChange={(event) => setInviteForm((current) => ({ ...current, maxUses: Number(event.target.value) || 1 }))}
+            className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            placeholder="可用次数"
+          />
+          <input
+            type="number"
+            min={1}
+            max={720}
+            value={inviteForm.expiresInHours}
+            onChange={(event) => setInviteForm((current) => ({ ...current, expiresInHours: Number(event.target.value) || 48 }))}
+            className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            placeholder="有效小时"
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? "生成中..." : "生成注册码"}
+          </button>
+        </form>
+
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-4 py-2 font-medium">注册码</th>
+                <th className="px-4 py-2 font-medium">角色</th>
+                <th className="px-4 py-2 font-medium">次数</th>
+                <th className="px-4 py-2 font-medium">过期时间</th>
+                <th className="px-4 py-2 font-medium">状态</th>
+                <th className="px-4 py-2 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inviteCodes.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-slate-500">
+                    暂无注册码，先生成一条。
+                  </td>
+                </tr>
+              ) : (
+                inviteCodes.map((item) => {
+                  const expired = Boolean(item.expiresAt && new Date(item.expiresAt).getTime() <= pageNowTs);
+                  const exhausted = item.usedCount >= item.maxUses;
+                  const disabled = item.disabled;
+                  const statusText = disabled ? "已禁用" : exhausted ? "已用尽" : expired ? "已过期" : "可用";
+
+                  return (
+                    <tr key={item.id} className="border-t border-slate-200">
+                      <td className="px-4 py-3 font-mono text-xs text-slate-700">{item.code}</td>
+                      <td className="px-4 py-3">{item.role === "OPERATOR" ? "运营" : "只读"}</td>
+                      <td className="px-4 py-3">{item.usedCount}/{item.maxUses}</td>
+                      <td className="px-4 py-3">{item.expiresAt ? new Date(item.expiresAt).toLocaleString("zh-CN") : "-"}</td>
+                      <td className="px-4 py-3">{statusText}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleToggleInviteCode(item.id, !item.disabled)}
+                          className="text-sky-700 hover:text-sky-800"
+                        >
+                          {item.disabled ? "启用" : "禁用"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="text-lg font-medium">新增用户</h3>

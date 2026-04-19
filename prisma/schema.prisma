@@ -84,6 +84,24 @@ model User {
   actionJobs   ActionJob[]
 }
 
+model InviteCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  role        UserRole @default(VIEWER)
+  maxUses     Int      @default(1)
+  usedCount   Int      @default(0)
+  expiresAt   DateTime?
+  disabled    Boolean  @default(false)
+  createdById String?
+  lastUsedBy  String?
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([disabled, expiresAt])
+}
+
 model WeiboAccount {
   id                  String             @id @default(cuid())
   nickname            String
