@@ -1,5 +1,6 @@
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { ProfileSecurityForm } from "@/components/settings/profile-security-form";
 
 export const dynamic = "force-dynamic";
 
@@ -216,6 +217,8 @@ export default async function SettingsPage() {
         <h2 className="text-2xl font-semibold">系统设置</h2>
         <p className="mt-1 text-sm text-slate-500">仅管理员可查看系统配置摘要、运行状态和环境风险。</p>
       </div>
+
+      <ProfileSecurityForm initialUsername={session.username} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item) => (

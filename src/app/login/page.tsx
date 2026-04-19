@@ -6,8 +6,8 @@ import { FormEvent, useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123456");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

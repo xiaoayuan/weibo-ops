@@ -1,0 +1,80 @@
+import { serialize } from "cookie";
+
+import { AUTH_COOKIE_NAME, hashPassword, signToken } from "@/lib/auth";
+import { requireApiRole } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
+import { updateProfileSchema } from "@/server/validators/auth";
+
+function shouldUseSecureCookie() {
+  return process.env.AUTH_COOKIE_SECURE === "true";
+}
+
+export async function PATCH(request: Request) {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  try {
+    const body = await request.json();
+    const parsed = updateProfileSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const nextUsername = parsed.data.username?.trim();
+    const nextPassword = parsed.data.password;
+
+    if (nextUsername && nextUsername !== auth.session.username) {
+      const existed = await prisma.user.findUnique({ where: { username: nextUsername } });
+
+      if (existed) {
+        return Response.json({ success: false, message: "用户名已存在" }, { status: 400 });
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: auth.session.id },
+      data: {
+        username: nextUsername || undefined,
+        passwordHash: nextPassword && nextPassword !== "" ? await hashPassword(nextPassword) : undefined,
+      },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+      },
+    });
+
+    const token = signToken({
+      id: updated.id,
+      username: updated.username,
+      role: updated.role,
+    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: updated,
+        message: "账号信息已更新",
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Set-Cookie": serialize(AUTH_COOKIE_NAME, token, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: shouldUseSecureCookie(),
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,
+          }),
+        },
+      },
+    );
+  } catch {
+    return Response.json({ success: false, message: "更新账号信息失败" }, { status: 500 });
+  }
+}
