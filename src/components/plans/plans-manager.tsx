@@ -191,6 +191,29 @@ export function PlansManager({
     }
   }
 
+  async function handleDelete(id: string) {
+    if (!window.confirm("确认删除这条计划吗？")) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/plans/${id}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "删除计划失败");
+      }
+
+      setPlans((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除计划失败");
+    }
+  }
+
   function startEdit(plan: PlanWithRelations) {
     setEditingId(plan.id);
     setEditScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
@@ -399,22 +422,27 @@ export function PlansManager({
                               </button>
                             </>
                           ) : null}
-                           {canExecute ? (
-                             <>
-                               <button onClick={() => handleStatusChange(plan.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
-                                 成功
+                            {canExecute ? (
+                              <>
+                                <button onClick={() => handleStatusChange(plan.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
+                                  成功
                                </button>
                                <button onClick={() => handleStatusChange(plan.id, "FAILED")} className="text-amber-600 hover:text-amber-700">
                                  失败
                                </button>
-                               <button onClick={() => handleStatusChange(plan.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
-                                 取消
-                               </button>
-                             </>
-                           ) : null}
-                         </div>
-                       ) : <span className="text-slate-400">只读</span>}
-                     </td>
+                                <button onClick={() => handleStatusChange(plan.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
+                                  取消
+                                </button>
+                              </>
+                            ) : null}
+                            {canManage ? (
+                              <button onClick={() => handleDelete(plan.id)} className="text-rose-700 hover:text-rose-800">
+                                删除
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : <span className="text-slate-400">只读</span>}
+                      </td>
                    </tr>
                  );
               })

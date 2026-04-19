@@ -48,3 +48,34 @@ export async function PATCH(request: Request, context: RouteContext<"/api/intera
     return Response.json({ success: false, message: "更新互动任务失败" }, { status: 500 });
   }
 }
+
+export async function DELETE(_request: Request, context: RouteContext<"/api/interaction-tasks/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const { id } = await context.params;
+
+  try {
+    const task = await prisma.interactionTask.delete({
+      where: { id },
+      select: {
+        id: true,
+        accountId: true,
+      },
+    });
+
+    await writeExecutionLog({
+      accountId: task.accountId,
+      actionType: "INTERACTION_TASK_DELETED",
+      requestPayload: { id: task.id },
+      success: true,
+    });
+
+    return Response.json({ success: true, message: "删除成功" });
+  } catch {
+    return Response.json({ success: false, message: "删除互动任务失败" }, { status: 500 });
+  }
+}

@@ -169,6 +169,29 @@ export function InteractionsManager({
     }
   }
 
+  async function handleDelete(id: string) {
+    if (!window.confirm("确认删除这条互动任务吗？")) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/interaction-tasks/${id}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "删除互动任务失败");
+      }
+
+      setTasks((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除互动任务失败");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -300,13 +323,18 @@ export function InteractionsManager({
                          <button onClick={() => handleStatusChange(task.id, "FAILED")} className="text-amber-600 hover:text-amber-700">
                            失败
                          </button>
-                         <button onClick={() => handleStatusChange(task.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
-                           取消
-                         </button>
-                       </div>
-                     ) : (
-                       <span className="text-slate-400">只读</span>
-                     )}
+                          <button onClick={() => handleStatusChange(task.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
+                            取消
+                          </button>
+                          {canManage ? (
+                            <button onClick={() => handleDelete(task.id)} className="text-rose-700 hover:text-rose-800">
+                              删除
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">只读</span>
+                      )}
                    </td>
                  </tr>
                ))

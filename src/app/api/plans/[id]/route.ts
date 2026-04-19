@@ -57,3 +57,35 @@ export async function PATCH(request: Request, context: RouteContext<"/api/plans/
     return Response.json({ success: false, message: "更新计划失败" }, { status: 500 });
   }
 }
+
+export async function DELETE(_request: Request, context: RouteContext<"/api/plans/[id]">) {
+  const auth = await requireApiRole("OPERATOR");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const { id } = await context.params;
+
+  try {
+    const plan = await prisma.dailyPlan.delete({
+      where: { id },
+      select: {
+        id: true,
+        accountId: true,
+      },
+    });
+
+    await writeExecutionLog({
+      accountId: plan.accountId,
+      planId: plan.id,
+      actionType: "PLAN_DELETED",
+      requestPayload: { id: plan.id },
+      success: true,
+    });
+
+    return Response.json({ success: true, message: "删除成功" });
+  } catch {
+    return Response.json({ success: false, message: "删除计划失败" }, { status: 500 });
+  }
+}
