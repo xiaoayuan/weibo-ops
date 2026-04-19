@@ -48,6 +48,14 @@ export function validatePlanPrecheck(input: ExecutePlanInput, executor: Executor
     });
   }
 
+  if (input.planType === "FIRST_COMMENT") {
+    return buildBlockedResult("首评任务为系统自动执行任务，请等待凌晨自动执行。", executor, "FIRST_COMMENT_AUTO_ONLY", {
+      planId: input.planId,
+      planType: input.planType,
+      topicName: input.topicName,
+    });
+  }
+
   if (input.planType === "LIKE" && !input.targetUrl?.trim()) {
     return buildBlockedResult("点赞计划缺少目标链接，无法进入真实执行阶段。", executor, "MISSING_TARGET_URL", {
       planId: input.planId,

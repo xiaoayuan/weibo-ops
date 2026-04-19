@@ -37,6 +37,38 @@ export function TopicTasksManager({
   topics: SuperTopic[];
   currentUserRole: AppRole;
 }) {
+  function extractValidationMessage(result: unknown, fallback: string) {
+    if (!result || typeof result !== "object") {
+      return fallback;
+    }
+
+    const record = result as Record<string, unknown>;
+    const errors = record.errors as
+      | {
+          formErrors?: string[];
+          fieldErrors?: Record<string, string[] | undefined>;
+        }
+      | undefined;
+
+    if (errors?.formErrors && errors.formErrors.length > 0) {
+      return errors.formErrors[0];
+    }
+
+    if (errors?.fieldErrors) {
+      for (const fieldError of Object.values(errors.fieldErrors)) {
+        if (Array.isArray(fieldError) && fieldError.length > 0) {
+          return fieldError[0];
+        }
+      }
+    }
+
+    if (typeof record.message === "string" && record.message.trim()) {
+      return record.message;
+    }
+
+    return fallback;
+  }
+
   const [tasks, setTasks] = useState(initialTasks);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -115,7 +147,7 @@ export function TopicTasksManager({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "创建任务失败");
+        throw new Error(extractValidationMessage(result, "创建任务失败"));
       }
 
       setTasks((current) =>

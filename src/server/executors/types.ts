@@ -11,7 +11,7 @@ export type ExecutePlanInput = {
   accountId: string;
   accountNickname: string;
   accountLoginStatus: string;
-  planType: "CHECK_IN" | "POST" | "LIKE";
+  planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE";
   targetUrl?: string | null;
   content?: string | null;
   topicName?: string | null;
@@ -23,7 +23,7 @@ export type ExecuteInteractionInput = {
   accountId: string;
   accountNickname: string;
   accountLoginStatus: string;
-  actionType: "CHECK_IN" | "POST" | "LIKE";
+  actionType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE";
   targetUrl: string;
   repostContent?: string | null;
 };

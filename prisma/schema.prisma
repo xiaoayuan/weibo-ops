@@ -43,6 +43,7 @@ enum TaskStatus {
 
 enum PlanType {
   CHECK_IN
+  FIRST_COMMENT
   POST
   LIKE
 }

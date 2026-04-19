@@ -104,7 +104,9 @@ export default async function SettingsPage() {
     ...recentFailedPlans.map((plan) => ({
       id: plan.id,
       type: "计划" as const,
-      title: `${plan.account.nickname} / ${plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "转发" : "点赞"}`,
+      title: `${plan.account.nickname} / ${
+        plan.planType === "CHECK_IN" ? "签到" : plan.planType === "FIRST_COMMENT" ? "首评" : plan.planType === "POST" ? "转发" : "点赞"
+      }`,
       subtitle: plan.task?.superTopic.name || "未绑定超话",
       detail: plan.resultMessage || "无失败说明",
       occurredAt: plan.updatedAt,

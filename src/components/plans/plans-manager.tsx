@@ -365,7 +365,15 @@ export function PlansManager({
                     </td>
                     <td className="px-6 py-4">{plan.account.nickname}</td>
                     <td className="px-6 py-4">{plan.task?.superTopic.name || "-"}</td>
-                    <td className="px-6 py-4">{plan.planType === "CHECK_IN" ? "签到" : plan.planType === "POST" ? "转发" : "点赞"}</td>
+                    <td className="px-6 py-4">
+                      {plan.planType === "CHECK_IN"
+                        ? "签到"
+                        : plan.planType === "FIRST_COMMENT"
+                          ? "首评"
+                          : plan.planType === "POST"
+                            ? "转发"
+                            : "点赞"}
+                    </td>
                     <td className="max-w-sm px-6 py-4 text-slate-600">
                        {isEditing && canManage ? (
                          <select

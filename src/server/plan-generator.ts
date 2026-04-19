@@ -53,13 +53,14 @@ export async function generateDailyPlans(dateText: string) {
     });
 
     const hasCheckInPlan = existingPlans.some((plan) => plan.planType === "CHECK_IN");
+    const firstCommentPlanCount = existingPlans.filter((plan) => plan.planType === "FIRST_COMMENT").length;
 
     const createPayload: Array<{
       taskId: string;
       accountId: string;
       contentId?: string;
       planDate: Date;
-      planType: "CHECK_IN" | "POST";
+      planType: "CHECK_IN" | "FIRST_COMMENT" | "POST";
       scheduledTime: Date;
       status: "PENDING";
     }> = [];
@@ -76,6 +77,26 @@ export async function generateDailyPlans(dateText: string) {
         scheduledTime: randomTimes(planDate, startTime, endTime, 1)[0],
         status: "PENDING",
       });
+    }
+
+    if (task.firstCommentEnabled) {
+      const targetCount = Math.max(1, task.firstCommentPerDay || 4);
+      const missingCount = Math.max(0, targetCount - firstCommentPlanCount);
+
+      if (missingCount > 0) {
+        const times = randomTimes(planDate, startTime, endTime, missingCount);
+
+        for (const scheduledTime of times) {
+          createPayload.push({
+            taskId: task.id,
+            accountId: task.accountId,
+            planDate,
+            planType: "FIRST_COMMENT",
+            scheduledTime,
+            status: "PENDING",
+          });
+        }
+      }
     }
 
     if (createPayload.length > 0) {
