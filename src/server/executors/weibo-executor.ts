@@ -591,7 +591,6 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
     appBody.set("topic_id", topicObjectId);
     appBody.set("super_tag_id", superTagId);
     appBody.set("lfid", lfid);
-    appBody.set("flowId", lfid);
     appBody.set("orifid", `profile_me$$${lfid}`);
     appBody.set("oriuicode", process.env.WEIBO_APP_ORI_UICODE || "10000011_10000011");
     appBody.set("extparam", `sg_user_type#2|super_tag_id=>${superTagId}`);
@@ -599,7 +598,9 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
       "ext",
       process.env.WEIBO_APP_POST_EXT || "effectname:|network:wifi|sg_user_type#2|activity_picnum:0|content_change:1",
     );
-    appBody.set("featurecode", process.env.WEIBO_APP_FEATURECODE || "10000086");
+    if (process.env.WEIBO_APP_FEATURECODE) {
+      appBody.set("featurecode", process.env.WEIBO_APP_FEATURECODE);
+    }
     appBody.set("moduleID", process.env.WEIBO_APP_MODULE_ID || "composer");
     appBody.set("luicode", process.env.WEIBO_APP_LUICODE || "10000011");
     appBody.set("uicode", process.env.WEIBO_APP_UICODE || "10000708");
