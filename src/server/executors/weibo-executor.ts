@@ -142,6 +142,17 @@ function getAppSendEndpoint() {
   return url.toString();
 }
 
+function buildAppCallbackUrl(topicObjectId: string) {
+  if (process.env.WEIBO_APP_CALLBACK_URL) {
+    return process.env.WEIBO_APP_CALLBACK_URL;
+  }
+
+  const url = new URL("http://i.huati.weibo.com/super/autoattention/supertopic");
+  url.searchParams.set("object_id", topicObjectId);
+
+  return url.toString();
+}
+
 function tryExtractTopicId(topicUrl?: string | null) {
   if (!topicUrl) {
     return undefined;
@@ -574,6 +585,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
     const lfid = `${topicRawId}__${superTagId}_-_tag_comment_sort`;
 
     appBody.set("act", "add");
+    appBody.set("callback_url", buildAppCallbackUrl(topicObjectId));
     appBody.set("content", superTopicTag);
     appBody.set("rcontent", superTopicTag);
     appBody.set("topic_id", topicObjectId);
