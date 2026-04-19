@@ -8,18 +8,28 @@ export async function GET() {
     return auth.response;
   }
 
-  const tasks = await prisma.interactionTask.findMany({
-    where: {
-      account: {
-        ownerUserId: auth.session.id,
-      },
-    },
+  const rawTasks = await prisma.interactionTask.findMany({
     include: {
-      account: true,
+      account: {
+        select: {
+          id: true,
+          nickname: true,
+          ownerUserId: true,
+        },
+      },
       target: true,
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const tasks = rawTasks.map((task) => ({
+    ...task,
+    isOwned: task.account.ownerUserId === auth.session.id,
+    account: {
+      id: task.account.id,
+      nickname: task.account.ownerUserId === auth.session.id ? task.account.nickname : "其他用户账号",
+    },
+  }));
 
   return Response.json({ success: true, data: tasks });
 }

@@ -7,8 +7,12 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 type InteractionTaskWithRelations = InteractionTask & {
-  account: WeiboAccount;
+  account: {
+    id: string;
+    nickname: string;
+  };
   target: InteractionTarget;
+  isOwned: boolean;
 };
 
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
@@ -121,10 +125,12 @@ export function InteractionsManager({
   }
 
   async function handleBatchExecute() {
-    const candidates = filteredTasks.filter((task) => task.status === "PENDING" || task.status === "READY");
+    const candidates = filteredTasks.filter(
+      (task) => task.isOwned && (task.status === "PENDING" || task.status === "READY" || task.status === "FAILED"),
+    );
 
     if (candidates.length === 0) {
-      setError("当前筛选下没有可执行的互动任务");
+      setError("当前筛选下没有可执行或可重试的本人互动任务");
       return;
     }
 
@@ -288,7 +294,7 @@ export function InteractionsManager({
                   disabled={batchExecuting}
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {batchExecuting ? "批量执行中..." : "执行当前筛选"}
+                  {batchExecuting ? "批量执行中..." : "执行/重试当前筛选"}
                 </button>
               ) : null}
             </div>
@@ -321,8 +327,8 @@ export function InteractionsManager({
                   <td className="px-6 py-4">{statusText[task.status]}</td>
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">
-                     {canExecute ? (
-                       <div className="flex flex-wrap gap-2">
+                      {canExecute && task.isOwned ? (
+                        <div className="flex flex-wrap gap-2">
                           <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
                             执行
                           </button>
@@ -332,8 +338,10 @@ export function InteractionsManager({
                             </button>
                           ) : null}
                         </div>
-                      ) : (
+                      ) : task.isOwned ? (
                         <span className="text-slate-400">只读</span>
+                      ) : (
+                        <span className="text-slate-400">跨用户任务不可操作</span>
                       )}
                    </td>
                  </tr>
