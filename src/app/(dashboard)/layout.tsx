@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { hasRequiredRole, requirePageRole } from "@/lib/permissions";
+import { ensureDailyCheckinSchedulerStarted } from "@/server/scheduler/daily-checkin";
 
 const navItems = [
   { href: "/", label: "控制台", icon: LayoutDashboard },
@@ -20,6 +21,7 @@ const navItems = [
 ];
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  ensureDailyCheckinSchedulerStarted();
   const session = await requirePageRole("VIEWER");
 
   return (

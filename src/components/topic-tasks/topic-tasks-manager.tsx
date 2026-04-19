@@ -167,6 +167,20 @@ export function TopicTasksManager({
     });
   }
 
+  function selectAllCreateAccounts() {
+    setForm((current) => ({
+      ...current,
+      accountIds: accounts.map((account) => account.id),
+    }));
+  }
+
+  function clearCreateAccounts() {
+    setForm((current) => ({
+      ...current,
+      accountIds: [],
+    }));
+  }
+
   async function handleDelete(id: string) {
     if (!window.confirm("确认删除这条任务配置吗？")) {
       return;
@@ -235,7 +249,17 @@ export function TopicTasksManager({
               </select>
             ) : (
               <div className="rounded-lg border border-slate-200 p-4 text-sm md:col-span-2">
-                <p className="font-medium text-slate-700">选择账号（可多选）</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-slate-700">选择账号（可多选）</p>
+                  <div className="flex items-center gap-3 text-xs">
+                    <button type="button" onClick={selectAllCreateAccounts} className="text-sky-700 hover:text-sky-800">
+                      全选
+                    </button>
+                    <button type="button" onClick={clearCreateAccounts} className="text-slate-600 hover:text-slate-700">
+                      清空
+                    </button>
+                  </div>
+                </div>
                 <div className="mt-3 grid gap-2 md:grid-cols-3">
                   {accounts.map((account) => (
                     <label key={account.id} className="inline-flex items-center gap-2 text-slate-700">

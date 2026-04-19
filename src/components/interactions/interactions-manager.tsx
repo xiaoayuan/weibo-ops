@@ -60,6 +60,14 @@ export function InteractionsManager({
     );
   }
 
+  function selectAllAccounts() {
+    setSelectedAccounts(accounts.map((account) => account.id));
+  }
+
+  function clearSelectedAccounts() {
+    setSelectedAccounts([]);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -210,7 +218,17 @@ export function InteractionsManager({
               />
 
           <div className="rounded-lg border border-slate-200 p-4">
-            <p className="text-sm font-medium text-slate-700">选择参与账号</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-700">选择参与账号</p>
+              <div className="flex items-center gap-3 text-xs">
+                <button type="button" onClick={selectAllAccounts} className="text-sky-700 hover:text-sky-800">
+                  全选
+                </button>
+                <button type="button" onClick={clearSelectedAccounts} className="text-slate-600 hover:text-slate-700">
+                  清空
+                </button>
+              </div>
+            </div>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               {accounts.map((account) => (
                 <label key={account.id} className="flex items-center gap-2 text-sm text-slate-700">

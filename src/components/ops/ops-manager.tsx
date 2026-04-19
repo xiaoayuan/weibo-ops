@@ -96,12 +96,36 @@ export function OpsManager({
     setSelectedPoolIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
+  function selectAllFilteredPoolItems() {
+    setSelectedPoolIds(filteredPoolItems.map((item) => item.id));
+  }
+
+  function clearSelectedPoolItems() {
+    setSelectedPoolIds([]);
+  }
+
   function togglePoolAccount(id: string) {
     setSelectedPoolAccountIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
+  function selectAllPoolAccounts() {
+    setSelectedPoolAccountIds(accounts.map((account) => account.id));
+  }
+
+  function clearPoolAccounts() {
+    setSelectedPoolAccountIds([]);
+  }
+
   function toggleRotationAccount(id: string) {
     setSelectedRotationAccountIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function selectAllRotationAccounts() {
+    setSelectedRotationAccountIds(accounts.map((account) => account.id));
+  }
+
+  function clearRotationAccounts() {
+    setSelectedRotationAccountIds([]);
   }
 
   async function refreshPool() {
@@ -408,6 +432,20 @@ export function OpsManager({
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={selectAllFilteredPoolItems}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  全选当前筛选
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelectedPoolItems}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  清空已选
+                </button>
               </div>
             </div>
 
@@ -461,6 +499,14 @@ export function OpsManager({
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-lg font-medium">立即控评点赞</h3>
               <p className="mt-1 text-sm text-slate-500">已选评论 {selectedPoolIds.length} 条；请选择执行账号后立即开始。</p>
+              <div className="mt-3 flex items-center gap-3 text-xs">
+                <button type="button" onClick={selectAllPoolAccounts} className="text-sky-700 hover:text-sky-800">
+                  全选账号
+                </button>
+                <button type="button" onClick={clearPoolAccounts} className="text-slate-600 hover:text-slate-700">
+                  清空账号
+                </button>
+              </div>
               <div className="mt-4 grid gap-2 md:grid-cols-3">
                 {accounts.map((account) => (
                   <label key={account.id} className="flex items-center gap-2 text-sm text-slate-700">
@@ -491,6 +537,14 @@ export function OpsManager({
               placeholder="微博详情链接"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
             />
+            <div className="flex items-center gap-3 text-xs">
+              <button type="button" onClick={selectAllRotationAccounts} className="text-sky-700 hover:text-sky-800">
+                全选账号
+              </button>
+              <button type="button" onClick={clearRotationAccounts} className="text-slate-600 hover:text-slate-700">
+                清空账号
+              </button>
+            </div>
             <div className="grid gap-2 md:grid-cols-3">
               {accounts.map((account) => (
                 <label key={account.id} className="flex items-center gap-2 text-sm text-slate-700">
