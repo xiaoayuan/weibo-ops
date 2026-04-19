@@ -1029,6 +1029,10 @@ function tryExtractBusinessOk(payload: unknown) {
 
   const record = payload as Record<string, unknown>;
 
+  if (typeof record.errno === "number") {
+    return record.errno === 0;
+  }
+
   if (typeof record.ok === "number") {
     return record.ok === 1;
   }
@@ -1379,7 +1383,7 @@ export class WeiboExecutor implements SocialExecutor {
             : await sendLikeRequest(input.targetUrl, account.cookie);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
         const likeConfirmed = commentMode
-          ? businessOk !== false || isPostConfirmed(likeResult.summary)
+          ? businessOk === true || isPostConfirmed(likeResult.summary)
           : isLikeConfirmed(likeResult.summary) || ("likeConfirmed" in likeResult && Boolean(likeResult.likeConfirmed));
 
         if (!likeResult.ok || businessOk === false || !likeConfirmed) {
