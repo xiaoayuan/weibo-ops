@@ -620,6 +620,9 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
       Cookie: cookie,
       Referer: topicUrl || "https://weibo.com/",
       Origin: "https://api.weibo.cn",
+      SNRT: process.env.WEIBO_APP_SNRT || "normal",
+      "X-Engine-Type": process.env.WEIBO_APP_ENGINE_TYPE || "cronet-114.0.5735.246",
+      cronet_rid: process.env.WEIBO_APP_CRONET_RID || String(Math.floor(Math.random() * 9_000_000) + 1_000_000),
     };
 
     if (appSessionId) {
@@ -628,6 +631,18 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
 
     if (appLogUid) {
       appHeaders["X-Log-Uid"] = appLogUid;
+    }
+
+    if (process.env.WEIBO_APP_SHANHAI_PASS) {
+      appHeaders["X-Shanhai-Pass"] = process.env.WEIBO_APP_SHANHAI_PASS;
+    }
+
+    if (process.env.WEIBO_APP_VALIDATOR) {
+      appHeaders["X-Validator"] = process.env.WEIBO_APP_VALIDATOR;
+    }
+
+    if (process.env.WEIBO_APP_ACCEPT_LANGUAGE) {
+      appHeaders["Accept-Language"] = process.env.WEIBO_APP_ACCEPT_LANGUAGE;
     }
 
     const appResponse = await sendHttpRequestWithRetry(
