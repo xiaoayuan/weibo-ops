@@ -39,6 +39,7 @@ export function InteractionsManager({
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<InteractionStatus | "ALL">("ALL");
   const [submitting, setSubmitting] = useState(false);
+  const [batchExecuting, setBatchExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
   const canExecute = canReviewAndExecuteTasks(currentUserRole);
@@ -108,6 +109,49 @@ export function InteractionsManager({
       setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "执行互动任务失败");
+    }
+  }
+
+  async function handleBatchExecute() {
+    const candidates = filteredTasks.filter((task) => task.status === "PENDING" || task.status === "READY");
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可执行的互动任务");
+      return;
+    }
+
+    if (!window.confirm(`确认批量执行当前筛选的 ${candidates.length} 条互动任务吗？`)) {
+      return;
+    }
+
+    try {
+      setBatchExecuting(true);
+      setError(null);
+
+      let failed = 0;
+
+      for (const task of candidates) {
+        try {
+          const response = await fetch(`/api/interaction-tasks/${task.id}/execute`, {
+            method: "POST",
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "执行互动任务失败");
+          }
+
+          setTasks((current) => current.map((item) => (item.id === task.id ? result.data : item)));
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (failed > 0) {
+        setError(`批量执行完成，失败 ${failed} 条，请查看日志`);
+      }
+    } finally {
+      setBatchExecuting(false);
     }
   }
 
@@ -219,6 +263,16 @@ export function InteractionsManager({
                 <option value="FAILED">失败</option>
                 <option value="CANCELLED">已取消</option>
               </select>
+              {canExecute ? (
+                <button
+                  type="button"
+                  onClick={handleBatchExecute}
+                  disabled={batchExecuting}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {batchExecuting ? "批量执行中..." : "执行当前筛选"}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

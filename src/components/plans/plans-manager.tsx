@@ -51,6 +51,7 @@ export function PlansManager({
   const [editScheduledTime, setEditScheduledTime] = useState("");
   const [editContentId, setEditContentId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [batchExecuting, setBatchExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
   const canExecute = canReviewAndExecuteTasks(currentUserRole);
@@ -129,6 +130,49 @@ export function PlansManager({
       setPlans((current) => current.map((item) => (item.id === id ? result.data : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "执行计划失败");
+    }
+  }
+
+  async function handleBatchExecute() {
+    const candidates = filteredPlans.filter((plan) => plan.status === "PENDING" || plan.status === "READY");
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可执行的计划");
+      return;
+    }
+
+    if (!window.confirm(`确认批量执行当前筛选的 ${candidates.length} 条计划吗？`)) {
+      return;
+    }
+
+    try {
+      setBatchExecuting(true);
+      setError(null);
+
+      let failed = 0;
+
+      for (const plan of candidates) {
+        try {
+          const response = await fetch(`/api/plans/${plan.id}/execute`, {
+            method: "POST",
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "执行计划失败");
+          }
+
+          setPlans((current) => current.map((item) => (item.id === plan.id ? result.data : item)));
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (failed > 0) {
+        setError(`批量执行完成，失败 ${failed} 条，请查看日志`);
+      }
+    } finally {
+      setBatchExecuting(false);
     }
   }
 
@@ -250,6 +294,16 @@ export function PlansManager({
           </div>
           <div className="flex items-center gap-3">
             {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}
+            {canExecute ? (
+              <button
+                type="button"
+                onClick={handleBatchExecute}
+                disabled={batchExecuting || loading}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {batchExecuting ? "批量执行中..." : "执行当前筛选"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={loadPlansByDate}
