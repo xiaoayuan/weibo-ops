@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ function todayDate() {
 }
 
 export default async function DashboardPage() {
+  const session = await requirePageRole("VIEWER");
   const today = todayDate();
 
   const quickActions = [
@@ -35,19 +37,57 @@ export default async function DashboardPage() {
   ];
 
   const [todayPlans, activeAccounts, failedPlans, pendingPlans, recentLogs, copywritingCount, recentPlans] = await Promise.all([
-    prisma.dailyPlan.count({ where: { planDate: today } }),
-    prisma.weiboAccount.count({ where: { status: "ACTIVE" } }),
-    prisma.dailyPlan.count({ where: { planDate: today, status: "FAILED" } }),
-    prisma.dailyPlan.count({ where: { planDate: today, status: "PENDING" } }),
+    prisma.dailyPlan.count({
+      where: {
+        planDate: today,
+        account: {
+          ownerUserId: session.id,
+        },
+      },
+    }),
+    prisma.weiboAccount.count({
+      where: {
+        status: "ACTIVE",
+        ownerUserId: session.id,
+      },
+    }),
+    prisma.dailyPlan.count({
+      where: {
+        planDate: today,
+        status: "FAILED",
+        account: {
+          ownerUserId: session.id,
+        },
+      },
+    }),
+    prisma.dailyPlan.count({
+      where: {
+        planDate: today,
+        status: "PENDING",
+        account: {
+          ownerUserId: session.id,
+        },
+      },
+    }),
     prisma.executionLog.findMany({
-      where: { success: false },
+      where: {
+        success: false,
+        account: {
+          ownerUserId: session.id,
+        },
+      },
       include: { account: true },
       orderBy: { executedAt: "desc" },
       take: 3,
     }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
     prisma.dailyPlan.findMany({
-      where: { planDate: today },
+      where: {
+        planDate: today,
+        account: {
+          ownerUserId: session.id,
+        },
+      },
       include: {
         account: true,
         task: {
