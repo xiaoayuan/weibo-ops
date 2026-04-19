@@ -12,8 +12,20 @@ export const topicTaskFields = {
   status: z.boolean().default(true),
 };
 
+const createTopicTaskFields = {
+  accountIds: z.array(z.string().min(1)).min(1, "请至少选择一个账号"),
+  superTopicId: topicTaskFields.superTopicId,
+  signEnabled: topicTaskFields.signEnabled,
+  postEnabled: topicTaskFields.postEnabled,
+  minPostsPerDay: topicTaskFields.minPostsPerDay,
+  maxPostsPerDay: topicTaskFields.maxPostsPerDay,
+  startTime: topicTaskFields.startTime,
+  endTime: topicTaskFields.endTime,
+  status: topicTaskFields.status,
+};
+
 export const createTopicTaskSchema = z
-  .object(topicTaskFields)
+  .object(createTopicTaskFields)
   .refine((value) => value.signEnabled, {
     message: "当前仅支持签到任务，请开启签到",
     path: ["signEnabled"],

@@ -35,19 +35,59 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
     }
 
-    const task = await prisma.accountTopicTask.create({
-      data: {
-        ...parsed.data,
-        startTime: parsed.data.startTime || null,
-        endTime: parsed.data.endTime || null,
+    const existed = await prisma.accountTopicTask.findMany({
+      where: {
+        superTopicId: parsed.data.superTopicId,
+        accountId: {
+          in: parsed.data.accountIds,
+        },
+      },
+      select: {
+        accountId: true,
+      },
+    });
+
+    const existedIds = new Set(existed.map((item) => item.accountId));
+    const createAccountIds = parsed.data.accountIds.filter((id) => !existedIds.has(id));
+
+    if (createAccountIds.length > 0) {
+      await prisma.accountTopicTask.createMany({
+        data: createAccountIds.map((accountId) => ({
+          accountId,
+          superTopicId: parsed.data.superTopicId,
+          signEnabled: parsed.data.signEnabled,
+          postEnabled: parsed.data.postEnabled,
+          minPostsPerDay: parsed.data.minPostsPerDay,
+          maxPostsPerDay: parsed.data.maxPostsPerDay,
+          startTime: parsed.data.startTime || null,
+          endTime: parsed.data.endTime || null,
+          status: parsed.data.status,
+        })),
+      });
+    }
+
+    const tasks = await prisma.accountTopicTask.findMany({
+      where: {
+        superTopicId: parsed.data.superTopicId,
+        accountId: {
+          in: createAccountIds,
+        },
       },
       include: {
         account: true,
         superTopic: true,
       },
+      orderBy: { createdAt: "desc" },
     });
 
-    return Response.json({ success: true, data: task });
+    return Response.json({
+      success: true,
+      data: tasks,
+      message:
+        existedIds.size > 0
+          ? `已新增 ${tasks.length} 条，跳过 ${existedIds.size} 条重复配置`
+          : `已新增 ${tasks.length} 条任务配置`,
+    });
   } catch {
     return Response.json({ success: false, message: "创建任务失败" }, { status: 500 });
   }

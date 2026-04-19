@@ -11,6 +11,7 @@ type TaskWithRelations = AccountTopicTask & {
 };
 
 type FormState = {
+  accountIds: string[];
   accountId: string;
   superTopicId: string;
   signEnabled: boolean;
@@ -38,6 +39,7 @@ export function TopicTasksManager({
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "DISABLED">("ALL");
   const [form, setForm] = useState<FormState>({
+    accountIds: accounts[0]?.id ? [accounts[0].id] : [],
     accountId: accounts[0]?.id || "",
     superTopicId: topics[0]?.id || "",
     signEnabled: true,
@@ -74,7 +76,19 @@ export function TopicTasksManager({
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
+          ...(editingId
+            ? { ...form, accountIds: undefined }
+            : {
+                accountIds: form.accountIds,
+                superTopicId: form.superTopicId,
+                signEnabled: form.signEnabled,
+                postEnabled: false,
+                minPostsPerDay: 0,
+                maxPostsPerDay: 0,
+                startTime: form.startTime,
+                endTime: form.endTime,
+                status: form.status,
+              }),
           postEnabled: false,
           minPostsPerDay: 0,
           maxPostsPerDay: 0,
@@ -89,9 +103,13 @@ export function TopicTasksManager({
       setTasks((current) =>
         editingId
           ? current.map((item) => (item.id === editingId ? result.data : item))
-          : [result.data, ...current],
+          : [...(result.data || []), ...current],
       );
       setEditingId(null);
+      setForm((current) => ({
+        ...current,
+        accountIds: accounts[0]?.id ? [accounts[0].id] : [],
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : editingId ? "更新任务失败" : "创建任务失败");
     } finally {
@@ -102,6 +120,7 @@ export function TopicTasksManager({
   function handleEdit(task: TaskWithRelations) {
     setEditingId(task.id);
     setForm({
+      accountIds: [task.accountId],
       accountId: task.accountId,
       superTopicId: task.superTopicId,
       signEnabled: task.signEnabled,
@@ -118,6 +137,7 @@ export function TopicTasksManager({
   function handleCancelEdit() {
     setEditingId(null);
     setForm({
+      accountIds: accounts[0]?.id ? [accounts[0].id] : [],
       accountId: accounts[0]?.id || "",
       superTopicId: topics[0]?.id || "",
       signEnabled: true,
@@ -129,6 +149,22 @@ export function TopicTasksManager({
       status: true,
     });
     setError(null);
+  }
+
+  function toggleCreateAccount(accountId: string) {
+    setForm((current) => {
+      if (current.accountIds.includes(accountId)) {
+        return {
+          ...current,
+          accountIds: current.accountIds.filter((id) => id !== accountId),
+        };
+      }
+
+      return {
+        ...current,
+        accountIds: [...current.accountIds, accountId],
+      };
+    });
   }
 
   async function handleDelete(id: string) {
@@ -185,17 +221,35 @@ export function TopicTasksManager({
             <p className="mt-4 text-sm text-amber-600">请先创建账号和超话，再配置任务。</p>
           ) : (
             <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
-            <select
-              value={form.accountId}
-              onChange={(event) => setForm((current) => ({ ...current, accountId: event.target.value }))}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-            >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.nickname}
-                </option>
-              ))}
-            </select>
+            {editingId ? (
+              <select
+                value={form.accountId}
+                onChange={(event) => setForm((current) => ({ ...current, accountId: event.target.value }))}
+                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.nickname}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="rounded-lg border border-slate-200 p-4 text-sm md:col-span-2">
+                <p className="font-medium text-slate-700">选择账号（可多选）</p>
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                  {accounts.map((account) => (
+                    <label key={account.id} className="inline-flex items-center gap-2 text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={form.accountIds.includes(account.id)}
+                        onChange={() => toggleCreateAccount(account.id)}
+                      />
+                      {account.nickname}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             <select
               value={form.superTopicId}
               onChange={(event) => setForm((current) => ({ ...current, superTopicId: event.target.value }))}
