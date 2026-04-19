@@ -91,27 +91,6 @@ export function InteractionsManager({
     }
   }
 
-  async function handleStatusChange(id: string, status: InteractionStatus) {
-    try {
-      setError(null);
-
-      const response = await fetch(`/api/interaction-tasks/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "更新互动任务失败");
-      }
-
-      setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "更新互动任务失败");
-    }
-  }
-
   async function handleExecute(id: string) {
     try {
       setError(null);
@@ -128,44 +107,6 @@ export function InteractionsManager({
       setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "执行互动任务失败");
-    }
-  }
-
-  async function handleApprove(id: string) {
-    try {
-      setError(null);
-
-      const response = await fetch(`/api/interaction-tasks/${id}/approve`, {
-        method: "POST",
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "确认互动任务失败");
-      }
-
-      setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "确认互动任务失败");
-    }
-  }
-
-  async function handleReject(id: string) {
-    try {
-      setError(null);
-
-      const response = await fetch(`/api/interaction-tasks/${id}/reject`, {
-        method: "POST",
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "驳回互动任务失败");
-      }
-
-      setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "驳回互动任务失败");
     }
   }
 
@@ -304,27 +245,8 @@ export function InteractionsManager({
                   <td className="px-6 py-4">
                      {canExecute ? (
                        <div className="flex flex-wrap gap-2">
-                         {task.status === "PENDING" ? (
-                           <>
-                             <button onClick={() => handleApprove(task.id)} className="text-sky-600 hover:text-sky-700">
-                               确认
-                             </button>
-                             <button onClick={() => handleReject(task.id)} className="text-rose-600 hover:text-rose-700">
-                               驳回
-                             </button>
-                           </>
-                         ) : null}
-                         <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
-                           执行预检
-                         </button>
-                         <button onClick={() => handleStatusChange(task.id, "SUCCESS")} className="text-emerald-600 hover:text-emerald-700">
-                           成功
-                         </button>
-                         <button onClick={() => handleStatusChange(task.id, "FAILED")} className="text-amber-600 hover:text-amber-700">
-                           失败
-                         </button>
-                          <button onClick={() => handleStatusChange(task.id, "CANCELLED")} className="text-rose-600 hover:text-rose-700">
-                            取消
+                          <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
+                            执行
                           </button>
                           {canManage ? (
                             <button onClick={() => handleDelete(task.id)} className="text-rose-700 hover:text-rose-800">
