@@ -55,6 +55,7 @@ export function OpsManager({
   const [rotationTargetUrl, setRotationTargetUrl] = useState("");
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
   const [submitting, setSubmitting] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const availableTags = useMemo(() => {
@@ -241,6 +242,50 @@ export function OpsManager({
       setSelectedPoolIds((current) => current.filter((item) => item !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "删除控评链接失败");
+    }
+  }
+
+  async function handleBatchDeletePoolItems() {
+    const selectedSet = new Set(selectedPoolIds);
+    const candidates =
+      selectedPoolIds.length > 0 ? filteredPoolItems.filter((item) => selectedSet.has(item.id)) : filteredPoolItems;
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可删除的控评链接");
+      return;
+    }
+
+    if (!window.confirm(`确认删除 ${candidates.length} 条控评链接吗？该操作不可恢复。`)) {
+      return;
+    }
+
+    try {
+      setBatchDeleting(true);
+      setError(null);
+
+      let failed = 0;
+
+      for (const item of candidates) {
+        try {
+          const response = await fetch(`/api/comment-pool/${item.id}`, { method: "DELETE" });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "删除控评链接失败");
+          }
+
+          setPoolItems((current) => current.filter((poolItem) => poolItem.id !== item.id));
+          setSelectedPoolIds((current) => current.filter((id) => id !== item.id));
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (failed > 0) {
+        setError(`批量删除完成，失败 ${failed} 条控评链接`);
+      }
+    } finally {
+      setBatchDeleting(false);
     }
   }
 
@@ -446,6 +491,20 @@ export function OpsManager({
                 >
                   清空已选
                 </button>
+                {canManage ? (
+                  <button
+                    type="button"
+                    onClick={handleBatchDeletePoolItems}
+                    disabled={batchDeleting}
+                    className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {batchDeleting
+                      ? "删除中..."
+                      : selectedPoolIds.length > 0
+                        ? `删除选中 (${selectedPoolIds.length})`
+                        : "删除当前筛选"}
+                  </button>
+                ) : null}
               </div>
             </div>
 
