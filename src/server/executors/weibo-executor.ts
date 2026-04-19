@@ -70,25 +70,7 @@ function getLikeEndpoints() {
 }
 
 function getCommentLikeEndpoint() {
-  const endpoint = process.env.WEIBO_APP_COMMENT_LIKE_ENDPOINT || "https://api.weibo.cn/2/like/update";
-  const query = new URLSearchParams(
-    process.env.WEIBO_APP_COMMENT_LIKE_QUERY ||
-      process.env.WEIBO_APP_SEND_QUERY ||
-      "aid=01A3HlOH9I_DDX-VXUqpvWcDxsbp96_b3Qf2fmNCXwJo9HqpI.&b=0&c=iphone&dlang=zh-Hans-CN&from=10G4293010&ft=1&lang=zh_CN&launchid=10000365--x&networktype=wifi&s=22bc398b&sflag=1&skin=default&ua=iPhone15%2C3__weibo__16.4.2__iphone__os26.3.1&v_f=1&v_p=93&wm=3333_2001",
-  );
-
-  const gsid = process.env.WEIBO_APP_GSID;
-
-  if (gsid) {
-    query.set("gsid", gsid);
-  }
-
-  const url = new URL(endpoint);
-  query.forEach((value, key) => {
-    url.searchParams.set(key, value);
-  });
-
-  return url.toString();
+  return process.env.WEIBO_WEB_COMMENT_LIKE_ENDPOINT || "https://weibo.com/ajax/statuses/updateLike";
 }
 
 function getRepostEndpoints() {
@@ -682,19 +664,16 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
     };
   }
 
-  const authorization = process.env.WEIBO_APP_AUTHORIZATION;
-  const sessionId = process.env.WEIBO_APP_SESSION_ID;
-  const logUid = process.env.WEIBO_APP_LOG_UID;
-  const shanhaiPass = process.env.WEIBO_APP_SHANHAI_PASS;
-  const validator = process.env.WEIBO_APP_VALIDATOR;
+  const cookieMap = parseCookieMap(cookie);
+  const xsrfToken = getXsrfToken(cookieMap);
 
-  if (!authorization || !sessionId || !logUid || !shanhaiPass || !validator) {
+  if (!xsrfToken) {
     return {
       ok: false,
       status: 0,
-      summary: "评论点赞缺少 App 签名参数，请补齐 AUTHORIZATION、SESSION_ID、SHANHAI_PASS、VALIDATOR",
+      summary: "评论点赞缺少 XSRF-TOKEN，请重新录入账号 Cookie",
       endpoint: getCommentLikeEndpoint(),
-      mode: "app-form-post",
+      mode: "web-form-post",
       businessOk: false,
       objectId,
       attempts: [] as Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }>,
@@ -704,37 +683,15 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
   const body = new URLSearchParams();
   body.set("object_id", objectId);
   body.set("object_type", "comment");
-  body.set("is_build", "1");
-  body.set("featurecode", process.env.WEIBO_APP_FEATURECODE || "10000085");
-  body.set("lfid", process.env.WEIBO_APP_COMMENT_LFID || "0");
-  body.set("moduleID", process.env.WEIBO_APP_MODULE_ID || "feed");
-  body.set("luicode", process.env.WEIBO_APP_LUICODE || "80000001");
-  body.set("orifid", process.env.WEIBO_APP_COMMENT_ORIFID || "");
-  body.set("oriuicode", process.env.WEIBO_APP_COMMENT_ORIUICODE || "10000011_10000198_10000003_10000002_80000001");
-  body.set("uicode", process.env.WEIBO_APP_UICODE || "10000408");
-  body.set("source_code", process.env.WEIBO_APP_SOURCE_CODE || "10000003_100103type%3D401%26q%3D%E7%9B%B4%E8%BE%BE%26t%3D0");
-  body.set("source_mid", process.env.WEIBO_APP_COMMENT_SOURCE_MID || "");
-  body.set("source_text", "");
-  body.set("phone_id", process.env.WEIBO_APP_PHONE_ID || "1399");
-  body.set(
-    "ext",
-    process.env.WEIBO_APP_COMMENT_LIKE_EXT || "notice_target_uid:6290146825|source_from:comment_hot",
-  );
 
   const headers: Record<string, string> = {
-    Authorization: authorization,
-    "X-Sessionid": sessionId,
-    "X-Shanhai-Pass": shanhaiPass,
-    "X-Validator": validator,
-    "X-Log-Uid": logUid,
-    "X-Engine-Type": process.env.WEIBO_APP_ENGINE_TYPE || "cronet-114.0.5735.246",
-    SNRT: process.env.WEIBO_APP_SNRT || "normal",
-    cronet_rid: process.env.WEIBO_APP_CRONET_RID || String(Math.floor(Math.random() * 9_000_000) + 1_000_000),
-    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
-    "User-Agent": process.env.WEIBO_APP_USER_AGENT || "Weibo/99026 (iPhone; iOS 26.3.1; Scale/3.00)",
-    "Accept-Language": process.env.WEIBO_APP_ACCEPT_LANGUAGE || "en-US,en",
-    Accept: "*/*",
+    Accept: "application/json, text/plain, */*",
+    "X-Requested-With": "XMLHttpRequest",
+    "X-XSRF-TOKEN": xsrfToken,
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
     Cookie: cookie,
+    Origin: "https://weibo.com",
+    Referer: targetUrl.includes("weibo.com") ? targetUrl : "https://weibo.com/",
   };
 
   const response = await sendHttpRequestWithRetry(
@@ -756,12 +713,12 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
   return {
     ok: response.ok,
     status: response.status,
-    summary,
-    endpoint: getCommentLikeEndpoint(),
-    mode: "app-form-post",
-    businessOk,
-    objectId,
-    attempts: [{ endpoint: getCommentLikeEndpoint(), mode: "app-form-post", ok: response.ok, status: response.status, summary, businessOk }],
+      summary,
+      endpoint: getCommentLikeEndpoint(),
+      mode: "web-form-post",
+      businessOk,
+      objectId,
+    attempts: [{ endpoint: getCommentLikeEndpoint(), mode: "web-form-post", ok: response.ok, status: response.status, summary, businessOk }],
   };
 }
 
