@@ -273,10 +273,18 @@ function tryExtractCommentId(targetUrl?: string | null) {
       }
     }
 
-    const longDigits = candidate.match(/(\d{15,20})/g);
+    const commentContext =
+      candidate.toLowerCase().includes("weibo.cn/comment/") ||
+      candidate.toLowerCase().includes("rid=") ||
+      candidate.toLowerCase().includes("object_id=") ||
+      candidate.toLowerCase().includes("comment/");
 
-    if (longDigits && longDigits.length > 0) {
-      return longDigits[0];
+    if (commentContext) {
+      const longDigits = candidate.match(/(\d{15,20})/g);
+
+      if (longDigits && longDigits.length > 0) {
+        return longDigits[0];
+      }
     }
   }
 
@@ -286,7 +294,7 @@ function tryExtractCommentId(targetUrl?: string | null) {
 function isCommentLikeLink(targetUrl: string) {
   const text = targetUrl.toLowerCase();
 
-  return text.includes("weibo.cn/comment/") || text.includes("rid=") || text.includes("/comment/") || text.includes("object_id=");
+  return text.includes("weibo.cn/comment/") || text.includes("rid=") || text.includes("object_id=");
 }
 
 async function resolveLikeTargetUrl(targetUrl: string, cookie: string) {
