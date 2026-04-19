@@ -25,10 +25,6 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 
-    if (task.account.ownerUserId !== auth.session.id) {
-      return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
-    }
-
     const executor = getExecutor();
     const executionResult = await executor.executeInteraction({
       interactionTaskId: task.id,

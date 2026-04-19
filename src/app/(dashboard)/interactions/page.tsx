@@ -39,5 +39,5 @@ export default async function InteractionsPage() {
     },
   }));
 
-  return <InteractionsManager accounts={accounts} currentUserRole={session.role} initialTasks={tasks} />;
+  return <InteractionsManager accounts={accounts} currentUserId={session.id} currentUserRole={session.role} initialTasks={tasks} />;
 }

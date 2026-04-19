@@ -15,6 +15,16 @@ type InteractionTaskWithRelations = InteractionTask & {
   isOwned: boolean;
 };
 
+type RawInteractionTask = InteractionTask & {
+  account: {
+    id: string;
+    nickname: string;
+    ownerUserId?: string;
+  };
+  target: InteractionTarget;
+  isOwned?: boolean;
+};
+
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 type InteractionActionType = "LIKE" | "POST";
 
@@ -29,10 +39,12 @@ const statusText: Record<InteractionStatus, string> = {
 
 export function InteractionsManager({
   accounts,
+  currentUserId,
   currentUserRole,
   initialTasks,
 }: {
   accounts: WeiboAccount[];
+  currentUserId: string;
   currentUserRole: AppRole;
   initialTasks: InteractionTaskWithRelations[];
 }) {
@@ -42,6 +54,7 @@ export function InteractionsManager({
   const [actionType, setActionType] = useState<InteractionActionType>("LIKE");
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<InteractionStatus | "ALL">("ALL");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +71,19 @@ export function InteractionsManager({
     return matchesStatus && matchesKeyword;
   });
 
+  function normalizeTask(task: RawInteractionTask): InteractionTaskWithRelations {
+    const isOwned = typeof task.isOwned === "boolean" ? task.isOwned : task.account?.ownerUserId === currentUserId;
+
+    return {
+      ...task,
+      isOwned,
+      account: {
+        id: task.account.id,
+        nickname: isOwned ? task.account.nickname : "其他用户账号",
+      },
+    };
+  }
+
   function toggleAccount(id: string) {
     setSelectedAccounts((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
@@ -70,6 +96,18 @@ export function InteractionsManager({
 
   function clearSelectedAccounts() {
     setSelectedAccounts([]);
+  }
+
+  function toggleTask(id: string) {
+    setSelectedTaskIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function selectAllFilteredTasks() {
+    setSelectedTaskIds(filteredTasks.map((task) => task.id));
+  }
+
+  function clearSelectedTasks() {
+    setSelectedTaskIds([]);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -95,7 +133,7 @@ export function InteractionsManager({
         throw new Error(result.message || "创建互动任务失败");
       }
 
-      setTasks((current) => [...result.data, ...current]);
+      setTasks((current) => [...(result.data as RawInteractionTask[]).map((item) => normalizeTask(item)), ...current]);
       setTargetUrl("");
       setSelectedAccounts([]);
     } catch (err) {
@@ -118,19 +156,19 @@ export function InteractionsManager({
         throw new Error(result.message || "执行互动任务失败");
       }
 
-      setTasks((current) => current.map((item) => (item.id === id ? result.data : item)));
+      setTasks((current) => current.map((item) => (item.id === id ? normalizeTask(result.data) : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "执行互动任务失败");
     }
   }
 
   async function handleBatchExecute() {
-    const candidates = filteredTasks.filter(
-      (task) => task.isOwned && (task.status === "PENDING" || task.status === "READY" || task.status === "FAILED"),
-    );
+    const selectedSet = new Set(selectedTaskIds);
+    const baseCandidates = selectedTaskIds.length > 0 ? filteredTasks.filter((task) => selectedSet.has(task.id)) : filteredTasks;
+    const candidates = baseCandidates.filter((task) => task.status === "PENDING" || task.status === "READY" || task.status === "FAILED");
 
     if (candidates.length === 0) {
-      setError("当前筛选下没有可执行或可重试的本人互动任务");
+      setError("当前筛选下没有可执行或可重试的互动任务");
       return;
     }
 
@@ -155,7 +193,7 @@ export function InteractionsManager({
             throw new Error(result.message || "执行互动任务失败");
           }
 
-          setTasks((current) => current.map((item) => (item.id === task.id ? result.data : item)));
+          setTasks((current) => current.map((item) => (item.id === task.id ? normalizeTask(result.data) : item)));
         } catch {
           failed += 1;
         }
@@ -187,6 +225,7 @@ export function InteractionsManager({
       }
 
       setTasks((current) => current.filter((item) => item.id !== id));
+      setSelectedTaskIds((current) => current.filter((taskId) => taskId !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "删除互动任务失败");
     }
@@ -294,7 +333,29 @@ export function InteractionsManager({
                   disabled={batchExecuting}
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {batchExecuting ? "批量执行中..." : "执行/重试当前筛选"}
+                  {batchExecuting
+                    ? "批量执行中..."
+                    : selectedTaskIds.length > 0
+                      ? `执行/重试选中 (${selectedTaskIds.length})`
+                      : "执行/重试当前筛选"}
+                </button>
+              ) : null}
+              {canExecute ? (
+                <button
+                  type="button"
+                  onClick={selectAllFilteredTasks}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  全选当前筛选
+                </button>
+              ) : null}
+              {canExecute ? (
+                <button
+                  type="button"
+                  onClick={clearSelectedTasks}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  清空已选
                 </button>
               ) : null}
             </div>
@@ -303,6 +364,7 @@ export function InteractionsManager({
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
+              {canExecute ? <th className="px-6 py-3 font-medium">选择</th> : null}
               <th className="px-6 py-3 font-medium">目标链接</th>
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">动作</th>
@@ -314,25 +376,30 @@ export function InteractionsManager({
           <tbody>
             {filteredTasks.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-slate-500">
+                <td colSpan={canExecute ? 7 : 6} className="px-6 py-8 text-slate-500">
                   暂无互动任务。
                 </td>
               </tr>
             ) : (
               filteredTasks.map((task) => (
                 <tr key={task.id} className="border-t border-slate-200">
+                  {canExecute ? (
+                    <td className="px-6 py-4">
+                      <input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={() => toggleTask(task.id)} />
+                    </td>
+                  ) : null}
                   <td className="px-6 py-4 text-sky-600">{task.target.targetUrl}</td>
                   <td className="px-6 py-4">{task.account.nickname}</td>
                   <td className="px-6 py-4">{task.actionType === "LIKE" ? "点赞" : "转发"}</td>
                   <td className="px-6 py-4">{statusText[task.status]}</td>
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">
-                      {canExecute && task.isOwned ? (
+                      {canExecute ? (
                         <div className="flex flex-wrap gap-2">
                           <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
                             执行
                           </button>
-                          {canManage ? (
+                          {canManage && task.isOwned ? (
                             <button onClick={() => handleDelete(task.id)} className="text-rose-700 hover:text-rose-800">
                               删除
                             </button>
@@ -341,7 +408,7 @@ export function InteractionsManager({
                       ) : task.isOwned ? (
                         <span className="text-slate-400">只读</span>
                       ) : (
-                        <span className="text-slate-400">跨用户任务不可操作</span>
+                        <span className="text-slate-400">只读</span>
                       )}
                    </td>
                  </tr>
