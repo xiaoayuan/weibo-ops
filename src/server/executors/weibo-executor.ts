@@ -260,6 +260,7 @@ function tryExtractCommentId(targetUrl?: string | null) {
   const patterns = [
     /weibo\.cn\/comment\/([a-zA-Z0-9]{8,})/i,
     /[?&](?:rid|id|object_id)=([a-zA-Z0-9]{8,})/i,
+    /reportspam\?[^\n]*?rid=([a-zA-Z0-9]{8,})/i,
     /\brid[=:]([a-zA-Z0-9]{8,})/i,
     /comment\/([a-zA-Z0-9]{8,})/i,
   ];
@@ -294,7 +295,12 @@ function tryExtractCommentId(targetUrl?: string | null) {
 function isCommentLikeLink(targetUrl: string) {
   const text = targetUrl.toLowerCase();
 
-  return text.includes("weibo.cn/comment/") || text.includes("rid=") || text.includes("object_id=");
+  return (
+    text.includes("weibo.cn/comment/") ||
+    text.includes("rid=") ||
+    text.includes("object_id=") ||
+    text.includes("service.account.weibo.com/reportspam")
+  );
 }
 
 async function resolveLikeTargetUrl(targetUrl: string, cookie: string) {

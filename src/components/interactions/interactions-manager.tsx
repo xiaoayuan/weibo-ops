@@ -173,7 +173,7 @@ export function InteractionsManager({
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">互动任务</h2>
-        <p className="mt-1 text-sm text-slate-500">录入微博链接或评论直达链接，并为多个账号批量生成点赞或转发任务。</p>
+        <p className="mt-1 text-sm text-slate-500">录入微博链接、评论直达链接或评论投诉链接，并为多个账号批量生成点赞或转发任务。</p>
       </div>
 
       {canManage ? (
@@ -192,8 +192,8 @@ export function InteractionsManager({
             value={targetUrl}
             onChange={(event) => setTargetUrl(event.target.value)}
             className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-                placeholder="填写微博详情链接"
-          />
+                placeholder="填写微博详情/评论直达/投诉链接"
+              />
 
           <div className="rounded-lg border border-slate-200 p-4">
             <p className="text-sm font-medium text-slate-700">选择参与账号</p>
