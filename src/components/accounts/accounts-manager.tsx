@@ -59,6 +59,8 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
   const [submitting, setSubmitting] = useState(false);
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [batchChecking, setBatchChecking] = useState(false);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
 
@@ -231,6 +233,86 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
     } finally {
       setCheckingId(null);
     }
+  }
+
+  async function handleBatchCheckSession() {
+    const candidateIds = new Set(selectedAccountIds);
+    const candidates =
+      selectedAccountIds.length > 0
+        ? filteredAccounts.filter((account) => candidateIds.has(account.id))
+        : filteredAccounts;
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可检测账号");
+      return;
+    }
+
+    if (!window.confirm(`确认检测当前筛选的 ${candidates.length} 个账号登录态吗？`)) {
+      return;
+    }
+
+    try {
+      setBatchChecking(true);
+      setError(null);
+
+      let failed = 0;
+
+      for (const account of candidates) {
+        try {
+          setCheckingId(account.id);
+
+          const response = await fetch(`/api/accounts/${account.id}/check-session`, {
+            method: "POST",
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "检测登录态失败");
+          }
+
+          if (!result.success) {
+            failed += 1;
+          }
+
+          setAccounts((current) =>
+            current.map((item) =>
+              item.id === account.id
+                ? {
+                    ...item,
+                    loginStatus: result.data.loginStatus,
+                    lastCheckAt: result.data.lastCheckAt,
+                    loginErrorMessage: result.data.loginErrorMessage,
+                    consecutiveFailures: result.data.consecutiveFailures,
+                  }
+                : item,
+            ),
+          );
+        } catch {
+          failed += 1;
+        } finally {
+          setCheckingId(null);
+        }
+      }
+
+      if (failed > 0) {
+        setError(`一键检测完成，失败 ${failed} 个账号，请查看列表错误信息`);
+      }
+    } finally {
+      setBatchChecking(false);
+      setCheckingId(null);
+    }
+  }
+
+  function toggleAccountSelection(id: string) {
+    setSelectedAccountIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function selectAllFiltered() {
+    setSelectedAccountIds(filteredAccounts.map((account) => account.id));
+  }
+
+  function clearSelection() {
+    setSelectedAccountIds([]);
   }
 
   async function handleDelete(id: string) {
@@ -421,6 +503,34 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                   </option>
                 ))}
               </select>
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={handleBatchCheckSession}
+                  disabled={batchChecking}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {batchChecking ? "检测中..." : selectedAccountIds.length > 0 ? `检测选中账号 (${selectedAccountIds.length})` : "一键检测当前筛选"}
+                </button>
+              ) : null}
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={selectAllFiltered}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  全选当前筛选
+                </button>
+              ) : null}
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  清空选择
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -432,6 +542,7 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
             <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
+                  {canManage ? <th className="px-6 py-3 font-medium">选择</th> : null}
                   <th className="px-6 py-3 font-medium">账号昵称</th>
                   <th className="px-6 py-3 font-medium">微博用户名</th>
                   <th className="px-6 py-3 font-medium">UID</th>
@@ -445,6 +556,15 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
               <tbody>
                 {filteredAccounts.map((account) => (
                   <tr key={account.id} className="border-t border-slate-200 align-top">
+                    {canManage ? (
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedAccountIds.includes(account.id)}
+                          onChange={() => toggleAccountSelection(account.id)}
+                        />
+                      </td>
+                    ) : null}
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{account.nickname}</div>
                       <div className="mt-1 text-xs text-slate-500">{statusText[account.status]} / 风险 {account.riskLevel}</div>
