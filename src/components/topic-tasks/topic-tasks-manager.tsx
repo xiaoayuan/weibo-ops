@@ -15,6 +15,9 @@ type FormState = {
   accountId: string;
   superTopicId: string;
   signEnabled: boolean;
+  firstCommentEnabled: boolean;
+  firstCommentPerDay: number;
+  firstCommentTemplatesText: string;
   postEnabled: boolean;
   minPostsPerDay: number;
   maxPostsPerDay: number;
@@ -43,6 +46,9 @@ export function TopicTasksManager({
     accountId: accounts[0]?.id || "",
     superTopicId: topics[0]?.id || "",
     signEnabled: true,
+    firstCommentEnabled: false,
+    firstCommentPerDay: 4,
+    firstCommentTemplatesText: "",
     postEnabled: false,
     minPostsPerDay: 0,
     maxPostsPerDay: 0,
@@ -82,6 +88,12 @@ export function TopicTasksManager({
                 accountIds: form.accountIds,
                 superTopicId: form.superTopicId,
                 signEnabled: form.signEnabled,
+                firstCommentEnabled: form.firstCommentEnabled,
+                firstCommentPerDay: form.firstCommentPerDay,
+                firstCommentTemplates: form.firstCommentTemplatesText
+                  .split(/\n+/)
+                  .map((item) => item.trim())
+                  .filter(Boolean),
                 postEnabled: false,
                 minPostsPerDay: 0,
                 maxPostsPerDay: 0,
@@ -89,6 +101,12 @@ export function TopicTasksManager({
                 endTime: form.endTime,
                 status: form.status,
               }),
+          firstCommentEnabled: form.firstCommentEnabled,
+          firstCommentPerDay: form.firstCommentPerDay,
+          firstCommentTemplates: form.firstCommentTemplatesText
+            .split(/\n+/)
+            .map((item) => item.trim())
+            .filter(Boolean),
           postEnabled: false,
           minPostsPerDay: 0,
           maxPostsPerDay: 0,
@@ -109,6 +127,7 @@ export function TopicTasksManager({
       setForm((current) => ({
         ...current,
         accountIds: accounts[0]?.id ? [accounts[0].id] : [],
+        firstCommentTemplatesText: "",
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : editingId ? "更新任务失败" : "创建任务失败");
@@ -124,6 +143,9 @@ export function TopicTasksManager({
       accountId: task.accountId,
       superTopicId: task.superTopicId,
       signEnabled: task.signEnabled,
+      firstCommentEnabled: task.firstCommentEnabled,
+      firstCommentPerDay: task.firstCommentPerDay,
+      firstCommentTemplatesText: task.firstCommentTemplates.join("\n"),
       postEnabled: task.postEnabled,
       minPostsPerDay: task.minPostsPerDay,
       maxPostsPerDay: task.maxPostsPerDay,
@@ -141,6 +163,9 @@ export function TopicTasksManager({
       accountId: accounts[0]?.id || "",
       superTopicId: topics[0]?.id || "",
       signEnabled: true,
+      firstCommentEnabled: false,
+      firstCommentPerDay: 4,
+      firstCommentTemplatesText: "",
       postEnabled: false,
       minPostsPerDay: 0,
       maxPostsPerDay: 0,
@@ -298,6 +323,40 @@ export function TopicTasksManager({
               </label>
             </div>
 
+            <div className="rounded-lg border border-slate-200 p-4 text-sm md:col-span-2">
+              <p className="font-medium text-slate-700">首评任务</p>
+              <label className="mt-3 inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.firstCommentEnabled}
+                  onChange={(event) => setForm((current) => ({ ...current, firstCommentEnabled: event.target.checked }))}
+                />
+                启用首评任务
+              </label>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={form.firstCommentPerDay}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      firstCommentPerDay: Number(event.target.value) || 4,
+                    }))
+                  }
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                />
+                <p className="text-xs text-slate-500">每天首评条数，默认 4</p>
+              </div>
+              <textarea
+                value={form.firstCommentTemplatesText}
+                onChange={(event) => setForm((current) => ({ ...current, firstCommentTemplatesText: event.target.value }))}
+                className="mt-3 min-h-28 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                placeholder="首评文案池（每行一条）"
+              />
+            </div>
+
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm">
               <input
                 type="checkbox"
@@ -373,6 +432,7 @@ export function TopicTasksManager({
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">超话</th>
               <th className="px-6 py-3 font-medium">签到任务</th>
+              <th className="px-6 py-3 font-medium">首评任务</th>
               <th className="px-6 py-3 font-medium">时间窗口</th>
               <th className="px-6 py-3 font-medium">状态</th>
                 {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
@@ -380,17 +440,18 @@ export function TopicTasksManager({
            </thead>
            <tbody>
              {filteredTasks.length === 0 ? (
-               <tr>
-                  <td colSpan={canManage ? 6 : 5} className="px-6 py-8 text-slate-500">
-                    暂无任务配置。
-                  </td>
-                </tr>
+                <tr>
+                   <td colSpan={canManage ? 7 : 6} className="px-6 py-8 text-slate-500">
+                     暂无任务配置。
+                   </td>
+                 </tr>
             ) : (
               filteredTasks.map((task) => (
                 <tr key={task.id} className="border-t border-slate-200">
                   <td className="px-6 py-4">{task.account.nickname}</td>
                   <td className="px-6 py-4">{task.superTopic.name}</td>
                   <td className="px-6 py-4">{task.signEnabled ? "已启用" : "未启用"}</td>
+                  <td className="px-6 py-4">{task.firstCommentEnabled ? `已启用 / ${task.firstCommentPerDay} 条` : "未启用"}</td>
                   <td className="px-6 py-4">{task.startTime || "09:00"} - {task.endTime || "22:00"}</td>
                   <td className="px-6 py-4">{task.status ? "启用" : "停用"}</td>
                    {canManage ? (

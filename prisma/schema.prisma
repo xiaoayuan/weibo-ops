@@ -119,6 +119,7 @@ model SuperTopic {
   updatedAt  DateTime           @updatedAt
 
   topicTasks AccountTopicTask[]
+  firstCommentLocks FirstCommentPostLock[]
 }
 
 model CopywritingTemplate {
@@ -138,6 +139,9 @@ model AccountTopicTask {
   accountId      String
   superTopicId   String
   signEnabled    Boolean      @default(false)
+  firstCommentEnabled Boolean  @default(false)
+  firstCommentPerDay  Int      @default(4)
+  firstCommentTemplates String[]
   postEnabled    Boolean      @default(false)
   minPostsPerDay Int          @default(0)
   maxPostsPerDay Int          @default(0)
@@ -153,6 +157,21 @@ model AccountTopicTask {
 
   @@index([accountId])
   @@index([superTopicId])
+}
+
+model FirstCommentPostLock {
+  id          String    @id @default(cuid())
+  planDate    DateTime
+  superTopicId String
+  statusId    String
+  accountId   String?
+  taskId      String?
+  createdAt   DateTime  @default(now())
+
+  superTopic  SuperTopic @relation(fields: [superTopicId], references: [id], onDelete: Cascade)
+
+  @@unique([planDate, superTopicId, statusId])
+  @@index([superTopicId, planDate])
 }
 
 model DailyPlan {
