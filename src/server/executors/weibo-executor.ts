@@ -69,6 +69,10 @@ function getLikeEndpoints() {
   return ["https://weibo.com/ajax/statuses/setLike", "https://weibo.com/aj/v6/like/add?ajwvr=6"];
 }
 
+function getCommentLikeEndpoint() {
+  return process.env.WEIBO_APP_COMMENT_LIKE_ENDPOINT || "https://api.weibo.cn/2/like/update";
+}
+
 function getRepostEndpoints() {
   const envList = process.env.WEIBO_REPOST_ENDPOINTS
     ?.split(",")
@@ -207,6 +211,41 @@ function tryExtractStatusId(targetUrl?: string | null) {
     if (matched?.[1]) {
       return matched[1];
     }
+  }
+
+  return undefined;
+}
+
+function tryExtractCommentId(targetUrl?: string | null) {
+  if (!targetUrl) {
+    return undefined;
+  }
+
+  const patterns = [
+    /weibo\.cn\/comment\/(\d{8,})/i,
+    /[?&](?:rid|id|object_id)=(\d{8,})/i,
+  ];
+
+  for (const pattern of patterns) {
+    const matched = targetUrl.match(pattern);
+
+    if (matched?.[1]) {
+      return matched[1];
+    }
+  }
+
+  try {
+    const decoded = decodeURIComponent(targetUrl);
+
+    for (const pattern of patterns) {
+      const matched = decoded.match(pattern);
+
+      if (matched?.[1]) {
+        return matched[1];
+      }
+    }
+  } catch {
+    return undefined;
   }
 
   return undefined;
@@ -573,6 +612,100 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
     statusId,
     resolvedTargetUrl,
     attempts,
+  };
+}
+
+async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
+  const objectId = tryExtractCommentId(targetUrl);
+
+  if (!objectId) {
+    return {
+      ok: false,
+      status: 0,
+      summary: "评论直达链接中未识别到评论 ID",
+      endpoint: getCommentLikeEndpoint(),
+      mode: "app-form-post",
+      businessOk: false,
+      attempts: [] as Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }>,
+    };
+  }
+
+  const authorization = process.env.WEIBO_APP_AUTHORIZATION;
+  const sessionId = process.env.WEIBO_APP_SESSION_ID;
+  const logUid = process.env.WEIBO_APP_LOG_UID;
+  const shanhaiPass = process.env.WEIBO_APP_SHANHAI_PASS;
+  const validator = process.env.WEIBO_APP_VALIDATOR;
+
+  if (!authorization || !sessionId || !logUid || !shanhaiPass || !validator) {
+    return {
+      ok: false,
+      status: 0,
+      summary: "评论点赞缺少 App 签名参数，请补齐 AUTHORIZATION、SESSION_ID、SHANHAI_PASS、VALIDATOR",
+      endpoint: getCommentLikeEndpoint(),
+      mode: "app-form-post",
+      businessOk: false,
+      objectId,
+      attempts: [] as Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }>,
+    };
+  }
+
+  const body = new URLSearchParams();
+  body.set("object_id", objectId);
+  body.set("object_type", "comment");
+  body.set("is_build", "1");
+  body.set("featurecode", process.env.WEIBO_APP_FEATURECODE || "10000085");
+  body.set("moduleID", process.env.WEIBO_APP_MODULE_ID || "feed");
+  body.set("luicode", process.env.WEIBO_APP_LUICODE || "80000001");
+  body.set("uicode", process.env.WEIBO_APP_UICODE || "10000408");
+  body.set("source_code", process.env.WEIBO_APP_SOURCE_CODE || "10000003");
+  body.set("source_text", "");
+  body.set("phone_id", process.env.WEIBO_APP_PHONE_ID || "1399");
+  body.set(
+    "ext",
+    process.env.WEIBO_APP_COMMENT_LIKE_EXT || "notice_target_uid:0|source_from:comment_hot",
+  );
+
+  const headers: Record<string, string> = {
+    Authorization: authorization,
+    "X-Sessionid": sessionId,
+    "X-Shanhai-Pass": shanhaiPass,
+    "X-Validator": validator,
+    "X-Log-Uid": logUid,
+    "X-Engine-Type": process.env.WEIBO_APP_ENGINE_TYPE || "cronet-114.0.5735.246",
+    SNRT: process.env.WEIBO_APP_SNRT || "normal",
+    cronet_rid: process.env.WEIBO_APP_CRONET_RID || String(Math.floor(Math.random() * 9_000_000) + 1_000_000),
+    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+    "User-Agent": process.env.WEIBO_APP_USER_AGENT || "Weibo/99026 (iPhone; iOS 26.3.1; Scale/3.00)",
+    "Accept-Language": process.env.WEIBO_APP_ACCEPT_LANGUAGE || "en-US,en",
+    Accept: "*/*",
+    Cookie: cookie,
+  };
+
+  const response = await sendHttpRequestWithRetry(
+    {
+      url: getCommentLikeEndpoint(),
+      method: "POST",
+      headers,
+      body: body.toString(),
+      timeoutMs: 12_000,
+    },
+    {
+      retries: 1,
+    },
+  );
+
+  const summary = response.json ?? response.text.slice(0, 220);
+  const businessOk = tryExtractBusinessOk(summary);
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    summary,
+    endpoint: getCommentLikeEndpoint(),
+    mode: "app-form-post",
+    businessOk,
+    objectId,
+    attempts: [{ endpoint: getCommentLikeEndpoint(), mode: "app-form-post", ok: response.ok, status: response.status, summary, businessOk }],
   };
 }
 
@@ -1217,15 +1350,20 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.actionType === "LIKE") {
-        const likeResult = await sendLikeRequest(input.targetUrl, account.cookie);
+        const commentId = tryExtractCommentId(input.targetUrl);
+        const likeResult = commentId
+          ? await sendCommentLikeRequest(input.targetUrl, account.cookie)
+          : await sendLikeRequest(input.targetUrl, account.cookie);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
-        const likeConfirmed = isLikeConfirmed(likeResult.summary) || Boolean(likeResult.likeConfirmed);
+        const likeConfirmed = commentId
+          ? businessOk !== false || isPostConfirmed(likeResult.summary)
+          : isLikeConfirmed(likeResult.summary) || ("likeConfirmed" in likeResult && Boolean(likeResult.likeConfirmed));
 
         if (!likeResult.ok || businessOk === false || !likeConfirmed) {
           return blockedResult("点赞请求未通过，请检查目标链接和账号登录态。", {
             executor: "weibo",
             precheck: "blocked",
-            reason: "LIKE_REQUEST_FAILED",
+            reason: commentId ? "COMMENT_LIKE_REQUEST_FAILED" : "LIKE_REQUEST_FAILED",
             summary: summarizePayload(likeResult.summary),
             actionType: input.actionType,
             targetUrl: input.targetUrl,
@@ -1235,14 +1373,16 @@ export class WeiboExecutor implements SocialExecutor {
           });
         }
 
-        const verifyResult = await verifyLikeState(account.cookie, input.targetUrl, [
-          likeResult.statusId,
-          extractLikeResultId(likeResult.summary),
-        ]);
+        const verifyResult = commentId
+          ? undefined
+          : await verifyLikeState(account.cookie, input.targetUrl, [
+              "statusId" in likeResult ? likeResult.statusId : undefined,
+              extractLikeResultId(likeResult.summary),
+            ]);
 
-        return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
+        return successResult(`已发起${commentId ? "评论点赞" : "点赞"}请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
-          action: "LIKE",
+          action: commentId ? "COMMENT_LIKE" : "LIKE",
           summary: summarizePayload(likeResult.summary),
           actionType: input.actionType,
           targetUrl: input.targetUrl,
@@ -1250,7 +1390,10 @@ export class WeiboExecutor implements SocialExecutor {
           probe,
           likeResult,
           verifyResult,
-          verifyWarning: verifyResult.ok ? undefined : "点赞请求已返回成功信号，但回查未确认，可能是微博回查接口限制导致。",
+          verifyWarning:
+            verifyResult && !verifyResult.ok
+              ? "点赞请求已返回成功信号，但回查未确认，可能是微博回查接口限制导致。"
+              : undefined,
         });
       }
 

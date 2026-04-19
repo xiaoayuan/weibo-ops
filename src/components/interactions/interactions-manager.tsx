@@ -173,7 +173,7 @@ export function InteractionsManager({
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">互动任务</h2>
-        <p className="mt-1 text-sm text-slate-500">录入微博链接并为多个账号批量生成点赞或转发任务。</p>
+        <p className="mt-1 text-sm text-slate-500">录入微博链接或评论直达链接，并为多个账号批量生成点赞或转发任务。</p>
       </div>
 
       {canManage ? (
