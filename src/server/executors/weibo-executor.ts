@@ -221,31 +221,39 @@ function tryExtractCommentId(targetUrl?: string | null) {
     return undefined;
   }
 
-  const patterns = [
-    /weibo\.cn\/comment\/(\d{8,})/i,
-    /[?&](?:rid|id|object_id)=(\d{8,})/i,
-  ];
+  const candidates: string[] = [targetUrl];
 
-  for (const pattern of patterns) {
-    const matched = targetUrl.match(pattern);
+  let decoded = targetUrl;
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
 
-    if (matched?.[1]) {
-      return matched[1];
+      if (next === decoded) {
+        break;
+      }
+
+      decoded = next;
+      candidates.push(decoded);
+    } catch {
+      break;
     }
   }
 
-  try {
-    const decoded = decodeURIComponent(targetUrl);
+  const patterns = [
+    /weibo\.cn\/comment\/([a-zA-Z0-9]{8,})/i,
+    /[?&](?:rid|id|object_id)=([a-zA-Z0-9]{8,})/i,
+    /\brid[=:]([a-zA-Z0-9]{8,})/i,
+    /comment\/([a-zA-Z0-9]{8,})/i,
+  ];
 
+  for (const candidate of candidates) {
     for (const pattern of patterns) {
-      const matched = decoded.match(pattern);
+      const matched = candidate.match(pattern);
 
       if (matched?.[1]) {
         return matched[1];
       }
     }
-  } catch {
-    return undefined;
   }
 
   return undefined;
