@@ -70,7 +70,25 @@ function getLikeEndpoints() {
 }
 
 function getCommentLikeEndpoint() {
-  return process.env.WEIBO_APP_COMMENT_LIKE_ENDPOINT || "https://api.weibo.cn/2/like/update";
+  const endpoint = process.env.WEIBO_APP_COMMENT_LIKE_ENDPOINT || "https://api.weibo.cn/2/like/update";
+  const query = new URLSearchParams(
+    process.env.WEIBO_APP_COMMENT_LIKE_QUERY ||
+      process.env.WEIBO_APP_SEND_QUERY ||
+      "aid=01A3HlOH9I_DDX-VXUqpvWcDxsbp96_b3Qf2fmNCXwJo9HqpI.&b=0&c=iphone&dlang=zh-Hans-CN&from=10G4293010&ft=1&lang=zh_CN&launchid=10000365--x&networktype=wifi&s=22bc398b&sflag=1&skin=default&ua=iPhone15%2C3__weibo__16.4.2__iphone__os26.3.1&v_f=1&v_p=93&wm=3333_2001",
+  );
+
+  const gsid = process.env.WEIBO_APP_GSID;
+
+  if (gsid) {
+    query.set("gsid", gsid);
+  }
+
+  const url = new URL(endpoint);
+  query.forEach((value, key) => {
+    url.searchParams.set(key, value);
+  });
+
+  return url.toString();
 }
 
 function getRepostEndpoints() {
@@ -686,7 +704,7 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
   body.set("phone_id", process.env.WEIBO_APP_PHONE_ID || "1399");
   body.set(
     "ext",
-    process.env.WEIBO_APP_COMMENT_LIKE_EXT || "notice_target_uid:0|source_from:comment_hot",
+    process.env.WEIBO_APP_COMMENT_LIKE_EXT || "notice_target_uid:6290146825|source_from:comment_hot",
   );
 
   const headers: Record<string, string> = {
