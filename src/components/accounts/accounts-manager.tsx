@@ -60,6 +60,7 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [batchChecking, setBatchChecking] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
@@ -341,6 +342,54 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
     }
   }
 
+  async function handleBatchDelete() {
+    const candidateIds = new Set(selectedAccountIds);
+    const candidates =
+      selectedAccountIds.length > 0
+        ? filteredAccounts.filter((account) => candidateIds.has(account.id))
+        : filteredAccounts;
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可删除账号");
+      return;
+    }
+
+    if (!window.confirm(`确认删除 ${candidates.length} 个账号吗？该操作不可恢复。`)) {
+      return;
+    }
+
+    try {
+      setBatchDeleting(true);
+      setError(null);
+
+      let failed = 0;
+
+      for (const account of candidates) {
+        try {
+          const response = await fetch(`/api/accounts/${account.id}`, {
+            method: "DELETE",
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "删除账号失败");
+          }
+
+          setAccounts((current) => current.filter((item) => item.id !== account.id));
+          setSelectedAccountIds((current) => current.filter((id) => id !== account.id));
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (failed > 0) {
+        setError(`批量删除完成，失败 ${failed} 个账号，请重试或检查依赖数据`);
+      }
+    } finally {
+      setBatchDeleting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -529,6 +578,16 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                 >
                   清空选择
+                </button>
+              ) : null}
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={handleBatchDelete}
+                  disabled={batchDeleting}
+                  className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {batchDeleting ? "删除中..." : selectedAccountIds.length > 0 ? `删除选中账号 (${selectedAccountIds.length})` : "删除当前筛选"}
                 </button>
               ) : null}
             </div>
