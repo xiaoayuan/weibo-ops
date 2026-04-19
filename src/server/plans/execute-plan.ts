@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { decryptText } from "@/lib/encrypt";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
-import { fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
+import { checkStatusIsZeroComments, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
 function toDateText(date: Date) {
   const year = date.getFullYear();
@@ -155,8 +155,8 @@ export async function executePlanById(id: string) {
     });
 
     const usedIds = new Set(locks.map((item) => item.statusId));
-    const preferred = latestPosts.slice(0, 20).filter((post) => post.commentsCount === 0);
-    const expanded = latestPosts.slice(20, 200).filter((post) => post.commentsCount === 0);
+    const preferred = latestPosts.slice(0, 20);
+    const expanded = latestPosts.slice(20, 200);
     const candidates = [...preferred, ...expanded];
 
     let executed = false;
@@ -165,6 +165,12 @@ export async function executePlanById(id: string) {
 
     for (const candidate of candidates) {
       if (usedIds.has(candidate.id)) {
+        continue;
+      }
+
+      const isZeroComments = await checkStatusIsZeroComments(candidate.id, cookie, topicUrl, candidate.commentsCount);
+
+      if (!isZeroComments) {
         continue;
       }
 

@@ -63,7 +63,7 @@ function extractTopicContainerId(topicUrl?: string | null) {
 
 type CandidatePost = {
   id: string;
-  commentsCount: number;
+  commentsCount?: number;
   targetUrl: string;
 };
 
@@ -104,7 +104,7 @@ function collectCandidatePosts(payload: unknown, fallbackTopicUrl: string): Cand
     const idRaw = record.idstr || record.id;
     const commentsCount = readNumber(record.comments_count ?? record.commentsCount);
 
-    if (idRaw && commentsCount !== undefined) {
+    if (idRaw) {
       const id = String(idRaw);
 
       if (!seen.has(id)) {
@@ -271,6 +271,40 @@ export async function sendFirstComment(statusId: string, targetUrl: string, comm
     status: response.status,
     payload,
   };
+}
+
+export async function checkStatusIsZeroComments(statusId: string, cookie: string, referer: string, fallbackCount?: number) {
+  if (typeof fallbackCount === "number") {
+    return fallbackCount === 0;
+  }
+
+  const endpoint = `https://weibo.com/ajax/statuses/show?id=${encodeURIComponent(statusId)}`;
+  const response = await sendHttpRequestWithRetry(
+    {
+      url: endpoint,
+      method: "GET",
+      headers: {
+        Cookie: cookie,
+        Referer: referer || "https://weibo.com/",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      timeoutMs: 12_000,
+    },
+    {
+      retries: 1,
+    },
+  );
+
+  const payload = response.json;
+
+  if (!response.ok || !payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const commentsCount = readNumber(record.comments_count ?? record.commentsCount);
+
+  return commentsCount === 0;
 }
 
 export function pickRandomTemplate(templates: string[]) {
