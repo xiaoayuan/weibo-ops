@@ -51,6 +51,7 @@ export function InteractionsManager({
   const [tasks, setTasks] = useState(initialTasks);
   const [targetUrl, setTargetUrl] = useState("");
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [executorAccountId, setExecutorAccountId] = useState("");
   const [actionType, setActionType] = useState<InteractionActionType>("LIKE");
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<InteractionStatus | "ALL">("ALL");
@@ -147,8 +148,22 @@ export function InteractionsManager({
     try {
       setError(null);
 
+      const task = tasks.find((item) => item.id === id);
+
+      if (!task) {
+        throw new Error("互动任务不存在");
+      }
+
+      if (!task.isOwned && !executorAccountId) {
+        throw new Error("请先选择用于执行跨用户任务的账号");
+      }
+
       const response = await fetch(`/api/interaction-tasks/${id}/execute`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          executorAccountId: task.isOwned ? undefined : executorAccountId,
+        }),
       });
       const result = await response.json();
 
@@ -184,8 +199,16 @@ export function InteractionsManager({
 
       for (const task of candidates) {
         try {
+          if (!task.isOwned && !executorAccountId) {
+            throw new Error("请先选择用于执行跨用户任务的账号");
+          }
+
           const response = await fetch(`/api/interaction-tasks/${task.id}/execute`, {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              executorAccountId: task.isOwned ? undefined : executorAccountId,
+            }),
           });
           const result = await response.json();
 
@@ -326,6 +349,20 @@ export function InteractionsManager({
                 <option value="FAILED">失败</option>
                 <option value="CANCELLED">已取消</option>
               </select>
+              {canExecute ? (
+                <select
+                  value={executorAccountId}
+                  onChange={(event) => setExecutorAccountId(event.target.value)}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="">跨用户执行账号（必选）</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.nickname}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               {canExecute ? (
                 <button
                   type="button"
