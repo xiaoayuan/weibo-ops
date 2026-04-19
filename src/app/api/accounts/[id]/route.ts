@@ -25,6 +25,10 @@ export async function GET(_request: Request, context: RouteContext<"/api/account
     );
   }
 
+  if (account.ownerUserId !== auth.session.id) {
+    return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
+  }
+
   return Response.json({
     success: true,
     data: account,
@@ -67,6 +71,10 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
         },
         { status: 404 },
       );
+    }
+
+    if (existing.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
     }
 
     const account = await prisma.weiboAccount.update({
@@ -116,6 +124,10 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/acco
         },
         { status: 404 },
       );
+    }
+
+    if (existing.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
     }
 
     await prisma.weiboAccount.delete({

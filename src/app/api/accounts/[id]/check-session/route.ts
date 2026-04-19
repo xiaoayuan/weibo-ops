@@ -19,6 +19,10 @@ export async function POST(_request: Request, context: RouteContext<"/api/accoun
       return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
     }
 
+    if (account.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
+    }
+
     if (!account.cookieEncrypted) {
       return Response.json({ success: false, message: "该账号尚未录入 Cookie" }, { status: 400 });
     }

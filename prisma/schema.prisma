@@ -82,6 +82,7 @@ model User {
 
   logs         ExecutionLog[]
   actionJobs   ActionJob[]
+  ownedAccounts WeiboAccount[] @relation("AccountOwner")
 }
 
 model InviteCode {
@@ -104,6 +105,7 @@ model InviteCode {
 
 model WeiboAccount {
   id                  String             @id @default(cuid())
+  ownerUserId         String?
   nickname            String
   remark              String?
   groupName           String?
@@ -127,6 +129,9 @@ model WeiboAccount {
   logs             ExecutionLog[]
   actionJobRuns    ActionJobAccountRun[]
   actionJobSteps   ActionJobStep[]
+  owner            User?              @relation("AccountOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@index([ownerUserId])
 }
 
 model SuperTopic {

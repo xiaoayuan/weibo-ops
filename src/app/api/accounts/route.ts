@@ -10,6 +10,7 @@ export async function GET() {
   }
 
   const accounts = await prisma.weiboAccount.findMany({
+    where: { ownerUserId: auth.session.id },
     orderBy: { createdAt: "desc" },
   });
 
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
 
     const account = await prisma.weiboAccount.create({
       data: {
+        ownerUserId: auth.session.id,
         nickname: parsed.data.nickname,
         remark: parsed.data.remark || null,
         groupName: parsed.data.groupName || null,

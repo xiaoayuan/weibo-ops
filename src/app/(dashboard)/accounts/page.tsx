@@ -8,6 +8,7 @@ export default async function AccountsPage() {
   const session = await requirePageRole("VIEWER");
 
   const accounts = await prisma.weiboAccount.findMany({
+    where: { ownerUserId: session.id },
     orderBy: { createdAt: "desc" },
   });
 

@@ -36,6 +36,10 @@ export async function POST(request: Request, context: RouteContext<"/api/account
       return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
     }
 
+    if (existing.ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
+    }
+
     const updated = await prisma.weiboAccount.update({
       where: { id },
       data: {
