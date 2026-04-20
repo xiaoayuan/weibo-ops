@@ -43,8 +43,8 @@ export async function POST(request: Request, context: RouteContext<"/api/account
     const updated = await prisma.weiboAccount.update({
       where: { id },
       data: {
-        uid: parsed.data.uid,
-        username: parsed.data.username,
+        uid: parsed.data.uid?.trim() ? parsed.data.uid.trim() : existing.uid,
+        username: parsed.data.username?.trim() ? parsed.data.username.trim() : existing.username,
         cookieEncrypted: encryptText(parsed.data.cookie),
         cookieUpdatedAt: new Date(),
         loginStatus: "UNKNOWN",
@@ -57,8 +57,8 @@ export async function POST(request: Request, context: RouteContext<"/api/account
       accountId: updated.id,
       actionType: "ACCOUNT_SESSION_SAVED",
       requestPayload: {
-        uid: parsed.data.uid,
-        username: parsed.data.username,
+        uid: parsed.data.uid?.trim() || updated.uid,
+        username: parsed.data.username?.trim() || updated.username,
       },
       success: true,
     });

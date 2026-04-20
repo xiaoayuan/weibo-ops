@@ -14,6 +14,9 @@ type FormState = {
   remark: string;
   groupName: string;
   status: AccountStatus;
+  uid: string;
+  username: string;
+  cookie: string;
 };
 
 type SessionFormState = {
@@ -37,6 +40,9 @@ const initialForm: FormState = {
   remark: "",
   groupName: "",
   status: "ACTIVE",
+  uid: "",
+  username: "",
+  cookie: "",
 };
 
 const initialSessionForm: SessionFormState = {
@@ -162,13 +168,21 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
     try {
       setSubmitting(true);
       setError(null);
+      setNotice(null);
+
+      const payload = {
+        nickname: form.nickname,
+        remark: form.remark,
+        groupName: form.groupName,
+        status: form.status,
+      };
 
       const response = await fetch(editingId ? `/api/accounts/${editingId}` : "/api/accounts", {
         method: editingId ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -177,13 +191,43 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
         throw new Error(result.message || "新增账号失败");
       }
 
+      let mergedAccount = result.data as WeiboAccount;
+
+      if (!editingId && form.cookie.trim()) {
+        const sessionResponse = await fetch(`/api/accounts/${result.data.id}/session`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            uid: form.uid,
+            username: form.username,
+            cookie: form.cookie,
+          }),
+        });
+        const sessionResult = await sessionResponse.json();
+
+        if (!sessionResponse.ok) {
+          setError(`账号已创建，但 Cookie 保存失败：${sessionResult.message || "请稍后在列表中录入"}`);
+        } else {
+          mergedAccount = {
+            ...result.data,
+            uid: sessionResult.data.uid,
+            username: sessionResult.data.username,
+            loginStatus: sessionResult.data.loginStatus,
+            cookieUpdatedAt: sessionResult.data.cookieUpdatedAt,
+          };
+          setNotice("账号已创建并完成 Cookie 录入");
+        }
+      }
+
       setForm(initialForm);
       setEditingId(null);
 
       setAccounts((current) =>
         editingId
-          ? current.map((item) => (item.id === editingId ? result.data : item))
-          : [result.data, ...current],
+          ? current.map((item) => (item.id === editingId ? mergedAccount : item))
+          : [mergedAccount, ...current],
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : editingId ? "更新账号失败" : "新增账号失败");
@@ -199,6 +243,9 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
       remark: account.remark || "",
       groupName: account.groupName || "",
       status: account.status,
+      uid: account.uid || "",
+      username: account.username || "",
+      cookie: "",
     });
     setError(null);
   }
@@ -558,6 +605,40 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
             </select>
           </div>
 
+          {!editingId ? (
+            <>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">微博 UID（可选）</label>
+                <input
+                  value={form.uid}
+                  onChange={(event) => setForm((current) => ({ ...current, uid: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                  placeholder="可留空，后续检测时自动补全"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">微博用户名（可选）</label>
+                <input
+                  value={form.username}
+                  onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                  placeholder="可留空，后续检测时自动补全"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">创建时直接录入 Cookie（可选）</label>
+                <textarea
+                  value={form.cookie}
+                  onChange={(event) => setForm((current) => ({ ...current, cookie: event.target.value }))}
+                  className="min-h-28 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                  placeholder="粘贴微博 Cookie，可一步完成账号创建+登录态录入"
+                />
+              </div>
+            </>
+          ) : null}
+
           <div className="md:col-span-2 flex items-center justify-between gap-3">
             <div>
               {error ? <p className="text-sm text-rose-600">{error}</p> : null}
@@ -637,21 +718,21 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
           <form className="mt-4 grid gap-4" onSubmit={handleSessionSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">微博 UID</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">微博 UID（可选）</label>
                 <input
                   value={sessionForm.uid}
                   onChange={(event) => setSessionForm((current) => ({ ...current, uid: event.target.value }))}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-                  placeholder="请输入微博 UID"
+                  placeholder="可留空，沿用当前账号信息"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">微博用户名</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">微博用户名（可选）</label>
                 <input
                   value={sessionForm.username}
                   onChange={(event) => setSessionForm((current) => ({ ...current, username: event.target.value }))}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-                  placeholder="请输入微博用户名"
+                  placeholder="可留空，沿用当前账号信息"
                 />
               </div>
             </div>
