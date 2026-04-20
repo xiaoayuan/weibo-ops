@@ -117,6 +117,7 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
               item.id === sessionEditingId
                 ? {
                     ...item,
+                    nickname: result.data.account.nickname,
                     uid: result.data.account.uid,
                     username: result.data.account.username,
                     loginStatus: result.data.account.loginStatus,
@@ -176,6 +177,9 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
 
   async function submitAccount(startQrAfterCreate: boolean) {
     const isCreating = !editingId;
+    const autoNickname = "未命名账号";
+    const createNickname =
+      form.nickname.trim() || form.username.trim() || form.uid.trim() || autoNickname;
 
     try {
       setSubmitting(true);
@@ -183,7 +187,7 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
       setNotice(null);
 
       const payload = {
-        nickname: form.nickname,
+        nickname: isCreating ? createNickname : form.nickname,
         remark: form.remark,
         groupName: form.groupName,
         status: form.status,
@@ -593,7 +597,7 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
               value={form.nickname}
               onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))}
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-              placeholder="请输入账号昵称"
+              placeholder="可留空，扫码后自动回填"
             />
           </div>
 

@@ -26,6 +26,7 @@ export async function GET(request: Request, context: RouteContext<"/api/accounts
       select: {
         id: true,
         ownerUserId: true,
+        nickname: true,
       },
     });
 
@@ -41,10 +42,14 @@ export async function GET(request: Request, context: RouteContext<"/api/accounts
 
     const encryptedCookie = encryptText(qrStatus.cookieText);
     const checkResult = await checkWeiboSession(encryptedCookie);
+    const shouldAutoRename = Boolean(
+      qrStatus.username && (!account.nickname.trim() || account.nickname.startsWith("未命名账号-")),
+    );
 
     const updated = await prisma.weiboAccount.update({
       where: { id },
       data: {
+        nickname: shouldAutoRename ? qrStatus.username : undefined,
         uid: qrStatus.uid || undefined,
         username: qrStatus.username || undefined,
         cookieEncrypted: encryptedCookie,
@@ -56,6 +61,7 @@ export async function GET(request: Request, context: RouteContext<"/api/accounts
       },
       select: {
         id: true,
+        nickname: true,
         uid: true,
         username: true,
         loginStatus: true,
