@@ -879,9 +879,19 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     ok: false,
     repostsCount: undefined,
     isRepost: false,
+    originStatusId: undefined,
     summary: "repost-count-before-unavailable",
   }));
   const requireStrictTargetIncrease = beforeSnapshot.isRepost;
+  const originBeforeSnapshot = beforeSnapshot.originStatusId
+    ? await fetchRepostCount(cookie, resolvedTargetUrl, beforeSnapshot.originStatusId).catch(() => ({
+        ok: false,
+        repostsCount: undefined,
+        isRepost: false,
+        originStatusId: undefined,
+        summary: "origin-repost-count-before-unavailable",
+      }))
+    : undefined;
 
   const endpoints = beforeSnapshot.isRepost
     ? ["https://weibo.com/ajax/statuses/normal_repost"]
@@ -958,6 +968,8 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         requestBody: form.toString(),
         referer: headers.Referer,
         beforeRepostsCount: beforeSnapshot.repostsCount,
+        originStatusId: beforeSnapshot.originStatusId,
+        originBeforeRepostsCount: originBeforeSnapshot?.repostsCount,
         targetIsRepost: beforeSnapshot.isRepost,
       },
       businessOk,
@@ -968,8 +980,18 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         ok: false,
         repostsCount: undefined,
         isRepost: false,
+        originStatusId: undefined,
         summary: "repost-count-after-unavailable",
       }));
+      const originAfterSnapshot = beforeSnapshot.originStatusId
+        ? await fetchRepostCount(cookie, resolvedTargetUrl, beforeSnapshot.originStatusId).catch(() => ({
+            ok: false,
+            repostsCount: undefined,
+            isRepost: false,
+            originStatusId: undefined,
+            summary: "origin-repost-count-after-unavailable",
+          }))
+        : undefined;
       const countIncreased =
         beforeSnapshot.repostsCount !== undefined &&
         afterSnapshot.repostsCount !== undefined &&
@@ -986,6 +1008,9 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
             referer: headers.Referer,
             beforeRepostsCount: beforeSnapshot.repostsCount,
             afterRepostsCount: afterSnapshot.repostsCount,
+            originStatusId: beforeSnapshot.originStatusId,
+            originBeforeRepostsCount: originBeforeSnapshot?.repostsCount,
+            originAfterRepostsCount: originAfterSnapshot?.repostsCount,
             reason: "target_repost_count_unavailable",
           },
           businessOk: false,
@@ -1004,6 +1029,9 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
             referer: headers.Referer,
             beforeRepostsCount: beforeSnapshot.repostsCount,
             afterRepostsCount: afterSnapshot.repostsCount,
+            originStatusId: beforeSnapshot.originStatusId,
+            originBeforeRepostsCount: originBeforeSnapshot?.repostsCount,
+            originAfterRepostsCount: originAfterSnapshot?.repostsCount,
             reason: "target_repost_count_not_increased",
           },
           businessOk: false,
@@ -1018,6 +1046,11 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
           responseSummary: summary,
           requestBody: form.toString(),
           referer: headers.Referer,
+          beforeRepostsCount: beforeSnapshot.repostsCount,
+          afterRepostsCount: afterSnapshot.repostsCount,
+          originStatusId: beforeSnapshot.originStatusId,
+          originBeforeRepostsCount: originBeforeSnapshot?.repostsCount,
+          originAfterRepostsCount: originAfterSnapshot?.repostsCount,
         },
         endpoint,
         mode: "form-post",
@@ -1416,6 +1449,11 @@ async function fetchRepostCount(cookie: string, referer: string, statusId: strin
     ok: response.ok,
     repostsCount,
     isRepost,
+    originStatusId: typeof (record?.retweeted_status as Record<string, unknown> | undefined)?.idstr === "string"
+      ? String((record?.retweeted_status as Record<string, unknown>).idstr)
+      : typeof (record?.retweeted_status as Record<string, unknown> | undefined)?.id === "number"
+        ? String((record?.retweeted_status as Record<string, unknown>).id)
+        : undefined,
     summary,
   };
 }
