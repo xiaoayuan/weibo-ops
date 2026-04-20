@@ -83,7 +83,11 @@ function getRepostEndpoints() {
     return envList;
   }
 
-  return ["https://weibo.com/ajax/statuses/normal_repost"];
+  return [
+    "https://weibo.com/ajax/statuses/normal_repost",
+    "https://weibo.com/aj/v6/mblog/forward?ajwvr=6",
+    "https://weibo.com/ajax/statuses/repost",
+  ];
 }
 
 function getPostEndpoints() {
@@ -840,8 +844,10 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   const beforeSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId).catch(() => ({
     ok: false,
     repostsCount: undefined,
+    isRepost: false,
     summary: "repost-count-before-unavailable",
   }));
+  const requireStrictTargetIncrease = beforeSnapshot.isRepost;
 
   const endpoints = getRepostEndpoints();
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
@@ -864,6 +870,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
       form.set("content", repostText);
       form.set("text", repostText);
       form.set("status", repostText);
+      form.set("comment", repostText);
       form.set("is_comment", "0");
       form.set("location", "v6_content_home");
       form.set("module", "scommlist");
@@ -903,6 +910,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
       const afterSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId).catch(() => ({
         ok: false,
         repostsCount: undefined,
+        isRepost: false,
         summary: "repost-count-after-unavailable",
       }));
       const countIncreased =
@@ -910,7 +918,23 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         afterSnapshot.repostsCount !== undefined &&
         afterSnapshot.repostsCount > beforeSnapshot.repostsCount;
 
-      if (beforeSnapshot.repostsCount !== undefined && afterSnapshot.repostsCount !== undefined && !countIncreased) {
+      if (requireStrictTargetIncrease && (beforeSnapshot.repostsCount === undefined || afterSnapshot.repostsCount === undefined)) {
+        attempts.push({
+          endpoint,
+          mode: "repost-count-verify",
+          ok: false,
+          status: response.status,
+          summary: {
+            beforeRepostsCount: beforeSnapshot.repostsCount,
+            afterRepostsCount: afterSnapshot.repostsCount,
+            reason: "target_repost_count_unavailable",
+          },
+          businessOk: false,
+        });
+        continue;
+      }
+
+      if ((requireStrictTargetIncrease && !countIncreased) || (beforeSnapshot.repostsCount !== undefined && afterSnapshot.repostsCount !== undefined && !countIncreased)) {
         attempts.push({
           endpoint,
           mode: "repost-count-verify",
@@ -1321,10 +1345,12 @@ async function fetchRepostCount(cookie: string, referer: string, statusId: strin
   const summary = response.json ?? response.text.slice(0, 220);
   const record = response.json as Record<string, unknown> | undefined;
   const repostsCount = toNumber(record?.reposts_count ?? record?.repostsCount);
+  const isRepost = Boolean(record?.retweeted_status && typeof record.retweeted_status === "object");
 
   return {
     ok: response.ok,
     repostsCount,
+    isRepost,
     summary,
   };
 }
