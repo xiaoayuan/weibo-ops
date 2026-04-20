@@ -56,6 +56,67 @@ function computeJobStatus(total: number, success: number, failed: number) {
   return "PARTIAL_FAILED" as const;
 }
 
+async function recomputeRepostRunStatus(jobId: string, accountId: string) {
+  const steps = await prisma.actionJobStep.findMany({
+    where: {
+      jobId,
+      accountId,
+    },
+    select: {
+      id: true,
+      status: true,
+      sequenceNo: true,
+      errorMessage: true,
+    },
+    orderBy: { sequenceNo: "asc" },
+  });
+
+  const successCount = steps.filter((step) => step.status === "SUCCESS").length;
+  const failedSteps = steps.filter((step) => step.status === "FAILED");
+  const failedCount = failedSteps.length;
+  const latestFailed = failedSteps[failedSteps.length - 1];
+  const status = computeJobStatus(steps.length, successCount, failedCount);
+
+  await prisma.actionJobAccountRun.updateMany({
+    where: { jobId, accountId },
+    data: {
+      status,
+      currentStep: steps.length,
+      errorMessage: latestFailed?.errorMessage || null,
+    },
+  });
+
+  return {
+    total: steps.length,
+    successCount,
+    failedCount,
+  };
+}
+
+async function recomputeRepostJobSummary(jobId: string, targetUrl: string, times: number, intervalSec: 0 | 3 | 5 | 10) {
+  const finalRuns = await prisma.actionJobAccountRun.findMany({ where: { jobId } });
+  const successAccounts = finalRuns.filter((item) => item.status === "SUCCESS").length;
+  const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
+  const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
+  const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
+
+  await prisma.actionJob.update({
+    where: { id: jobId },
+    data: {
+      status: finalStatus,
+      summary: {
+        totalAccounts: finalRuns.length,
+        successAccounts,
+        failedAccounts,
+        partialAccounts,
+        targetUrl,
+        times,
+        intervalSec,
+      },
+    },
+  });
+}
+
 export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const [accounts, steps] = await Promise.all([
     prisma.weiboAccount.findMany({
@@ -214,10 +275,6 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
       continue;
     }
 
-    let successCount = 0;
-    let failedCount = 0;
-    let latestError = "";
-
     await prisma.actionJobAccountRun.updateMany({
       where: { jobId: input.jobId, accountId },
       data: { status: "RUNNING" },
@@ -272,13 +329,6 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
       const success = result.success && result.status === "SUCCESS";
 
-      if (success) {
-        successCount += 1;
-      } else {
-        failedCount += 1;
-        latestError = result.message;
-      }
-
       await prisma.actionJobStep.update({
         where: { id: step.id },
         data: {
@@ -306,51 +356,15 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         errorMessage: success ? undefined : result.message,
       });
 
-      await prisma.actionJobAccountRun.updateMany({
-        where: { jobId: input.jobId, accountId },
-        data: {
-          currentStep: step.sequenceNo,
-          status: failedCount > 0 ? "PARTIAL_FAILED" : "RUNNING",
-          errorMessage: latestError || null,
-        },
-      });
+      await recomputeRepostRunStatus(input.jobId, accountId);
 
       if (step.sequenceNo < input.times) {
         await sleep(computeStepDelayMs(input.intervalSec));
       }
     }
 
-    const accountStatus = failedCount > 0 ? "FAILED" : successCount === input.times ? "SUCCESS" : "PARTIAL_FAILED";
-
-    await prisma.actionJobAccountRun.updateMany({
-      where: { jobId: input.jobId, accountId },
-      data: {
-        status: accountStatus,
-        currentStep: successCount + failedCount,
-        errorMessage: latestError || null,
-      },
-    });
+    await recomputeRepostRunStatus(input.jobId, accountId);
   }
 
-  const finalRuns = await prisma.actionJobAccountRun.findMany({ where: { jobId: input.jobId } });
-  const successAccounts = finalRuns.filter((item) => item.status === "SUCCESS").length;
-  const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
-  const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
-  const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
-
-  await prisma.actionJob.update({
-    where: { id: input.jobId },
-    data: {
-      status: finalStatus,
-      summary: {
-        totalAccounts: finalRuns.length,
-        successAccounts,
-        failedAccounts,
-        partialAccounts,
-        targetUrl: input.targetUrl,
-        times: input.times,
-        intervalSec: input.intervalSec,
-      },
-    },
-  });
+  await recomputeRepostJobSummary(input.jobId, input.targetUrl, input.times, input.intervalSec);
 }
