@@ -883,7 +883,9 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   }));
   const requireStrictTargetIncrease = beforeSnapshot.isRepost;
 
-  const endpoints = beforeSnapshot.isRepost ? ["https://weibo.com/ajax/statuses/normal_repost"] : getRepostEndpoints();
+  const endpoints = beforeSnapshot.isRepost
+    ? ["https://weibo.com/aj/v6/mblog/forward?ajwvr=6"]
+    : getRepostEndpoints();
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
   const targetUid = tryExtractUidFromStatusUrl(resolvedTargetUrl);
   const userPageReferer = targetUid ? `https://weibo.com/u/${targetUid}` : resolvedTargetUrl;
