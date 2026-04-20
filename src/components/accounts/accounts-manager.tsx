@@ -883,8 +883,6 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                 <tr>
                   {canManage ? <th className="px-6 py-3 font-medium">选择</th> : null}
                   <th className="px-6 py-3 font-medium">账号昵称</th>
-                  <th className="px-6 py-3 font-medium">微博用户名</th>
-                  <th className="px-6 py-3 font-medium">UID</th>
                   <th className="px-6 py-3 font-medium">分组</th>
                   <th className="px-6 py-3 font-medium">登录状态</th>
                   <th className="px-6 py-3 font-medium">最近检测</th>
@@ -907,9 +905,10 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{account.nickname}</div>
                       <div className="mt-1 text-xs text-slate-500">{statusText[account.status]} / 风险 {account.riskLevel}</div>
+                      <div className="mt-1 text-xs text-slate-400">
+                        微博：{account.username || "-"} / UID：{account.uid || "-"}
+                      </div>
                     </td>
-                    <td className="px-6 py-4">{account.username || "-"}</td>
-                    <td className="px-6 py-4">{account.uid || "-"}</td>
                     <td className="px-6 py-4">{account.groupName || "-"}</td>
                     <td className="px-6 py-4">{loginStatusText[account.loginStatus]}</td>
                     <td className="px-6 py-4">
