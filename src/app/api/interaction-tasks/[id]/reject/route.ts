@@ -14,17 +14,10 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
   try {
     const existing = await prisma.interactionTask.findUnique({
       where: { id },
-      select: {
-        id: true,
-        account: {
-          select: {
-            ownerUserId: true,
-          },
-        },
-      },
+      select: { id: true },
     });
 
-    if (!existing || existing.account.ownerUserId !== auth.session.id) {
+    if (!existing) {
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 

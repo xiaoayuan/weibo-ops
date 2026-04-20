@@ -436,7 +436,7 @@ export function InteractionsManager({
                           <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
                             执行
                           </button>
-                          {canManage && task.isOwned ? (
+                          {canManage ? (
                             <button onClick={() => handleDelete(task.id)} className="text-rose-700 hover:text-rose-800">
                               删除
                             </button>
