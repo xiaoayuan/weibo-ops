@@ -54,6 +54,7 @@ export function OpsManager({
   const [forceDuplicate, setForceDuplicate] = useState(false);
   const [rotationTargetUrl, setRotationTargetUrl] = useState("");
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
+  const [rotationCopyTexts, setRotationCopyTexts] = useState("1\n2\n3\n4\n5");
   const [submitting, setSubmitting] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -334,6 +335,11 @@ export function OpsManager({
       return;
     }
 
+    const copywritingTexts = rotationCopyTexts
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
     try {
       setSubmitting(true);
       setError(null);
@@ -346,6 +352,7 @@ export function OpsManager({
           targetUrl: rotationTargetUrl,
           times: 5,
           intervalSec: rotationIntervalSec,
+          copywritingTexts,
         }),
       });
       const result = await response.json();
@@ -626,7 +633,16 @@ export function OpsManager({
               <option value={5}>5 秒间隔</option>
               <option value={10}>10 秒间隔</option>
             </select>
-            <p className="text-sm text-slate-500">系统会按每个账号 5 次执行，转发文案固定为数字 1~5。</p>
+            <div>
+              <p className="mb-2 text-sm font-medium text-slate-700">转发文案（每行一条，按顺序轮转）</p>
+              <textarea
+                value={rotationCopyTexts}
+                onChange={(event) => setRotationCopyTexts(event.target.value)}
+                className="min-h-28 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                placeholder={"支持\n路过\n冲冲冲"}
+              />
+            </div>
+            <p className="text-sm text-slate-500">系统默认每账号执行 5 次；若填写文案，将按行轮转写入转发内容。</p>
             <button
               type="submit"
               disabled={submitting || !canManage}

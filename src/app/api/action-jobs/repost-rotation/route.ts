@@ -43,10 +43,15 @@ export async function POST(request: Request) {
           targetUrl: parsed.data.targetUrl,
           times: parsed.data.times,
           intervalSec: parsed.data.intervalSec,
+          copywritingTexts: parsed.data.copywritingTexts || [],
         },
         createdBy: auth.session.id,
       },
     });
+
+    const fallbackTexts = ["1", "2", "3", "4", "5"];
+    const copywritingTexts =
+      parsed.data.copywritingTexts && parsed.data.copywritingTexts.length > 0 ? parsed.data.copywritingTexts : fallbackTexts;
 
     const runData = parsed.data.accountIds.map((accountId) => ({
       jobId: job.id,
@@ -66,7 +71,7 @@ export async function POST(request: Request) {
         accountId,
         stepType: "REPOST" as const,
         targetUrl: parsed.data.targetUrl,
-        payload: { repostContent: String(index + 1) },
+        payload: { repostContent: copywritingTexts[index % copywritingTexts.length] },
         sequenceNo: index + 1,
       })),
     );

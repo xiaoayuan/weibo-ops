@@ -847,9 +847,12 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
 
   for (const endpoint of endpoints) {
     const form = new URLSearchParams();
+    const repostText = repostContent || "";
     form.set("id", statusId);
     form.set("mid", statusId);
-    form.set("content", repostContent || "");
+    form.set("content", repostText);
+    form.set("text", repostText);
+    form.set("status", repostText);
     form.set("is_comment", "0");
 
     const headers: Record<string, string> = {
