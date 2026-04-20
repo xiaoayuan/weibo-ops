@@ -83,11 +83,7 @@ function getRepostEndpoints() {
     return envList;
   }
 
-  return [
-    "https://weibo.com/ajax/statuses/normal_repost",
-    "https://weibo.com/aj/v6/mblog/forward?ajwvr=6",
-    "https://weibo.com/ajax/statuses/repost",
-  ];
+  return ["https://weibo.com/ajax/statuses/normal_repost"];
 }
 
 function getPostEndpoints() {
