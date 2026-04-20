@@ -47,11 +47,13 @@ export function PlansManager({
   const [statusFilter, setStatusFilter] = useState<PlanStatus | "ALL">("ALL");
   const [accountFilter, setAccountFilter] = useState("ALL");
   const [topicFilter, setTopicFilter] = useState("ALL");
+  const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editScheduledTime, setEditScheduledTime] = useState("");
   const [editContentId, setEditContentId] = useState("");
   const [loading, setLoading] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
   const canExecute = canReviewAndExecuteTasks(currentUserRole);
@@ -80,6 +82,7 @@ export function PlansManager({
 
       setPlans(result.data);
       setEditingId(null);
+      setSelectedPlanIds([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "获取计划失败");
     } finally {
@@ -107,6 +110,7 @@ export function PlansManager({
 
       setPlans(result.data);
       setEditingId(null);
+      setSelectedPlanIds([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "生成计划失败");
     } finally {
@@ -133,8 +137,22 @@ export function PlansManager({
     }
   }
 
+  function togglePlanSelection(id: string) {
+    setSelectedPlanIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function selectAllFilteredPlans() {
+    setSelectedPlanIds(filteredPlans.map((plan) => plan.id));
+  }
+
+  function clearSelection() {
+    setSelectedPlanIds([]);
+  }
+
   async function handleBatchExecute() {
-    const candidates = filteredPlans.filter(
+    const selectedSet = new Set(selectedPlanIds);
+    const baseCandidates = selectedPlanIds.length > 0 ? filteredPlans.filter((plan) => selectedSet.has(plan.id)) : filteredPlans;
+    const candidates = baseCandidates.filter(
       (plan) => plan.status === "PENDING" || plan.status === "READY" || plan.status === "FAILED",
     );
 
@@ -196,8 +214,54 @@ export function PlansManager({
       }
 
       setPlans((current) => current.filter((item) => item.id !== id));
+      setSelectedPlanIds((current) => current.filter((planId) => planId !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "删除计划失败");
+    }
+  }
+
+  async function handleBatchDelete() {
+    const selectedSet = new Set(selectedPlanIds);
+    const candidates = selectedPlanIds.length > 0 ? filteredPlans.filter((plan) => selectedSet.has(plan.id)) : filteredPlans;
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可删除的计划");
+      return;
+    }
+
+    if (!window.confirm(`确认删除 ${candidates.length} 条计划吗？该操作不可恢复。`)) {
+      return;
+    }
+
+    try {
+      setBatchDeleting(true);
+      setError(null);
+
+      let failed = 0;
+
+      for (const plan of candidates) {
+        try {
+          const response = await fetch(`/api/plans/${plan.id}`, {
+            method: "DELETE",
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "删除计划失败");
+          }
+
+          setPlans((current) => current.filter((item) => item.id !== plan.id));
+          setSelectedPlanIds((current) => current.filter((id) => id !== plan.id));
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (failed > 0) {
+        setError(`批量删除完成，失败 ${failed} 条，请重试`);
+      }
+    } finally {
+      setBatchDeleting(false);
     }
   }
 
@@ -307,6 +371,34 @@ export function PlansManager({
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("FAILED")}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              仅看失败
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("ALL")}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              重置筛选
+            </button>
+            <button
+              type="button"
+              onClick={selectAllFilteredPlans}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              全选当前筛选
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              清空已选
+            </button>
           </div>
           <div className="flex items-center gap-3">
             {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}
@@ -317,7 +409,25 @@ export function PlansManager({
                 disabled={batchExecuting || loading}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {batchExecuting ? "批量执行中..." : "执行/重试当前筛选"}
+                {batchExecuting
+                  ? "批量执行中..."
+                  : selectedPlanIds.length > 0
+                    ? `执行/重试选中 (${selectedPlanIds.length})`
+                    : "执行/重试当前筛选"}
+              </button>
+            ) : null}
+            {canManage ? (
+              <button
+                type="button"
+                onClick={handleBatchDelete}
+                disabled={batchDeleting || loading}
+                className="rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {batchDeleting
+                  ? "批量删除中..."
+                  : selectedPlanIds.length > 0
+                    ? `删除选中 (${selectedPlanIds.length})`
+                    : "删除当前筛选"}
               </button>
             ) : null}
             <button
@@ -345,6 +455,7 @@ export function PlansManager({
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
+              <th className="px-6 py-3 font-medium">选择</th>
               <th className="px-6 py-3 font-medium">时间</th>
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">超话</th>
@@ -357,7 +468,7 @@ export function PlansManager({
           <tbody>
             {filteredPlans.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-slate-500">
+                <td colSpan={8} className="px-6 py-8 text-slate-500">
                   当前日期暂无计划，请先生成。
                 </td>
               </tr>
@@ -367,6 +478,13 @@ export function PlansManager({
 
                 return (
                   <tr key={plan.id} className="border-t border-slate-200 align-top">
+                    <td className="px-6 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedPlanIds.includes(plan.id)}
+                        onChange={() => togglePlanSelection(plan.id)}
+                      />
+                    </td>
                     <td className="px-6 py-4">
                        {isEditing && canManage ? (
                          <input
