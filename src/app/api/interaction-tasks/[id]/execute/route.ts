@@ -3,6 +3,22 @@ import { requireApiRole } from "@/lib/permissions";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 
+function shouldRetryBusy(result: { success: boolean; message: string; responsePayload?: unknown }) {
+  if (result.success) {
+    return false;
+  }
+
+  const payload = result.responsePayload as { code?: string; msg?: string } | undefined;
+  const payloadCode = String(payload?.code || "");
+  const payloadMsg = String(payload?.msg || "");
+
+  return payloadCode === "100001" || result.message.includes("系统繁忙") || payloadMsg.includes("系统繁忙");
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function POST(_request: Request, context: RouteContext<"/api/interaction-tasks/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
 
@@ -49,7 +65,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
     }
 
     const executor = getExecutor();
-    const executionResult = await executor.executeInteraction({
+    let executionResult = await executor.executeInteraction({
       interactionTaskId: task.id,
       accountId: executionAccount.id,
       accountNickname: executionAccount.nickname,
@@ -57,6 +73,22 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       actionType: task.actionType,
       targetUrl: task.target.targetUrl,
     });
+
+    let retryCount = 0;
+
+    if (shouldRetryBusy(executionResult)) {
+      retryCount = 1;
+      await sleep(1200);
+
+      executionResult = await executor.executeInteraction({
+        interactionTaskId: task.id,
+        accountId: executionAccount.id,
+        accountNickname: executionAccount.nickname,
+        accountLoginStatus: executionAccount.loginStatus,
+        actionType: task.actionType,
+        targetUrl: task.target.targetUrl,
+      });
+    }
 
     const updated = await prisma.interactionTask.update({
       where: { id },
@@ -80,6 +112,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
         targetUrl: updated.target.targetUrl,
         sourceTaskAccountId: updated.accountId,
         executionAccountId: executionAccount.id,
+        retryCount,
         stage: executionResult.stage,
       },
       responsePayload: executionResult.responsePayload,
