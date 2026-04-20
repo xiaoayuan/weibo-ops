@@ -123,6 +123,7 @@ export function OpsManager({
   const [rotationTimes, setRotationTimes] = useState(5);
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
   const [rotationCopyTexts, setRotationCopyTexts] = useState("1\n2\n3\n4\n5");
+  const [rotationExecutionMode, setRotationExecutionMode] = useState<"SERVER" | "MOBILE_ASSISTED">("SERVER");
   const [submitting, setSubmitting] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -428,6 +429,7 @@ export function OpsManager({
           times: rotationTimes,
           intervalSec: rotationIntervalSec,
           copywritingTexts,
+          executionMode: rotationExecutionMode,
         }),
       });
       const result = await response.json();
@@ -705,6 +707,14 @@ export function OpsManager({
               ))}
             </div>
             <select
+              value={rotationExecutionMode}
+              onChange={(event) => setRotationExecutionMode(event.target.value as "SERVER" | "MOBILE_ASSISTED")}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="SERVER">服务器直接执行</option>
+              <option value="MOBILE_ASSISTED">发到手机执行</option>
+            </select>
+            <select
               value={rotationTimes}
               onChange={(event) => setRotationTimes(Number(event.target.value))}
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
@@ -737,7 +747,10 @@ export function OpsManager({
                 placeholder={"支持\n路过\n冲冲冲"}
               />
             </div>
-            <p className="text-sm text-slate-500">可自行设置轮转次数；若填写文案，将按行轮转写入转发内容。</p>
+            <p className="text-sm text-slate-500">
+              可自行设置轮转次数；若填写文案，将按行轮转写入转发内容。
+              {rotationExecutionMode === "MOBILE_ASSISTED" ? " 手机执行模式会把任务发到“手机执行”页面，手动在手机上完成。" : ""}
+            </p>
             <button
               type="submit"
               disabled={submitting || !canManage}

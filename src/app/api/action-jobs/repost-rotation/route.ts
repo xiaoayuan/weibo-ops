@@ -37,13 +37,14 @@ export async function POST(request: Request) {
     const job = await prisma.actionJob.create({
       data: {
         jobType: "REPOST_ROTATION",
-        status: "RUNNING",
+        status: parsed.data.executionMode === "MOBILE_ASSISTED" ? "PENDING" : "RUNNING",
         config: {
           accountIds: parsed.data.accountIds,
           targetUrl: parsed.data.targetUrl,
           times: parsed.data.times,
           intervalSec: parsed.data.intervalSec,
           copywritingTexts: parsed.data.copywritingTexts || [],
+          executionMode: parsed.data.executionMode,
         },
         createdBy: auth.session.id,
       },
@@ -77,13 +78,15 @@ export async function POST(request: Request) {
     );
 
     await prisma.actionJobStep.createMany({ data: stepData });
-    await runRepostRotationJob({
-      jobId: job.id,
-      accountIds: parsed.data.accountIds,
-      targetUrl: parsed.data.targetUrl,
-      times: parsed.data.times,
-      intervalSec: parsed.data.intervalSec,
-    });
+    if (parsed.data.executionMode === "SERVER") {
+      await runRepostRotationJob({
+        jobId: job.id,
+        accountIds: parsed.data.accountIds,
+        targetUrl: parsed.data.targetUrl,
+        times: parsed.data.times,
+        intervalSec: parsed.data.intervalSec,
+      });
+    }
 
     const finalJob = await prisma.actionJob.findUnique({
       where: { id: job.id },

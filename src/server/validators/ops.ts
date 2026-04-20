@@ -25,4 +25,5 @@ export const startRepostRotationJobSchema = z.object({
   times: z.number().int().min(1).max(20).default(5),
   intervalSec: z.union([z.literal(0), z.literal(3), z.literal(5), z.literal(10)]).default(3),
   copywritingTexts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  executionMode: z.enum(["SERVER", "MOBILE_ASSISTED"]).default("SERVER"),
 });

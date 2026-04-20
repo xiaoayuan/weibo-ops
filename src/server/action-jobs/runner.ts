@@ -56,7 +56,7 @@ function computeJobStatus(total: number, success: number, failed: number) {
   return "PARTIAL_FAILED" as const;
 }
 
-async function recomputeRepostRunStatus(jobId: string, accountId: string) {
+export async function recomputeRepostRunStatus(jobId: string, accountId: string) {
   const steps = await prisma.actionJobStep.findMany({
     where: {
       jobId,
@@ -93,7 +93,7 @@ async function recomputeRepostRunStatus(jobId: string, accountId: string) {
   };
 }
 
-async function recomputeRepostJobSummary(jobId: string, targetUrl: string, times: number, intervalSec: 0 | 3 | 5 | 10) {
+export async function recomputeRepostJobSummary(jobId: string, targetUrl: string, times: number, intervalSec: 0 | 3 | 5 | 10) {
   const finalRuns = await prisma.actionJobAccountRun.findMany({ where: { jobId } });
   const successAccounts = finalRuns.filter((item) => item.status === "SUCCESS").length;
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
