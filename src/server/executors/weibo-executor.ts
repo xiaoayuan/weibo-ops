@@ -1730,8 +1730,12 @@ export class WeiboExecutor implements SocialExecutor {
 
       if (input.actionType === "POST") {
         const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.repostContent);
-        const businessOk = tryExtractBusinessOk(repostResult.summary);
-        const repostConfirmed = isPostConfirmed(repostResult.summary);
+        const summaryPayload =
+          repostResult.summary && typeof repostResult.summary === "object" && "responseSummary" in repostResult.summary
+            ? (repostResult.summary as { responseSummary?: unknown }).responseSummary
+            : repostResult.summary;
+        const businessOk = tryExtractBusinessOk(summaryPayload);
+        const repostConfirmed = isPostConfirmed(summaryPayload);
 
         if (!repostResult.ok || businessOk === false || !repostConfirmed) {
           return blockedResult("转发请求未通过，请检查目标链接和账号登录态。", {
