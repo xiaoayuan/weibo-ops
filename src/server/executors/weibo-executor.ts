@@ -849,7 +849,9 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   }));
   const requireStrictTargetIncrease = beforeSnapshot.isRepost;
 
-  const endpoints = getRepostEndpoints();
+  const endpoints = beforeSnapshot.isRepost
+    ? ["https://weibo.com/aj/v6/mblog/forward?ajwvr=6"]
+    : getRepostEndpoints();
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
 
   for (const endpoint of endpoints) {
@@ -871,6 +873,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
       form.set("text", repostText);
       form.set("status", repostText);
       form.set("comment", repostText);
+      form.set("reason", repostText);
       form.set("is_comment", "0");
       form.set("location", "v6_content_home");
       form.set("module", "scommlist");
