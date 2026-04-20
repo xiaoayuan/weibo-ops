@@ -43,6 +43,10 @@ export async function POST(request: Request, context: RouteContext<"/api/account
     const updated = await prisma.weiboAccount.update({
       where: { id },
       data: {
+        nickname:
+          parsed.data.username?.trim() && (!existing.nickname.trim() || existing.nickname.startsWith("未命名账号"))
+            ? parsed.data.username.trim()
+            : undefined,
         uid: parsed.data.uid?.trim() ? parsed.data.uid.trim() : existing.uid,
         username: parsed.data.username?.trim() ? parsed.data.username.trim() : existing.username,
         cookieEncrypted: encryptText(parsed.data.cookie),
