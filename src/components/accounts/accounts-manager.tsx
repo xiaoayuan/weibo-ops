@@ -165,6 +165,18 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    await submitAccount(false);
+  }
+
+  async function handleSubmitAndQr(event?: { preventDefault?: () => void }) {
+    event?.preventDefault?.();
+
+    await submitAccount(true);
+  }
+
+  async function submitAccount(startQrAfterCreate: boolean) {
+    const isCreating = !editingId;
+
     try {
       setSubmitting(true);
       setError(null);
@@ -229,6 +241,18 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
           ? current.map((item) => (item.id === editingId ? mergedAccount : item))
           : [mergedAccount, ...current],
       );
+
+      if (isCreating && startQrAfterCreate && !form.cookie.trim()) {
+        setSessionEditingId(mergedAccount.id);
+        setSessionForm({
+          uid: mergedAccount.uid || "",
+          username: mergedAccount.username || "",
+          cookie: "",
+        });
+        setQrSession(null);
+
+        await startQrLoginForAccount(mergedAccount.id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : editingId ? "更新账号失败" : "新增账号失败");
     } finally {
@@ -280,12 +304,16 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
       return;
     }
 
+    await startQrLoginForAccount(sessionEditingId);
+  }
+
+  async function startQrLoginForAccount(accountId: string) {
     try {
       setQrLoading(true);
       setError(null);
       setNotice(null);
 
-      const response = await fetch(`/api/accounts/${sessionEditingId}/session/qr/start`, {
+      const response = await fetch(`/api/accounts/${accountId}/session/qr/start`, {
         method: "POST",
       });
       const result = await response.json();
@@ -653,6 +681,16 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
               >
                 {submitting ? "提交中..." : editingId ? "保存修改" : "新增账号"}
               </button>
+              {!editingId ? (
+                <button
+                  type="button"
+                  onClick={handleSubmitAndQr}
+                  disabled={submitting}
+                  className="rounded-lg border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? "处理中..." : "新增并扫码登录"}
+                </button>
+              ) : null}
               {editingId ? (
                 <button
                   type="button"
