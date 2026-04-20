@@ -120,6 +120,7 @@ export function OpsManager({
   const [batchTags, setBatchTags] = useState("");
   const [forceDuplicate, setForceDuplicate] = useState(false);
   const [rotationTargetUrl, setRotationTargetUrl] = useState("");
+  const [rotationTimes, setRotationTimes] = useState(5);
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
   const [rotationCopyTexts, setRotationCopyTexts] = useState("1\n2\n3\n4\n5");
   const [submitting, setSubmitting] = useState(false);
@@ -424,7 +425,7 @@ export function OpsManager({
         body: JSON.stringify({
           accountIds: selectedRotationAccountIds,
           targetUrl: rotationTargetUrl,
-          times: 5,
+          times: rotationTimes,
           intervalSec: rotationIntervalSec,
           copywritingTexts,
         }),
@@ -704,6 +705,20 @@ export function OpsManager({
               ))}
             </div>
             <select
+              value={rotationTimes}
+              onChange={(event) => setRotationTimes(Number(event.target.value))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value={1}>轮转 1 条</option>
+              <option value={2}>轮转 2 条</option>
+              <option value={3}>轮转 3 条</option>
+              <option value={4}>轮转 4 条</option>
+              <option value={5}>轮转 5 条（默认）</option>
+              <option value={6}>轮转 6 条</option>
+              <option value={8}>轮转 8 条</option>
+              <option value={10}>轮转 10 条</option>
+            </select>
+            <select
               value={rotationIntervalSec}
               onChange={(event) => setRotationIntervalSec(Number(event.target.value) as 0 | 3 | 5 | 10)}
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
@@ -722,7 +737,7 @@ export function OpsManager({
                 placeholder={"支持\n路过\n冲冲冲"}
               />
             </div>
-            <p className="text-sm text-slate-500">系统默认每账号执行 5 次；若填写文案，将按行轮转写入转发内容。</p>
+            <p className="text-sm text-slate-500">可自行设置轮转次数；若填写文案，将按行轮转写入转发内容。</p>
             <button
               type="submit"
               disabled={submitting || !canManage}

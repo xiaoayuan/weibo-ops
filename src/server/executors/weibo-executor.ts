@@ -83,7 +83,7 @@ function getRepostEndpoints() {
     return envList;
   }
 
-  return ["https://weibo.com/ajax/statuses/repost", "https://weibo.com/aj/v6/mblog/forward?ajwvr=6"];
+  return ["https://weibo.com/aj/v6/mblog/forward?ajwvr=6", "https://weibo.com/ajax/statuses/repost"];
 }
 
 function getPostEndpoints() {
@@ -837,6 +837,12 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     };
   }
 
+  const beforeSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId).catch(() => ({
+    ok: false,
+    repostsCount: undefined,
+    summary: "repost-count-before-unavailable",
+  }));
+
   const endpoints = getRepostEndpoints();
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
 
@@ -849,6 +855,8 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     form.set("text", repostText);
     form.set("status", repostText);
     form.set("is_comment", "0");
+    form.set("location", "v6_content_home");
+    form.set("module", "scommlist");
 
     const headers: Record<string, string> = {
       Cookie: cookie,
@@ -881,6 +889,32 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
 
     if (response.ok && (businessOk === true || repostConfirmed)) {
+      const afterSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId).catch(() => ({
+        ok: false,
+        repostsCount: undefined,
+        summary: "repost-count-after-unavailable",
+      }));
+      const countIncreased =
+        beforeSnapshot.repostsCount !== undefined &&
+        afterSnapshot.repostsCount !== undefined &&
+        afterSnapshot.repostsCount > beforeSnapshot.repostsCount;
+
+      if (beforeSnapshot.repostsCount !== undefined && afterSnapshot.repostsCount !== undefined && !countIncreased) {
+        attempts.push({
+          endpoint,
+          mode: "repost-count-verify",
+          ok: false,
+          status: response.status,
+          summary: {
+            beforeRepostsCount: beforeSnapshot.repostsCount,
+            afterRepostsCount: afterSnapshot.repostsCount,
+            reason: "target_repost_count_not_increased",
+          },
+          businessOk: false,
+        });
+        continue;
+      }
+
       return {
         ok: true,
         status: response.status,
@@ -890,6 +924,8 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         businessOk,
         statusId,
         resolvedTargetUrl,
+        beforeRepostsCount: beforeSnapshot.repostsCount,
+        afterRepostsCount: afterSnapshot.repostsCount,
         attempts,
       };
     }
@@ -1238,6 +1274,48 @@ function extractLikeResultId(payload: unknown): string | undefined {
   }
 
   return undefined;
+}
+
+function toNumber(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+async function fetchRepostCount(cookie: string, referer: string, statusId: string) {
+  const endpoint = `https://weibo.com/ajax/statuses/show?id=${encodeURIComponent(statusId)}`;
+  const response = await sendHttpRequestWithRetry(
+    {
+      url: endpoint,
+      method: "GET",
+      headers: {
+        Cookie: cookie,
+        Referer: referer || "https://weibo.com/",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      timeoutMs: 10_000,
+    },
+    {
+      retries: 1,
+    },
+  );
+
+  const summary = response.json ?? response.text.slice(0, 220);
+  const record = response.json as Record<string, unknown> | undefined;
+  const repostsCount = toNumber(record?.reposts_count ?? record?.repostsCount);
+
+  return {
+    ok: response.ok,
+    repostsCount,
+    summary,
+  };
 }
 
 async function verifyLikeState(cookie: string, referer: string, candidateIds: Array<string | undefined>) {
