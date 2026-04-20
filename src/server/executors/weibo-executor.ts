@@ -83,7 +83,11 @@ function getRepostEndpoints() {
     return envList;
   }
 
-  return ["https://weibo.com/aj/v6/mblog/forward?ajwvr=6", "https://weibo.com/ajax/statuses/repost"];
+  return [
+    "https://weibo.com/ajax/statuses/normal_repost",
+    "https://weibo.com/aj/v6/mblog/forward?ajwvr=6",
+    "https://weibo.com/ajax/statuses/repost",
+  ];
 }
 
 function getPostEndpoints() {
@@ -849,14 +853,25 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   for (const endpoint of endpoints) {
     const form = new URLSearchParams();
     const repostText = repostContent || "";
-    form.set("id", statusId);
-    form.set("mid", statusId);
-    form.set("content", repostText);
-    form.set("text", repostText);
-    form.set("status", repostText);
-    form.set("is_comment", "0");
-    form.set("location", "v6_content_home");
-    form.set("module", "scommlist");
+    if (endpoint.includes("/ajax/statuses/normal_repost")) {
+      form.set("id", statusId);
+      form.set("comment", repostText);
+      form.set("pic_id", "");
+      form.set("is_repost", "0");
+      form.set("comment_ori", "0");
+      form.set("is_comment", "0");
+      form.set("visible", "0");
+      form.set("share_id", "");
+    } else {
+      form.set("id", statusId);
+      form.set("mid", statusId);
+      form.set("content", repostText);
+      form.set("text", repostText);
+      form.set("status", repostText);
+      form.set("is_comment", "0");
+      form.set("location", "v6_content_home");
+      form.set("module", "scommlist");
+    }
 
     const headers: Record<string, string> = {
       Cookie: cookie,
