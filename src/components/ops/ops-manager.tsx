@@ -16,6 +16,73 @@ type ActionJobWithRuns = ActionJob & {
   >;
 };
 
+type RepostTargetPreview = {
+  valid: boolean;
+  accountUid?: string;
+  statusId?: string;
+  message: string;
+};
+
+function parseRepostTargetPreview(targetUrl: string): RepostTargetPreview {
+  const raw = targetUrl.trim();
+
+  if (!raw) {
+    return {
+      valid: false,
+      message: "请先输入目标微博详情链接",
+    };
+  }
+
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(raw);
+  } catch {
+    return {
+      valid: false,
+      message: "链接格式无效，请粘贴完整 URL",
+    };
+  }
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+
+  if (!hostname.includes("weibo.com")) {
+    return {
+      valid: false,
+      message: "请使用 weibo.com 详情链接，不支持短链或其他域名",
+    };
+  }
+
+  const segments = parsedUrl.pathname.split("/").filter(Boolean);
+
+  if (segments.length >= 2) {
+    const accountUid = segments[0];
+    const statusId = segments[1];
+
+    if (/^\d+$/.test(accountUid) && /^[0-9a-zA-Z]{6,20}$/.test(statusId)) {
+      return {
+        valid: true,
+        accountUid,
+        statusId,
+        message: `将转发 UID ${accountUid} 下微博 ${statusId}`,
+      };
+    }
+  }
+
+  if (segments[0] === "detail" && /^[0-9a-zA-Z]{6,20}$/.test(segments[1] || "")) {
+    return {
+      valid: true,
+      statusId: segments[1],
+      message: `将转发微博 ${segments[1]}（detail 链接）`,
+    };
+  }
+
+  return {
+    valid: false,
+    message: "请使用 weibo.com/{uid}/{bid|mid} 或 weibo.com/detail/{id} 链接",
+  };
+}
+
 const jobStatusText: Record<ActionJob["status"], string> = {
   PENDING: "待执行",
   RUNNING: "执行中",
@@ -58,6 +125,8 @@ export function OpsManager({
   const [submitting, setSubmitting] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const repostTargetPreview = useMemo(() => parseRepostTargetPreview(rotationTargetUrl), [rotationTargetUrl]);
 
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
@@ -335,6 +404,11 @@ export function OpsManager({
       return;
     }
 
+    if (!repostTargetPreview.valid) {
+      setError(repostTargetPreview.message);
+      return;
+    }
+
     const copywritingTexts = rotationCopyTexts
       .split(/\n+/)
       .map((item) => item.trim())
@@ -603,6 +677,12 @@ export function OpsManager({
               placeholder="微博详情链接"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
             />
+            <p className={`text-xs ${repostTargetPreview.valid ? "text-emerald-600" : "text-amber-600"}`}>
+              {repostTargetPreview.message}
+              {repostTargetPreview.valid && repostTargetPreview.accountUid
+                ? "；请确认这就是 B 的转发详情链接，否则会转发到别的微博。"
+                : ""}
+            </p>
             <div className="flex items-center gap-3 text-xs">
               <button type="button" onClick={selectAllRotationAccounts} className="text-sky-700 hover:text-sky-800">
                 全选账号
