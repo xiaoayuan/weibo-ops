@@ -252,6 +252,65 @@ function tryExtractStatusId(targetUrl?: string | null) {
   return undefined;
 }
 
+const BASE62_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function decodeBase62(value: string) {
+  let result = 0;
+
+  for (const char of value) {
+    const index = BASE62_CHARS.indexOf(char);
+
+    if (index < 0) {
+      return undefined;
+    }
+
+    result = result * 62 + index;
+  }
+
+  return result;
+}
+
+function tryDecodeBidToMid(bid: string) {
+  if (!/^[0-9a-zA-Z]{6,16}$/.test(bid)) {
+    return undefined;
+  }
+
+  const chunks: string[] = [];
+
+  for (let end = bid.length; end > 0; end -= 4) {
+    const start = Math.max(0, end - 4);
+    const part = bid.slice(start, end);
+    const decoded = decodeBase62(part);
+
+    if (decoded === undefined) {
+      return undefined;
+    }
+
+    let numeric = String(decoded);
+
+    if (start > 0) {
+      numeric = numeric.padStart(7, "0");
+    }
+
+    chunks.unshift(numeric);
+  }
+
+  const mid = chunks.join("").replace(/^0+/, "");
+  return mid || undefined;
+}
+
+function normalizeStatusId(statusId?: string) {
+  if (!statusId) {
+    return undefined;
+  }
+
+  if (/^\d{8,20}$/.test(statusId)) {
+    return statusId;
+  }
+
+  return tryDecodeBidToMid(statusId) || statusId;
+}
+
 function tryExtractCommentId(targetUrl?: string | null) {
   if (!targetUrl) {
     return undefined;
@@ -591,11 +650,11 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
   const xsrfToken = getXsrfToken(cookieMap);
 
   let resolvedTargetUrl = targetUrl;
-  let statusId = tryExtractStatusId(resolvedTargetUrl);
+  let statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
 
   if (!statusId) {
     resolvedTargetUrl = await resolveLikeTargetUrl(targetUrl, cookie);
-    statusId = tryExtractStatusId(resolvedTargetUrl);
+    statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
   }
 
   if (!statusId) {
@@ -763,11 +822,11 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   const xsrfToken = getXsrfToken(cookieMap);
 
   let resolvedTargetUrl = targetUrl;
-  let statusId = tryExtractStatusId(resolvedTargetUrl);
+  let statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
 
   if (!statusId) {
     resolvedTargetUrl = await resolveLikeTargetUrl(targetUrl, cookie);
-    statusId = tryExtractStatusId(resolvedTargetUrl);
+    statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
   }
 
   if (!statusId) {
