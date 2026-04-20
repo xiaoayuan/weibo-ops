@@ -821,19 +821,14 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
 
-  let resolvedTargetUrl = targetUrl;
-  let statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
-
-  if (!statusId) {
-    resolvedTargetUrl = await resolveLikeTargetUrl(targetUrl, cookie);
-    statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
-  }
+  const resolvedTargetUrl = targetUrl;
+  const statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
 
   if (!statusId) {
     return {
       ok: false,
       status: 0,
-      summary: "目标链接中未识别到微博 ID",
+      summary: "目标链接中未识别到微博 ID，请使用目标微博详情页链接（weibo.com/{uid}/{bid}）",
       endpoint: "N/A",
       mode: "none",
       businessOk: false,
