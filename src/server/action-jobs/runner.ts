@@ -22,6 +22,28 @@ function sleep(ms: number) {
   });
 }
 
+function shouldRetryBusy(result: { success: boolean; message: string; responsePayload?: unknown }) {
+  if (result.success) {
+    return false;
+  }
+
+  const payload = result.responsePayload as { code?: string; msg?: string } | undefined;
+  const payloadCode = String(payload?.code || "");
+  const payloadMsg = String(payload?.msg || "");
+
+  return payloadCode === "100001" || result.message.includes("系统繁忙") || payloadMsg.includes("系统繁忙");
+}
+
+function randomBetween(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function computeStepDelayMs(intervalSec: number) {
+  const base = intervalSec > 0 ? intervalSec * 1000 : 0;
+  const jitter = randomBetween(400, 1400);
+  return base + jitter;
+}
+
 function computeJobStatus(total: number, success: number, failed: number) {
   if (failed === 0 && success === total) {
     return "SUCCESS" as const;
@@ -208,7 +230,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
       });
 
       const payload = (step.payload || {}) as { repostContent?: string };
-      const result = await executor.executeInteraction({
+      let result = await executor.executeInteraction({
         interactionTaskId: step.id,
         accountId,
         accountNickname: account.nickname,
@@ -217,6 +239,36 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         targetUrl: step.targetUrl,
         repostContent: payload.repostContent || null,
       });
+
+      let retryCount = 0;
+
+      if (shouldRetryBusy(result)) {
+        retryCount = 1;
+        await sleep(2000);
+        result = await executor.executeInteraction({
+          interactionTaskId: step.id,
+          accountId,
+          accountNickname: account.nickname,
+          accountLoginStatus: account.loginStatus,
+          actionType: "POST",
+          targetUrl: step.targetUrl,
+          repostContent: payload.repostContent || null,
+        });
+      }
+
+      if (!result.success && shouldRetryBusy(result)) {
+        retryCount = 2;
+        await sleep(5000);
+        result = await executor.executeInteraction({
+          interactionTaskId: step.id,
+          accountId,
+          accountNickname: account.nickname,
+          accountLoginStatus: account.loginStatus,
+          actionType: "POST",
+          targetUrl: step.targetUrl,
+          repostContent: payload.repostContent || null,
+        });
+      }
 
       const success = result.success && result.status === "SUCCESS";
 
@@ -247,6 +299,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
           targetUrl: step.targetUrl,
           sequenceNo: step.sequenceNo,
           repostContent: payload.repostContent || "",
+          retryCount,
         },
         responsePayload: result.responsePayload,
         success,
@@ -257,34 +310,13 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         where: { jobId: input.jobId, accountId },
         data: {
           currentStep: step.sequenceNo,
-          status: failedCount > 0 ? "FAILED" : "RUNNING",
+          status: failedCount > 0 ? "PARTIAL_FAILED" : "RUNNING",
           errorMessage: latestError || null,
         },
       });
 
-      if (!success) {
-        const remainingSteps = accountSteps.filter((item) => item.sequenceNo > step.sequenceNo);
-
-        if (remainingSteps.length > 0) {
-          await prisma.actionJobStep.updateMany({
-            where: {
-              id: {
-                in: remainingSteps.map((item) => item.id),
-              },
-            },
-            data: {
-              status: "CANCELLED",
-              errorMessage: "同账号前序轮转失败，后续步骤自动停止",
-              finishedAt: new Date(),
-            },
-          });
-        }
-
-        break;
-      }
-
-      if (input.intervalSec > 0 && step.sequenceNo < input.times) {
-        await sleep(input.intervalSec * 1000);
+      if (step.sequenceNo < input.times) {
+        await sleep(computeStepDelayMs(input.intervalSec));
       }
     }
 
