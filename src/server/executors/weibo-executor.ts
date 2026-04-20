@@ -948,7 +948,20 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     const summary = response.json ?? response.text.slice(0, 220);
     const businessOk = tryExtractBusinessOk(summary);
     const repostConfirmed = isPostConfirmed(summary);
-    attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
+    attempts.push({
+      endpoint,
+      mode: "form-post",
+      ok: response.ok,
+      status: response.status,
+      summary: {
+        responseSummary: summary,
+        requestBody: form.toString(),
+        referer: headers.Referer,
+        beforeRepostsCount: beforeSnapshot.repostsCount,
+        targetIsRepost: beforeSnapshot.isRepost,
+      },
+      businessOk,
+    });
 
     if (response.ok && (businessOk === true || repostConfirmed)) {
       const afterSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId).catch(() => ({
@@ -969,6 +982,8 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
           ok: false,
           status: response.status,
           summary: {
+            requestBody: form.toString(),
+            referer: headers.Referer,
             beforeRepostsCount: beforeSnapshot.repostsCount,
             afterRepostsCount: afterSnapshot.repostsCount,
             reason: "target_repost_count_unavailable",
@@ -985,6 +1000,8 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
           ok: false,
           status: response.status,
           summary: {
+            requestBody: form.toString(),
+            referer: headers.Referer,
             beforeRepostsCount: beforeSnapshot.repostsCount,
             afterRepostsCount: afterSnapshot.repostsCount,
             reason: "target_repost_count_not_increased",
@@ -997,7 +1014,11 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
       return {
         ok: true,
         status: response.status,
-        summary,
+        summary: {
+          responseSummary: summary,
+          requestBody: form.toString(),
+          referer: headers.Referer,
+        },
         endpoint,
         mode: "form-post",
         businessOk,
