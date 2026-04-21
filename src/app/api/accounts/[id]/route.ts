@@ -77,29 +77,37 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
       return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
     }
 
+    const updateData: Record<string, unknown> = {
+      nickname: parsed.data.nickname,
+      remark: parsed.data.remark === "" ? null : parsed.data.remark,
+      groupName: parsed.data.groupName === "" ? null : parsed.data.groupName,
+      status: parsed.data.status,
+      scheduleWindowEnabled: parsed.data.scheduleWindowEnabled,
+      executionWindowStart: parsed.data.executionWindowStart === "" ? null : parsed.data.executionWindowStart,
+      executionWindowEnd: parsed.data.executionWindowEnd === "" ? null : parsed.data.executionWindowEnd,
+      baseJitterSec: parsed.data.baseJitterSec,
+    };
+
+    for (const key of Object.keys(updateData)) {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    }
+
     const account = await prisma.weiboAccount.update({
       where: { id },
-      data: {
-        nickname: parsed.data.nickname,
-        remark: parsed.data.remark === "" ? null : parsed.data.remark,
-        groupName: parsed.data.groupName === "" ? null : parsed.data.groupName,
-        status: parsed.data.status,
-        scheduleWindowEnabled: parsed.data.scheduleWindowEnabled,
-        executionWindowStart: parsed.data.executionWindowStart === "" ? null : parsed.data.executionWindowStart,
-        executionWindowEnd: parsed.data.executionWindowEnd === "" ? null : parsed.data.executionWindowEnd,
-        baseJitterSec: parsed.data.baseJitterSec,
-      },
+      data: updateData,
     });
 
     return Response.json({
       success: true,
       data: account,
     });
-  } catch {
+  } catch (error) {
     return Response.json(
       {
         success: false,
-        message: "更新账号失败",
+        message: error instanceof Error ? error.message : "更新账号失败",
       },
       { status: 500 },
     );
