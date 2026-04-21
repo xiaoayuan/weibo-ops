@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/permissions";
-import { createAccountSchema } from "@/server/validators/account";
+import { updateAccountSchema } from "@/server/validators/account";
 
 export async function GET(_request: Request, context: RouteContext<"/api/accounts/[id]">) {
   const auth = await requireApiRole("VIEWER");
@@ -46,7 +46,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
 
   try {
     const body = await request.json();
-    const parsed = createAccountSchema.partial().safeParse(body);
+    const parsed = updateAccountSchema.safeParse(body);
 
     if (!parsed.success) {
       return Response.json(
