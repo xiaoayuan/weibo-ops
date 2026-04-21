@@ -1,6 +1,8 @@
 "use client";
 
 import type { CopywritingTemplate, InteractionTarget, InteractionTask, WeiboAccount } from "@/generated/prisma/client";
+import { InteractionResultPreview } from "@/components/interactions/interaction-result-preview";
+import { InteractionTaskCard } from "@/components/interactions/interaction-task-card";
 import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
 import Link from "next/link";
@@ -88,6 +90,7 @@ export function InteractionsManager({
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
@@ -327,6 +330,49 @@ export function InteractionsManager({
     }
   }
 
+  async function handleBatchDelete() {
+    const selectedSet = new Set(selectedTaskIds);
+    const candidates = selectedTaskIds.length > 0 ? filteredTasks.filter((task) => selectedSet.has(task.id)) : filteredTasks;
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可删除的互动任务");
+      return;
+    }
+
+    if (!window.confirm(`确认删除 ${candidates.length} 条互动任务吗？`)) {
+      return;
+    }
+
+    try {
+      setBatchDeleting(true);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch("/api/interaction-tasks/batch-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskIds: candidates.map((task) => task.id) }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "批量删除互动任务失败");
+      }
+
+      const deletedIds = new Set<string>(result.data.deletedIds || []);
+      setTasks((current) => current.filter((task) => !deletedIds.has(task.id)));
+      setSelectedTaskIds((current) => current.filter((taskId) => !deletedIds.has(taskId)));
+      setNotice(
+        result.message ||
+          `已删除 ${result.data.deletedCount || 0} 条互动任务${result.data.skippedCount ? `，跳过 ${result.data.skippedCount} 条无权限任务` : ""}`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "批量删除互动任务失败");
+    } finally {
+      setBatchDeleting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -495,6 +541,16 @@ export function InteractionsManager({
                       : "执行/重试当前筛选"}
                 </button>
               ) : null}
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={handleBatchDelete}
+                  disabled={batchDeleting}
+                  className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {batchDeleting ? "删除中..." : selectedTaskIds.length > 0 ? `删除选中 (${selectedTaskIds.length})` : "删除当前筛选"}
+                </button>
+              ) : null}
               {canExecute ? (
                 <button
                   type="button"
@@ -516,6 +572,25 @@ export function InteractionsManager({
             </div>
           </div>
         </div>
+        <div className="space-y-4 p-4 md:hidden">
+          {filteredTasks.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">暂无互动任务。</div>
+          ) : (
+            filteredTasks.map((task) => (
+              <InteractionTaskCard
+                key={task.id}
+                task={task}
+                canExecute={canExecute}
+                canManage={canManage}
+                selected={selectedTaskIds.includes(task.id)}
+                onToggle={() => toggleTask(task.id)}
+                onExecute={() => handleExecute(task.id)}
+                onDelete={() => handleDelete(task.id)}
+              />
+            ))
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
@@ -559,7 +634,7 @@ export function InteractionsManager({
                     )}
                   </td>
                   <td className="px-6 py-4">{statusText[task.status]}</td>
-                  <td className="px-6 py-4 text-slate-600">{task.resultMessage || "-"}</td>
+                  <td className="px-6 py-4 text-slate-600"><InteractionResultPreview result={task.resultMessage} /></td>
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">
                       {canExecute ? (
@@ -584,6 +659,7 @@ export function InteractionsManager({
             )}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

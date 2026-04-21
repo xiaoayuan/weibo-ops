@@ -3,6 +3,7 @@ import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, MessageC
 import type { ReactNode } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { hasRequiredRole, requirePageRole } from "@/lib/permissions";
 import { ensureDailyCheckinSchedulerStarted } from "@/server/scheduler/daily-checkin";
 import { ensureFirstCommentSchedulerStarted } from "@/server/scheduler/first-comment";
@@ -27,20 +28,19 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   ensureDailyCheckinSchedulerStarted();
   ensureFirstCommentSchedulerStarted();
   const session = await requirePageRole("VIEWER");
+  const visibleNavItems = navItems.filter((item) => !item.minRole || hasRequiredRole(session.role, item.minRole));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:grid-cols-[240px_1fr]">
-        <aside className="border-b border-slate-200 bg-white p-6 lg:border-r lg:border-b-0">
+        <aside className="hidden border-b border-slate-200 bg-white p-6 lg:block lg:border-r lg:border-b-0">
           <div className="mb-8">
             <h1 className="text-xl font-semibold">微博运营台</h1>
             <p className="mt-1 text-sm text-slate-500">多账号任务管理后台</p>
           </div>
 
           <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-            {navItems
-              .filter((item) => !item.minRole || hasRequiredRole(session.role, item.minRole))
-              .map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
 
               return (
@@ -58,11 +58,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </aside>
 
         <main className="p-6 lg:p-8">
+          <MobileNav items={visibleNavItems} username={session.username} role={session.role} />
           <div className="mb-6 flex items-center justify-between gap-3">
-            <div className="text-sm text-slate-500">
+            <div className="hidden text-sm text-slate-500 lg:block">
               当前用户：<span className="font-medium text-slate-700">{session.username}</span> / {session.role}
             </div>
-            <LogoutButton />
+            <div className="hidden lg:block">
+              <LogoutButton />
+            </div>
           </div>
           {children}
         </main>

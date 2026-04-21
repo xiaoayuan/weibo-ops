@@ -7,6 +7,11 @@ type LogWithRelations = ExecutionLog & {
   account: WeiboAccount | null;
 };
 
+type UserOption = {
+  id: string;
+  username: string;
+};
+
 type LogStage = "UNKNOWN" | "PRECHECK_BLOCKED" | "PRECHECK_PASSED" | "ACTION_PENDING";
 
 function readStageFromPayload(payload: unknown): LogStage {
@@ -77,11 +82,12 @@ function getResponseSummary(payload: unknown) {
   return "-";
 }
 
-export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }) {
+export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogWithRelations[]; users: UserOption[]; isAdmin: boolean }) {
   const [keyword, setKeyword] = useState("");
   const [resultFilter, setResultFilter] = useState<"ALL" | "SUCCESS" | "FAILED">("ALL");
   const [actionFilter, setActionFilter] = useState("ALL");
   const [stageFilter, setStageFilter] = useState<"ALL" | LogStage>("ALL");
+  const [userFilter, setUserFilter] = useState("ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -96,11 +102,12 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
       resultFilter === "ALL" || (resultFilter === "SUCCESS" ? log.success : !log.success);
     const matchesAction = actionFilter === "ALL" || log.actionType === actionFilter;
     const matchesStage = stageFilter === "ALL" || getLogStage(log) === stageFilter;
+    const matchesUser = !isAdmin || userFilter === "ALL" || log.account?.ownerUserId === userFilter;
     const logDate = new Date(log.executedAt);
     const matchesStartDate = startDate === "" || logDate >= new Date(`${startDate}T00:00:00`);
     const matchesEndDate = endDate === "" || logDate <= new Date(`${endDate}T23:59:59`);
 
-    return matchesKeyword && matchesResult && matchesAction && matchesStage && matchesStartDate && matchesEndDate;
+    return matchesKeyword && matchesResult && matchesAction && matchesStage && matchesUser && matchesStartDate && matchesEndDate;
   });
 
   return (
@@ -111,7 +118,7 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-6">
+        <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-7" : "md:grid-cols-6"}`}>
           <input
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
@@ -150,6 +157,20 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
             <option value="ACTION_PENDING">动作已发起</option>
             <option value="UNKNOWN">未标记</option>
           </select>
+          {isAdmin ? (
+            <select
+              value={userFilter}
+              onChange={(event) => setUserFilter(event.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="ALL">全部用户</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.username}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <input
             type="date"
             value={startDate}
@@ -169,6 +190,7 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
+              {isAdmin ? <th className="px-6 py-3 font-medium">用户</th> : null}
               <th className="px-6 py-3 font-medium">动作</th>
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">结果</th>
@@ -181,13 +203,14 @@ export function LogsManager({ initialLogs }: { initialLogs: LogWithRelations[] }
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-slate-500">
+                <td colSpan={isAdmin ? 8 : 7} className="px-6 py-8 text-slate-500">
                   当前筛选条件下暂无日志数据。
                 </td>
               </tr>
             ) : (
               filteredLogs.map((log) => (
                 <tr key={log.id} className="border-t border-slate-200">
+                  {isAdmin ? <td className="px-6 py-4">{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
                   <td className="px-6 py-4">{log.actionType}</td>
                   <td className="px-6 py-4">{log.account?.nickname || "-"}</td>
                   <td className="px-6 py-4">{log.success ? "成功" : "失败"}</td>
