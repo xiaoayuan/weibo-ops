@@ -23,7 +23,7 @@ services:
       JWT_SECRET: replace_me_with_a_strong_secret
       AUTH_COOKIE_SECURE: "false"
       ACCOUNT_SECRET_KEY: replace_me_with_a_32_char_secret
-      EXECUTOR_MODE: mock
+      EXECUTOR_MODE: weibo
       NODE_ENV: production
       PORT: 3000
     ports:
