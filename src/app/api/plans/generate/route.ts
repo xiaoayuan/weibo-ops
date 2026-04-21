@@ -1,4 +1,4 @@
-import { generateDailyPlans } from "@/server/plan-generator";
+import { generateDailyPlansWithSummary } from "@/server/plan-generator";
 import { generatePlansSchema } from "@/server/validators/plan";
 import { requireApiRole } from "@/lib/permissions";
 
@@ -17,8 +17,20 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
     }
 
-    const plans = await generateDailyPlans(parsed.data.date, auth.session.id);
-    return Response.json({ success: true, data: plans });
+    const result = await generateDailyPlansWithSummary(parsed.data.date, auth.session.id);
+    return Response.json({
+      success: true,
+      data: result.plans,
+      meta: {
+        date: parsed.data.date,
+        createdCount: result.createdCount,
+        existingCount: result.existingCount,
+      },
+      message:
+        result.createdCount > 0
+          ? `已为 ${parsed.data.date} 新增 ${result.createdCount} 条计划`
+          : `${parsed.data.date} 已存在计划，本次未新增`,
+    });
   } catch {
     return Response.json({ success: false, message: "生成计划失败" }, { status: 500 });
   }

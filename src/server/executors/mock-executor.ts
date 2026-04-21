@@ -41,6 +41,7 @@ export class MockExecutor implements SocialExecutor {
         executor: "mock",
         precheck: "passed",
         targetUrl: input.targetUrl,
+        hasCommentText: Boolean(input.commentText),
       },
     };
   }

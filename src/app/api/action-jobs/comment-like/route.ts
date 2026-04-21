@@ -1,6 +1,8 @@
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { runCommentLikeJob } from "@/server/action-jobs/runner";
+import { writeExecutionLog } from "@/server/logs";
+import { scheduleTask } from "@/server/task-scheduler";
 import { startCommentLikeJobSchema } from "@/server/validators/ops";
 
 export async function POST(request: Request) {
@@ -85,10 +87,30 @@ export async function POST(request: Request) {
     );
 
     await prisma.actionJobStep.createMany({ data: stepData });
-    await runCommentLikeJob({
-      jobId: job.id,
-      accountIds: parsed.data.accountIds,
-      poolItems,
+    const scheduled = await scheduleTask({
+      kind: "ACTION_JOB",
+      id: job.id,
+      ownerUserId: auth.session.id,
+      label: `action-job:${job.id}:comment-like`,
+      run: () =>
+        runCommentLikeJob({
+          jobId: job.id,
+          accountIds: parsed.data.accountIds,
+          poolItems,
+        }),
+    });
+
+    await writeExecutionLog({
+      actionType: "ACTION_JOB_SCHEDULED",
+      requestPayload: {
+        jobId: job.id,
+        jobType: "COMMENT_LIKE_BATCH",
+        ownerUserId: auth.session.id,
+        workerId: scheduled.workerId,
+        userConcurrency: scheduled.userConcurrency,
+        queueDepth: scheduled.queueDepth,
+      },
+      success: true,
     });
 
     const finalJob = await prisma.actionJob.findUnique({
@@ -108,7 +130,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json({ success: true, data: finalJob });
+    return Response.json({ success: true, data: finalJob, workerId: scheduled.workerId });
   } catch {
     return Response.json({ success: false, message: "创建控评点赞任务失败" }, { status: 500 });
   }

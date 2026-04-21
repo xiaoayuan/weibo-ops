@@ -1,4 +1,5 @@
 import { requireApiRole } from "@/lib/permissions";
+import { toBusinessDate } from "@/lib/business-date";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   const date = searchParams.get("date");
 
   const where = {
-    ...(date ? { planDate: new Date(`${date}T00:00:00`) } : {}),
+    ...(date ? { planDate: toBusinessDate(date) } : {}),
     account: {
       ownerUserId: auth.session.id,
     },

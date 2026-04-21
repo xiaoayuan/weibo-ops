@@ -49,6 +49,10 @@ export async function POST(request: Request) {
         remark: parsed.data.remark || null,
         groupName: parsed.data.groupName || null,
         status: parsed.data.status,
+        scheduleWindowEnabled: parsed.data.scheduleWindowEnabled || false,
+        executionWindowStart: parsed.data.executionWindowStart || null,
+        executionWindowEnd: parsed.data.executionWindowEnd || null,
+        baseJitterSec: parsed.data.baseJitterSec || 0,
       },
     });
 

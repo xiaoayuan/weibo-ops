@@ -1,6 +1,8 @@
+import { getBusinessDateText } from "@/lib/business-date";
 import { generateDailyPlans } from "@/server/plan-generator";
 import { executePlanById } from "@/server/plans/execute-plan";
 import { writeExecutionLog } from "@/server/logs";
+import { scheduleTask } from "@/server/task-scheduler";
 
 const AUTO_CHECKIN_ENABLED = process.env.AUTO_CHECKIN_ENABLED !== "false";
 const AUTO_CHECKIN_HOUR = Number(process.env.AUTO_CHECKIN_HOUR || 6);
@@ -8,13 +10,6 @@ const AUTO_CHECKIN_MINUTE = Number(process.env.AUTO_CHECKIN_MINUTE || 0);
 
 declare global {
   var __dailyCheckinSchedulerStarted: boolean | undefined;
-}
-
-function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function getNextRunAt(now: Date) {
@@ -30,7 +25,7 @@ function getNextRunAt(now: Date) {
 
 async function runAutoCheckInOnce() {
   const now = new Date();
-  const dateText = formatDate(now);
+  const dateText = getBusinessDateText(now);
 
   const generated = await generateDailyPlans(dateText);
   const checkInPlans = generated.filter((plan) => plan.planType === "CHECK_IN" && (plan.status === "PENDING" || plan.status === "READY"));
@@ -39,7 +34,19 @@ async function runAutoCheckInOnce() {
   let failed = 0;
 
   for (const plan of checkInPlans) {
-    const result = await executePlanById(plan.id);
+    if (!plan.account.ownerUserId) {
+      failed += 1;
+      continue;
+    }
+
+    const scheduled = await scheduleTask({
+      kind: "PLAN",
+      id: plan.id,
+      ownerUserId: plan.account.ownerUserId,
+      label: `auto-checkin:${plan.id}`,
+      run: () => executePlanById(plan.id),
+    });
+    const result = scheduled.data;
 
     if (result.ok && result.success) {
       success += 1;

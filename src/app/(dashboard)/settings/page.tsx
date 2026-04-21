@@ -1,12 +1,10 @@
+import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ProfileSecurityForm } from "@/components/settings/profile-security-form";
+import { sanitizeProxySettings } from "@/server/proxy-config";
 
 export const dynamic = "force-dynamic";
-
-function startOfToday() {
-  return new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
-}
 
 function isPlaceholderValue(value: string | undefined) {
   if (!value) {
@@ -66,8 +64,21 @@ function toneClasses(tone: "emerald" | "amber" | "rose" | "slate") {
 
 export default async function SettingsPage() {
   const session = await requirePageRole("ADMIN");
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: {
+      username: true,
+      proxyEnabled: true,
+      proxyProtocol: true,
+      proxyHost: true,
+      proxyPort: true,
+      proxyUsername: true,
+      proxyPasswordEncrypted: true,
+      taskConcurrency: true,
+    },
+  });
 
-  const today = startOfToday();
+  const today = toBusinessDate(getBusinessDateText());
   const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
@@ -218,7 +229,7 @@ export default async function SettingsPage() {
         <p className="mt-1 text-sm text-slate-500">仅管理员可查看系统配置摘要、运行状态和环境风险。</p>
       </div>
 
-      <ProfileSecurityForm initialUsername={session.username} />
+            <ProfileSecurityForm initialUsername={session.username} initialProxySettings={sanitizeProxySettings(currentUser || {})} initialTaskConcurrency={currentUser?.taskConcurrency || 1} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item) => (

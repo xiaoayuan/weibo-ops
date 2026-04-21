@@ -1,6 +1,6 @@
 "use client";
 
-import type { InteractionTarget, InteractionTask, WeiboAccount } from "@/generated/prisma/client";
+import type { CopywritingTemplate, InteractionTarget, InteractionTask, WeiboAccount } from "@/generated/prisma/client";
 import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
 import Link from "next/link";
@@ -12,6 +12,7 @@ type InteractionTaskWithRelations = InteractionTask & {
     nickname: string;
   };
   target: InteractionTarget;
+  content: CopywritingTemplate | null;
   isOwned: boolean;
 };
 
@@ -22,11 +23,36 @@ type RawInteractionTask = InteractionTask & {
     ownerUserId?: string;
   };
   target: InteractionTarget;
+  content: CopywritingTemplate | null;
   isOwned?: boolean;
 };
 
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
-type InteractionActionType = "LIKE" | "POST";
+type InteractionActionType = "LIKE" | "POST" | "COMMENT";
+
+const actionText: Record<InteractionActionType, string> = {
+  LIKE: "点赞",
+  POST: "转发",
+  COMMENT: "回复",
+};
+
+function getActionText(actionType: string) {
+  if (actionType === "LIKE" || actionType === "POST" || actionType === "COMMENT") {
+    return actionText[actionType];
+  }
+
+  return actionType;
+}
+
+function summarizeContent(content: string, maxLength = 28) {
+  const trimmed = content.trim();
+
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, maxLength)}...`;
+}
 
 const statusText: Record<InteractionStatus, string> = {
   PENDING: "待审核",
@@ -39,37 +65,44 @@ const statusText: Record<InteractionStatus, string> = {
 
 export function InteractionsManager({
   accounts,
+  contents,
   currentUserId,
   currentUserRole,
   initialTasks,
 }: {
   accounts: WeiboAccount[];
+  contents: CopywritingTemplate[];
   currentUserId: string;
   currentUserRole: AppRole;
   initialTasks: InteractionTaskWithRelations[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);
-  const [targetUrl, setTargetUrl] = useState("");
+  const [targetInput, setTargetInput] = useState("");
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [selectedContentIds, setSelectedContentIds] = useState<string[]>([]);
   const [executorAccountId, setExecutorAccountId] = useState("");
   const [actionType, setActionType] = useState<InteractionActionType>("LIKE");
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<InteractionStatus | "ALL">("ALL");
+  const [actionFilter, setActionFilter] = useState<InteractionActionType | "ALL">("ALL");
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
   const canExecute = canReviewAndExecuteTasks(currentUserRole);
 
   const filteredTasks = tasks.filter((task) => {
     const matchesStatus = statusFilter === "ALL" || task.status === statusFilter;
+    const matchesAction = actionFilter === "ALL" || task.actionType === actionFilter;
     const matchesKeyword =
       keyword.trim() === "" ||
       task.target.targetUrl.toLowerCase().includes(keyword.trim().toLowerCase()) ||
-      task.account.nickname.toLowerCase().includes(keyword.trim().toLowerCase());
+      task.account.nickname.toLowerCase().includes(keyword.trim().toLowerCase()) ||
+      (task.content?.title || "").toLowerCase().includes(keyword.trim().toLowerCase());
 
-    return matchesStatus && matchesKeyword;
+    return matchesStatus && matchesAction && matchesKeyword;
   });
 
   function normalizeTask(task: RawInteractionTask): InteractionTaskWithRelations {
@@ -99,6 +132,12 @@ export function InteractionsManager({
     setSelectedAccounts([]);
   }
 
+  function toggleContent(id: string) {
+    setSelectedContentIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  }
+
   function toggleTask(id: string) {
     setSelectedTaskIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
@@ -117,13 +156,22 @@ export function InteractionsManager({
     try {
       setSubmitting(true);
       setError(null);
+      setNotice(null);
 
       const response = await fetch("/api/interaction-tasks/batch-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          targetUrl,
+          targetUrl: actionType === "COMMENT" ? undefined : targetInput.trim(),
+          targetUrls:
+            actionType === "COMMENT"
+              ? targetInput
+                  .split(/\n+/)
+                  .map((item) => item.trim())
+                  .filter(Boolean)
+              : undefined,
           accountIds: selectedAccounts,
+          contentIds: actionType === "COMMENT" ? selectedContentIds : undefined,
           actionType,
         }),
       });
@@ -135,8 +183,15 @@ export function InteractionsManager({
       }
 
       setTasks((current) => [...(result.data as RawInteractionTask[]).map((item) => normalizeTask(item)), ...current]);
-      setTargetUrl("");
+      setNotice(
+        result.message ||
+          (result.meta?.createdCount > 0
+            ? `已创建 ${result.meta.createdCount} 条任务`
+            : `未创建新任务${result.meta?.skippedDuplicateCount ? `，跳过 ${result.meta.skippedDuplicateCount} 条重复任务` : ""}`),
+      );
+      setTargetInput("");
       setSelectedAccounts([]);
+      setSelectedContentIds([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "创建互动任务失败");
     } finally {
@@ -194,8 +249,11 @@ export function InteractionsManager({
     try {
       setBatchExecuting(true);
       setError(null);
+      setNotice(null);
 
+      let success = 0;
       let failed = 0;
+      let skippedLargeCommentCount = 0;
 
       for (const task of candidates) {
         try {
@@ -216,14 +274,29 @@ export function InteractionsManager({
             throw new Error(result.message || "执行互动任务失败");
           }
 
+          if (typeof result.message === "string" && result.message.includes("已大于20条")) {
+            skippedLargeCommentCount += 1;
+          } else {
+            success += 1;
+          }
+
           setTasks((current) => current.map((item) => (item.id === task.id ? normalizeTask(result.data) : item)));
         } catch {
           failed += 1;
         }
       }
 
+      const noticeParts = [`批量执行完成：成功 ${success} 条`];
+
+      if (skippedLargeCommentCount > 0) {
+        noticeParts.push(`超过 20 条已跳过 ${skippedLargeCommentCount} 条`);
+      }
+
       if (failed > 0) {
-        setError(`批量执行完成，失败 ${failed} 条，请查看日志`);
+        noticeParts.push(`失败 ${failed} 条`);
+        setError(noticeParts.join("，"));
+      } else {
+        setNotice(noticeParts.join("，"));
       }
     } finally {
       setBatchExecuting(false);
@@ -264,6 +337,7 @@ export function InteractionsManager({
             前往控评与轮转主入口
           </Link>
         </p>
+        {notice ? <p className="mt-2 text-sm text-sky-700">{notice}</p> : null}
       </div>
 
       {canManage ? (
@@ -277,13 +351,47 @@ export function InteractionsManager({
           >
             <option value="LIKE">点赞</option>
             <option value="POST">转发</option>
+            <option value="COMMENT">回复</option>
           </select>
-          <input
-            value={targetUrl}
-            onChange={(event) => setTargetUrl(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-                placeholder="填写微博详情/评论直达/投诉链接"
-              />
+          {actionType === "COMMENT" ? (
+            <textarea
+              value={targetInput}
+              onChange={(event) => setTargetInput(event.target.value)}
+              rows={6}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder="一行一个微博详情链接"
+            />
+          ) : (
+            <input
+              value={targetInput}
+              onChange={(event) => setTargetInput(event.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder="填写微博详情/评论直达/投诉链接"
+            />
+          )}
+
+          {actionType === "COMMENT" ? (
+            <div className="rounded-lg border border-slate-200 p-4">
+              <p className="text-sm font-medium text-slate-700">选择回复文案</p>
+              <p className="mt-1 text-xs text-slate-500">执行前会检查评论数；若已大于 20 条，则直接标记完成并备注“已大于20条”。同账号同微博的未完成回复任务会自动跳过，避免重复创建。</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {contents.map((content) => (
+                  <label key={content.id} className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedContentIds.includes(content.id)}
+                      onChange={() => toggleContent(content.id)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium text-slate-900">{content.title}</span>
+                      <span className="mt-1 block text-xs text-slate-500">{content.content}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="rounded-lg border border-slate-200 p-4">
             <div className="flex items-center justify-between gap-2">
@@ -349,6 +457,16 @@ export function InteractionsManager({
                 <option value="FAILED">失败</option>
                 <option value="CANCELLED">已取消</option>
               </select>
+              <select
+                value={actionFilter}
+                onChange={(event) => setActionFilter(event.target.value as InteractionActionType | "ALL")}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="ALL">全部动作</option>
+                <option value="LIKE">点赞</option>
+                <option value="POST">转发</option>
+                <option value="COMMENT">回复</option>
+              </select>
               {canExecute ? (
                 <select
                   value={executorAccountId}
@@ -405,7 +523,9 @@ export function InteractionsManager({
               <th className="px-6 py-3 font-medium">目标链接</th>
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">动作</th>
+              <th className="px-6 py-3 font-medium">文案</th>
               <th className="px-6 py-3 font-medium">状态</th>
+              <th className="px-6 py-3 font-medium">结果</th>
               <th className="px-6 py-3 font-medium">创建时间</th>
               <th className="px-6 py-3 font-medium">操作</th>
             </tr>
@@ -413,9 +533,9 @@ export function InteractionsManager({
           <tbody>
             {filteredTasks.length === 0 ? (
               <tr>
-                <td colSpan={canExecute ? 7 : 6} className="px-6 py-8 text-slate-500">
-                  暂无互动任务。
-                </td>
+                 <td colSpan={canExecute ? 9 : 8} className="px-6 py-8 text-slate-500">
+                   暂无互动任务。
+                 </td>
               </tr>
             ) : (
               filteredTasks.map((task) => (
@@ -427,8 +547,19 @@ export function InteractionsManager({
                   ) : null}
                   <td className="px-6 py-4 text-sky-600">{task.target.targetUrl}</td>
                   <td className="px-6 py-4">{task.account.nickname}</td>
-                  <td className="px-6 py-4">{task.actionType === "LIKE" ? "点赞" : "转发"}</td>
+                  <td className="px-6 py-4">{getActionText(task.actionType)}</td>
+                  <td className="px-6 py-4 text-slate-600">
+                    {task.content ? (
+                      <div className="space-y-1">
+                        <div className="font-medium text-slate-700">{task.content.title}</div>
+                        <div className="text-xs text-slate-500">{summarizeContent(task.content.content)}</div>
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td className="px-6 py-4">{statusText[task.status]}</td>
+                  <td className="px-6 py-4 text-slate-600">{task.resultMessage || "-"}</td>
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">
                       {canExecute ? (

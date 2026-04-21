@@ -1,8 +1,10 @@
 import { serialize } from "cookie";
 
 import { AUTH_COOKIE_NAME, hashPassword, signToken } from "@/lib/auth";
+import { encryptText } from "@/lib/encrypt";
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { sanitizeProxySettings } from "@/server/proxy-config";
 import { updateProfileSchema } from "@/server/validators/auth";
 
 function shouldUseSecureCookie() {
@@ -26,6 +28,9 @@ export async function PATCH(request: Request) {
 
     const nextUsername = parsed.data.username?.trim();
     const nextPassword = parsed.data.password;
+    const proxyHost = parsed.data.proxyHost?.trim() || null;
+    const proxyUsername = parsed.data.proxyUsername?.trim() || null;
+    const proxyPassword = parsed.data.proxyPassword;
 
     if (nextUsername && nextUsername !== auth.session.username) {
       const existed = await prisma.user.findUnique({ where: { username: nextUsername } });
@@ -40,11 +45,30 @@ export async function PATCH(request: Request) {
       data: {
         username: nextUsername || undefined,
         passwordHash: nextPassword && nextPassword !== "" ? await hashPassword(nextPassword) : undefined,
+        proxyEnabled: parsed.data.proxyEnabled,
+        proxyProtocol: parsed.data.proxyProtocol,
+        proxyHost,
+        proxyPort: parsed.data.proxyPort ?? null,
+        proxyUsername,
+        taskConcurrency: parsed.data.taskConcurrency,
+        proxyPasswordEncrypted:
+          proxyPassword !== undefined
+            ? proxyPassword === ""
+              ? null
+              : encryptText(proxyPassword)
+            : undefined,
       },
       select: {
         id: true,
         username: true,
         role: true,
+        proxyEnabled: true,
+        proxyProtocol: true,
+        proxyHost: true,
+        proxyPort: true,
+        proxyUsername: true,
+        proxyPasswordEncrypted: true,
+        taskConcurrency: true,
       },
     });
 
@@ -57,7 +81,13 @@ export async function PATCH(request: Request) {
     return new Response(
       JSON.stringify({
         success: true,
-        data: updated,
+        data: {
+          id: updated.id,
+          username: updated.username,
+          role: updated.role,
+          ...sanitizeProxySettings(updated),
+          taskConcurrency: updated.taskConcurrency,
+        },
         message: "账号信息已更新",
       }),
       {

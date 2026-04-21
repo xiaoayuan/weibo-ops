@@ -18,6 +18,7 @@ const navItems = [
   { href: "/ops", label: "控评与轮转", icon: RefreshCw },
   { href: "/mobile-tasks", label: "手机执行", icon: Smartphone },
   { href: "/logs", label: "执行日志", icon: Bell },
+  { href: "/scheduler", label: "调度监控", icon: RefreshCw },
   { href: "/users", label: "用户管理", icon: Shield, minRole: "ADMIN" as const },
   { href: "/settings", label: "系统设置", icon: Settings, minRole: "ADMIN" as const },
 ];

@@ -1,16 +1,14 @@
 import { PlansManager } from "@/components/plans/plans-manager";
+import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-function todayText() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default async function PlansPage() {
   const session = await requirePageRole("VIEWER");
-  const planDate = new Date(`${todayText()}T00:00:00`);
+  const todayText = getBusinessDateText();
+  const planDate = toBusinessDate(todayText);
   const [plans, contents] = await Promise.all([
     prisma.dailyPlan.findMany({
       where: {
@@ -36,5 +34,5 @@ export default async function PlansPage() {
     }),
   ]);
 
-  return <PlansManager currentUserRole={session.role} initialPlans={plans} initialDate={todayText()} contents={contents} />;
+  return <PlansManager currentUserRole={session.role} initialPlans={plans} initialDate={todayText} contents={contents} />;
 }

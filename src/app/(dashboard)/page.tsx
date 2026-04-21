@@ -1,17 +1,14 @@
 import Link from "next/link";
 
+import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-function todayDate() {
-  return new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
-}
-
 export default async function DashboardPage() {
   const session = await requirePageRole("VIEWER");
-  const today = todayDate();
+  const today = toBusinessDate(getBusinessDateText());
 
   const quickActions = [
     {

@@ -46,6 +46,7 @@ enum PlanType {
   FIRST_COMMENT
   POST
   LIKE
+  COMMENT
 }
 
 enum ActionJobType {
@@ -72,11 +73,24 @@ enum ContentStatus {
   DISABLED
 }
 
+enum ProxyProtocol {
+  HTTP
+  HTTPS
+  SOCKS5
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
   passwordHash String
   role         UserRole @default(OPERATOR)
+  proxyEnabled Boolean @default(false)
+  proxyProtocol ProxyProtocol?
+  proxyHost String?
+  proxyPort Int?
+  proxyUsername String?
+  proxyPasswordEncrypted String?
+  taskConcurrency Int @default(1)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -120,6 +134,10 @@ model WeiboAccount {
   loginErrorMessage   String?
   consecutiveFailures Int                @default(0)
   lastActiveAt        DateTime?
+  scheduleWindowEnabled Boolean          @default(false)
+  executionWindowStart String?
+  executionWindowEnd   String?
+  baseJitterSec        Int               @default(0)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -156,6 +174,7 @@ model CopywritingTemplate {
   updatedAt DateTime       @updatedAt
 
   plans     DailyPlan[]
+  interactionTasks InteractionTask[]
 }
 
 model AccountTopicTask {
@@ -237,6 +256,7 @@ model InteractionTask {
   id            String            @id @default(cuid())
   targetId      String
   accountId     String
+   contentId     String?
   actionType    PlanType
   scheduledTime DateTime?
   status        TaskStatus        @default(PENDING)
@@ -246,9 +266,11 @@ model InteractionTask {
 
   target        InteractionTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
   account       WeiboAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  content       CopywritingTemplate? @relation(fields: [contentId], references: [id], onDelete: SetNull)
 
   @@index([targetId])
   @@index([accountId])
+  @@index([contentId])
 }
 
 model ExecutionLog {

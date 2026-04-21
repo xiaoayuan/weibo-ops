@@ -42,6 +42,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/intera
       include: {
         account: true,
         target: true,
+        content: true,
       },
     });
 

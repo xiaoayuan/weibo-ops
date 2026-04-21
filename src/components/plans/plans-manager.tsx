@@ -1,6 +1,7 @@
 "use client";
 
 import type { CopywritingTemplate, DailyPlan, SuperTopic, WeiboAccount } from "@/generated/prisma/client";
+import { getBusinessDateText } from "@/lib/business-date";
 import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useState } from "react";
@@ -55,8 +56,12 @@ export function PlansManager({
   const [batchExecuting, setBatchExecuting] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
   const canExecute = canReviewAndExecuteTasks(currentUserRole);
+  const today = getBusinessDateText();
+  const viewingHistory = date < today;
+  const viewingFuture = date > today;
 
   const accountOptions = Array.from(new Set(plans.map((plan) => plan.account.nickname)));
   const topicOptions = Array.from(new Set(plans.map((plan) => plan.task?.superTopic.name).filter(Boolean))) as string[];
@@ -72,6 +77,7 @@ export function PlansManager({
     try {
       setLoading(true);
       setError(null);
+      setNotice(null);
 
       const response = await fetch(`/api/plans?date=${date}`, { cache: "no-store" });
       const result = await response.json();
@@ -83,6 +89,7 @@ export function PlansManager({
       setPlans(result.data);
       setEditingId(null);
       setSelectedPlanIds([]);
+      setNotice(date === today ? "当前展示的是今天的计划。" : `当前展示的是 ${date} 的历史或预生成计划。`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "获取计划失败");
     } finally {
@@ -96,6 +103,7 @@ export function PlansManager({
     try {
       setLoading(true);
       setError(null);
+      setNotice(null);
 
       const response = await fetch("/api/plans/generate", {
         method: "POST",
@@ -111,6 +119,12 @@ export function PlansManager({
       setPlans(result.data);
       setEditingId(null);
       setSelectedPlanIds([]);
+      setNotice(
+        result.message ||
+          (result.meta?.createdCount > 0
+            ? `新增 ${result.meta.createdCount} 条计划，原有 ${result.meta.existingCount} 条。`
+            : `当前日期已有 ${result.meta?.existingCount || 0} 条计划，本次未新增。`),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "生成计划失败");
     } finally {
@@ -323,6 +337,18 @@ export function PlansManager({
         <h2 className="text-2xl font-semibold">每日计划</h2>
         <p className="mt-1 text-sm text-slate-500">按任务配置生成每日签到计划，并跟踪执行状态。</p>
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <p>当前查看日期：{date}</p>
+        <p className="mt-1">
+          {viewingHistory
+            ? "你当前查看的是历史日期。历史计划会保留用于追溯，但不会阻塞新一天生成。"
+            : viewingFuture
+              ? "你当前查看的是未来日期。可提前生成预排计划。"
+              : "你当前查看的是今天的业务日计划。跨天后请切换到新日期重新生成。"}
+        </p>
+        {notice ? <p className="mt-2 text-sky-700">{notice}</p> : null}
+      </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <form className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between" onSubmit={handleGenerate}>

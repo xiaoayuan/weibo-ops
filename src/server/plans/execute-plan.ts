@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { decryptText } from "@/lib/encrypt";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
+import { getProxyConfigForAccount } from "@/server/proxy-config";
+import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 import { checkStatusIsZeroComments, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
 function toDateText(date: Date) {
@@ -40,6 +42,13 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       message: "计划不存在",
     };
   }
+
+  const timing = await waitForAccountExecutionWindow(plan.account.id, `plan:${plan.id}`, {
+    scheduleWindowEnabled: plan.account.scheduleWindowEnabled,
+    executionWindowStart: plan.account.executionWindowStart,
+    executionWindowEnd: plan.account.executionWindowEnd,
+    baseJitterSec: plan.account.baseJitterSec,
+  });
 
   if (plan.planType === "FIRST_COMMENT") {
     const planDateText = toDateText(plan.planDate);
@@ -95,6 +104,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         requestPayload: {
           planType: updated.planType,
           trigger: "manual_or_auto",
+          timing,
         },
         success: false,
         errorMessage: updated.resultMessage || "首评执行失败",
@@ -150,6 +160,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         requestPayload: {
           planType: updated.planType,
           trigger: "manual_or_auto",
+          timing,
         },
         success: false,
         errorMessage: updated.resultMessage || "首评执行失败",
@@ -165,7 +176,8 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
     const topicUrl = plan.task.superTopic.topicUrl || "https://weibo.com/";
     const cookie = decryptText(plan.account.cookieEncrypted);
-    const latestPosts = await fetchLatestPosts(topicUrl, cookie, 200);
+    const proxyConfig = await getProxyConfigForAccount(plan.accountId);
+    const latestPosts = await fetchLatestPosts(topicUrl, cookie, 200, proxyConfig);
 
     const locks = await prisma.firstCommentPostLock.findMany({
       where: {
@@ -191,7 +203,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         continue;
       }
 
-      const isZeroComments = await checkStatusIsZeroComments(candidate.id, cookie, topicUrl, candidate.commentsCount);
+      const isZeroComments = await checkStatusIsZeroComments(candidate.id, cookie, topicUrl, candidate.commentsCount, proxyConfig);
 
       if (!isZeroComments) {
         continue;
@@ -215,7 +227,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       }
 
       const commentText = pickRandomTemplate(templates);
-      const commentResult = await sendFirstComment(candidate.id, candidate.targetUrl || topicUrl, commentText, cookie);
+      const commentResult = await sendFirstComment(candidate.id, candidate.targetUrl || topicUrl, commentText, cookie, proxyConfig);
       payload = commentResult.payload;
 
       if (commentResult.success) {
@@ -264,6 +276,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         planType: updated.planType,
         planDate: planDateText,
         trigger: "manual_or_auto",
+        timing,
       },
       responsePayload: payload,
       success: executed,
@@ -318,6 +331,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       planType: updated.planType,
       stage: executionResult.stage,
       trigger: "manual_or_auto",
+      timing,
     },
     responsePayload: executionResult.responsePayload,
     success: executionResult.success,

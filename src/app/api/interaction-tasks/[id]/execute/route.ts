@@ -1,23 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/permissions";
-import { getExecutor } from "@/server/executors";
+import { executeInteractionTaskById } from "@/server/interactions/execute-task";
 import { writeExecutionLog } from "@/server/logs";
-
-function shouldRetryBusy(result: { success: boolean; message: string; responsePayload?: unknown }) {
-  if (result.success) {
-    return false;
-  }
-
-  const payload = result.responsePayload as { code?: string; msg?: string } | undefined;
-  const payloadCode = String(payload?.code || "");
-  const payloadMsg = String(payload?.msg || "");
-
-  return payloadCode === "100001" || result.message.includes("系统繁忙") || payloadMsg.includes("系统繁忙");
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { scheduleTask } from "@/server/task-scheduler";
 
 export async function POST(_request: Request, context: RouteContext<"/api/interaction-tasks/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
@@ -40,87 +25,59 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
 
     const task = await prisma.interactionTask.findUnique({
       where: { id },
-      include: {
-        account: true,
-        target: true,
-      },
+      include: { account: { select: { id: true, ownerUserId: true } } },
     });
 
     if (!task) {
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 
-    let executionAccount = task.account;
+    const ownerUserId = task.account.ownerUserId;
 
-    if (executorAccountId) {
-      const selectedAccount = await prisma.weiboAccount.findUnique({
-        where: { id: executorAccountId },
-      });
-
-      if (!selectedAccount || selectedAccount.ownerUserId !== auth.session.id) {
-        return Response.json({ success: false, message: "执行账号不存在或无权限" }, { status: 403 });
-      }
-
-      executionAccount = selectedAccount;
+    if (!ownerUserId || ownerUserId !== auth.session.id) {
+      return Response.json({ success: false, message: "互动任务不属于当前用户" }, { status: 403 });
     }
 
-    const executor = getExecutor();
-    let executionResult = await executor.executeInteraction({
-      interactionTaskId: task.id,
-      accountId: executionAccount.id,
-      accountNickname: executionAccount.nickname,
-      accountLoginStatus: executionAccount.loginStatus,
-      actionType: task.actionType,
-      targetUrl: task.target.targetUrl,
+    const scheduled = await scheduleTask({
+      kind: "INTERACTION",
+      id,
+      ownerUserId,
+      label: `interaction:${id}`,
+      run: () => executeInteractionTaskById(id, ownerUserId, executorAccountId),
     });
-
-    let retryCount = 0;
-
-    if (shouldRetryBusy(executionResult)) {
-      retryCount = 1;
-      await sleep(1200);
-
-      executionResult = await executor.executeInteraction({
-        interactionTaskId: task.id,
-        accountId: executionAccount.id,
-        accountNickname: executionAccount.nickname,
-        accountLoginStatus: executionAccount.loginStatus,
-        actionType: task.actionType,
-        targetUrl: task.target.targetUrl,
-      });
-    }
-
-    const updated = await prisma.interactionTask.update({
-      where: { id },
-      data: {
-        status: executionResult.status,
-        resultMessage: executionResult.message,
-      },
-      include: {
-        account: true,
-        target: true,
-      },
-    });
-
-    const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "INTERACTION_EXECUTE_BLOCKED" : "INTERACTION_EXECUTE_PRECHECKED";
 
     await writeExecutionLog({
-      accountId: executionAccount.id,
-      actionType,
+      accountId: task.account.id,
+      actionType: "INTERACTION_SCHEDULED",
       requestPayload: {
-        actionType: updated.actionType,
-        targetUrl: updated.target.targetUrl,
-        sourceTaskAccountId: updated.accountId,
-        executionAccountId: executionAccount.id,
-        retryCount,
-        stage: executionResult.stage,
+        taskId: id,
+        ownerUserId,
+        executorAccountId,
+        workerId: scheduled.workerId,
+        userConcurrency: scheduled.userConcurrency,
+        queueDepth: scheduled.queueDepth,
       },
-      responsePayload: executionResult.responsePayload,
-      success: executionResult.success,
-      errorMessage: executionResult.success ? undefined : executionResult.message,
+      success: true,
     });
 
-    return Response.json({ success: executionResult.success, data: updated, message: executionResult.message });
+    if (!scheduled.data.ok) {
+      return Response.json({
+        success: false,
+        message: scheduled.data.message,
+        workerId: scheduled.workerId,
+        userConcurrency: scheduled.userConcurrency,
+        queueDepth: scheduled.queueDepth,
+      }, { status: scheduled.data.status });
+    }
+
+    return Response.json({
+      success: scheduled.data.success,
+      data: scheduled.data.data,
+      message: scheduled.data.message,
+      workerId: scheduled.workerId,
+      userConcurrency: scheduled.userConcurrency,
+      queueDepth: scheduled.queueDepth,
+    });
   } catch {
     return Response.json({ success: false, message: "执行互动任务失败" }, { status: 500 });
   }

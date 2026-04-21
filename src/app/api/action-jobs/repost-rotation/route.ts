@@ -1,6 +1,8 @@
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { runRepostRotationJob } from "@/server/action-jobs/runner";
+import { writeExecutionLog } from "@/server/logs";
+import { scheduleTask } from "@/server/task-scheduler";
 import { startRepostRotationJobSchema } from "@/server/validators/ops";
 
 export async function POST(request: Request) {
@@ -78,13 +80,36 @@ export async function POST(request: Request) {
     );
 
     await prisma.actionJobStep.createMany({ data: stepData });
+    let workerId: string | undefined;
+
     if (parsed.data.executionMode === "SERVER") {
-      await runRepostRotationJob({
-        jobId: job.id,
-        accountIds: parsed.data.accountIds,
-        targetUrl: parsed.data.targetUrl,
-        times: parsed.data.times,
-        intervalSec: parsed.data.intervalSec,
+      const scheduled = await scheduleTask({
+        kind: "ACTION_JOB",
+        id: job.id,
+        ownerUserId: auth.session.id,
+        label: `action-job:${job.id}:repost-rotation`,
+        run: () =>
+          runRepostRotationJob({
+            jobId: job.id,
+            accountIds: parsed.data.accountIds,
+            targetUrl: parsed.data.targetUrl,
+            times: parsed.data.times,
+            intervalSec: parsed.data.intervalSec,
+          }),
+      });
+      workerId = scheduled.workerId;
+
+      await writeExecutionLog({
+        actionType: "ACTION_JOB_SCHEDULED",
+        requestPayload: {
+          jobId: job.id,
+          jobType: "REPOST_ROTATION",
+          ownerUserId: auth.session.id,
+          workerId: scheduled.workerId,
+          userConcurrency: scheduled.userConcurrency,
+          queueDepth: scheduled.queueDepth,
+        },
+        success: true,
       });
     }
 
@@ -105,7 +130,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json({ success: true, data: finalJob });
+    return Response.json({ success: true, data: finalJob, workerId });
   } catch {
     return Response.json({ success: false, message: "创建轮转转发任务失败" }, { status: 500 });
   }

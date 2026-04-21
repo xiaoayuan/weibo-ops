@@ -7,12 +7,16 @@ export const dynamic = "force-dynamic";
 export default async function InteractionsPage() {
   const session = await requirePageRole("VIEWER");
 
-  const [accounts, rawTasks] = await Promise.all([
+  const [accounts, contents, rawTasks] = await Promise.all([
     prisma.weiboAccount.findMany({
       where: {
         status: "ACTIVE",
         ownerUserId: session.id,
       },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.copywritingTemplate.findMany({
+      where: { status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
     }),
     prisma.interactionTask.findMany({
@@ -25,6 +29,7 @@ export default async function InteractionsPage() {
           },
         },
         target: true,
+        content: true,
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -39,5 +44,5 @@ export default async function InteractionsPage() {
     },
   }));
 
-  return <InteractionsManager accounts={accounts} currentUserId={session.id} currentUserRole={session.role} initialTasks={tasks} />;
+  return <InteractionsManager accounts={accounts} contents={contents} currentUserId={session.id} currentUserRole={session.role} initialTasks={tasks} />;
 }

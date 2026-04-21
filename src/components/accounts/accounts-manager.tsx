@@ -14,6 +14,10 @@ type FormState = {
   remark: string;
   groupName: string;
   status: AccountStatus;
+  scheduleWindowEnabled: boolean;
+  executionWindowStart: string;
+  executionWindowEnd: string;
+  baseJitterSec: string;
   uid: string;
   username: string;
   cookie: string;
@@ -40,6 +44,10 @@ const initialForm: FormState = {
   remark: "",
   groupName: "",
   status: "ACTIVE",
+  scheduleWindowEnabled: false,
+  executionWindowStart: "",
+  executionWindowEnd: "",
+  baseJitterSec: "0",
   uid: "",
   username: "",
   cookie: "",
@@ -191,6 +199,10 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
         remark: form.remark,
         groupName: form.groupName,
         status: form.status,
+        scheduleWindowEnabled: form.scheduleWindowEnabled,
+        executionWindowStart: form.executionWindowStart,
+        executionWindowEnd: form.executionWindowEnd,
+        baseJitterSec: Number(form.baseJitterSec || 0),
       };
 
       const response = await fetch(editingId ? `/api/accounts/${editingId}` : "/api/accounts", {
@@ -271,6 +283,10 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
       remark: account.remark || "",
       groupName: account.groupName || "",
       status: account.status,
+      scheduleWindowEnabled: account.scheduleWindowEnabled,
+      executionWindowStart: account.executionWindowStart || "",
+      executionWindowEnd: account.executionWindowEnd || "",
+      baseJitterSec: String(account.baseJitterSec || 0),
       uid: account.uid || "",
       username: account.username || "",
       cookie: "",
@@ -637,6 +653,48 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
             </select>
           </div>
 
+          <label className="flex items-center gap-2 md:col-span-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.scheduleWindowEnabled}
+              onChange={(event) => setForm((current) => ({ ...current, scheduleWindowEnabled: event.target.checked }))}
+            />
+            启用账号执行窗口与随机间隔
+          </label>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">窗口开始</label>
+            <input
+              type="time"
+              value={form.executionWindowStart}
+              onChange={(event) => setForm((current) => ({ ...current, executionWindowStart: event.target.value }))}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">窗口结束</label>
+            <input
+              type="time"
+              value={form.executionWindowEnd}
+              onChange={(event) => setForm((current) => ({ ...current, executionWindowEnd: event.target.value }))}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-medium text-slate-700">随机间隔秒数</label>
+            <input
+              type="number"
+              min="0"
+              max="3600"
+              value={form.baseJitterSec}
+              onChange={(event) => setForm((current) => ({ ...current, baseJitterSec: event.target.value }))}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder="例如 120"
+            />
+          </div>
+
           {!editingId ? (
             <>
               <div>
@@ -902,11 +960,17 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                         />
                       </td>
                     ) : null}
-                    <td className="px-6 py-4">
+                   <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{account.nickname}</div>
                       <div className="mt-1 text-xs text-slate-500">{statusText[account.status]} / 风险 {account.riskLevel}</div>
                       <div className="mt-1 text-xs text-slate-400">
                         微博：{account.username || "-"} / UID：{account.uid || "-"}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-400">
+                        节奏：
+                        {account.scheduleWindowEnabled
+                          ? `${account.executionWindowStart || "-"} - ${account.executionWindowEnd || "-"} / 抖动 ${account.baseJitterSec}s`
+                          : "未启用"}
                       </div>
                     </td>
                     <td className="px-6 py-4">{account.groupName || "-"}</td>

@@ -18,6 +18,7 @@ export async function GET() {
         },
       },
       target: true,
+      content: true,
     },
     orderBy: { createdAt: "desc" },
   });

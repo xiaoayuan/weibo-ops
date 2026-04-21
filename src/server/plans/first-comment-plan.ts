@@ -1,4 +1,5 @@
 import { sendHttpRequestWithRetry } from "@/server/executors/http-client";
+import type { ProxyConfig } from "@/server/proxy-config";
 
 type CookieMap = Record<string, string>;
 
@@ -75,6 +76,52 @@ function readNumber(value: unknown) {
   if (typeof value === "string") {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+export function extractStatusIdFromUrl(targetUrl: string) {
+  const candidates: string[] = [targetUrl.trim()];
+  let decoded = targetUrl;
+
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+
+      if (next === decoded) {
+        break;
+      }
+
+      decoded = next;
+      candidates.push(decoded);
+    } catch {
+      break;
+    }
+  }
+
+  const patterns = [
+    /[?&](?:mid|id|weibo_id|bid)=([a-zA-Z0-9]+)/i,
+    /\/\d+\/([a-zA-Z0-9]+)/i,
+    /\/u\/\d+\/([a-zA-Z0-9]+)/i,
+    /\/status\/([a-zA-Z0-9]+)/i,
+    /\/detail\/([a-zA-Z0-9]+)/i,
+  ];
+
+  for (const candidate of candidates) {
+    for (const pattern of patterns) {
+      const matched = candidate.match(pattern);
+
+      if (matched?.[1]) {
+        return matched[1];
+      }
+    }
+
+    const longDigits = candidate.match(/(\d{15,20})/g);
+
+    if (longDigits && longDigits.length > 0) {
+      return longDigits[0];
+    }
   }
 
   return undefined;
@@ -172,7 +219,7 @@ function collectStatusIdsFromTopicHtml(html: string) {
   return Array.from(new Set(ids));
 }
 
-async function fetchLatestPostsFromTopicPage(topicUrl: string, cookie: string, limit: number) {
+async function fetchLatestPostsFromTopicPage(topicUrl: string, cookie: string, limit: number, proxyConfig?: ProxyConfig | null) {
   const response = await sendHttpRequestWithRetry(
     {
       url: topicUrl,
@@ -182,6 +229,7 @@ async function fetchLatestPostsFromTopicPage(topicUrl: string, cookie: string, l
         Referer: "https://weibo.com/",
       },
       timeoutMs: 12_000,
+      proxyConfig,
     },
     {
       retries: 1,
@@ -201,8 +249,8 @@ async function fetchLatestPostsFromTopicPage(topicUrl: string, cookie: string, l
   }));
 }
 
-export async function fetchLatestPosts(topicUrl: string, cookie: string, limit: number) {
-  const pagePosts = await fetchLatestPostsFromTopicPage(topicUrl, cookie, limit);
+export async function fetchLatestPosts(topicUrl: string, cookie: string, limit: number, proxyConfig?: ProxyConfig | null) {
+  const pagePosts = await fetchLatestPostsFromTopicPage(topicUrl, cookie, limit, proxyConfig);
 
   if (pagePosts.length >= limit) {
     return pagePosts.slice(0, limit);
@@ -224,6 +272,7 @@ export async function fetchLatestPosts(topicUrl: string, cookie: string, limit: 
             "X-Requested-With": "XMLHttpRequest",
           },
           timeoutMs: 12_000,
+          proxyConfig,
         },
         {
           retries: 1,
@@ -282,7 +331,11 @@ function isCommentCreated(payload: unknown) {
   return false;
 }
 
-export async function sendFirstComment(statusId: string, targetUrl: string, commentText: string, cookie: string) {
+export async function sendFirstComment(statusId: string, targetUrl: string, commentText: string, cookie: string, proxyConfig?: ProxyConfig | null) {
+  return sendStatusComment(statusId, targetUrl, commentText, cookie, proxyConfig);
+}
+
+export async function sendStatusComment(statusId: string, targetUrl: string, commentText: string, cookie: string, proxyConfig?: ProxyConfig | null) {
   const endpoint = process.env.WEIBO_FIRST_COMMENT_CREATE_ENDPOINT || "https://weibo.com/ajax/comments/create";
   const xsrfToken = getXsrfToken(cookie);
 
@@ -311,6 +364,7 @@ export async function sendFirstComment(statusId: string, targetUrl: string, comm
       headers,
       body: body.toString(),
       timeoutMs: 12_000,
+      proxyConfig,
     },
     {
       retries: 1,
@@ -327,11 +381,7 @@ export async function sendFirstComment(statusId: string, targetUrl: string, comm
   };
 }
 
-export async function checkStatusIsZeroComments(statusId: string, cookie: string, referer: string, fallbackCount?: number) {
-  if (typeof fallbackCount === "number") {
-    return fallbackCount === 0;
-  }
-
+export async function fetchStatusCommentsCount(statusId: string, cookie: string, referer: string, proxyConfig?: ProxyConfig | null) {
   const endpoint = `https://weibo.com/ajax/statuses/show?id=${encodeURIComponent(statusId)}`;
   const response = await sendHttpRequestWithRetry(
     {
@@ -343,6 +393,7 @@ export async function checkStatusIsZeroComments(statusId: string, cookie: string
         "X-Requested-With": "XMLHttpRequest",
       },
       timeoutMs: 12_000,
+      proxyConfig,
     },
     {
       retries: 1,
@@ -352,11 +403,18 @@ export async function checkStatusIsZeroComments(statusId: string, cookie: string
   const payload = response.json;
 
   if (!response.ok || !payload || typeof payload !== "object") {
-    return false;
+    return undefined;
   }
 
   const record = payload as Record<string, unknown>;
-  const commentsCount = readNumber(record.comments_count ?? record.commentsCount);
+  return readNumber(record.comments_count ?? record.commentsCount);
+}
+
+export async function checkStatusIsZeroComments(statusId: string, cookie: string, referer: string, fallbackCount?: number, proxyConfig?: ProxyConfig | null) {
+  if (typeof fallbackCount === "number") {
+    return fallbackCount === 0;
+  }
+  const commentsCount = await fetchStatusCommentsCount(statusId, cookie, referer, proxyConfig);
 
   return commentsCount === 0;
 }

@@ -84,6 +84,10 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
         remark: parsed.data.remark === "" ? null : parsed.data.remark,
         groupName: parsed.data.groupName === "" ? null : parsed.data.groupName,
         status: parsed.data.status,
+        scheduleWindowEnabled: parsed.data.scheduleWindowEnabled,
+        executionWindowStart: parsed.data.executionWindowStart === "" ? null : parsed.data.executionWindowStart,
+        executionWindowEnd: parsed.data.executionWindowEnd === "" ? null : parsed.data.executionWindowEnd,
+        baseJitterSec: parsed.data.baseJitterSec,
       },
     });
 

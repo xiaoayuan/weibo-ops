@@ -11,7 +11,7 @@ export type ExecutePlanInput = {
   accountId: string;
   accountNickname: string;
   accountLoginStatus: string;
-  planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE";
+  planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT";
   targetUrl?: string | null;
   content?: string | null;
   topicName?: string | null;
@@ -23,9 +23,10 @@ export type ExecuteInteractionInput = {
   accountId: string;
   accountNickname: string;
   accountLoginStatus: string;
-  actionType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE";
+  actionType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT";
   targetUrl: string;
   repostContent?: string | null;
+  commentText?: string | null;
 };
 
 export interface SocialExecutor {

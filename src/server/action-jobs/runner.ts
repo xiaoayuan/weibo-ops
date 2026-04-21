@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
+import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 
 type StartCommentLikeJobInput = {
   jobId: string;
@@ -127,6 +128,10 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         id: true,
         nickname: true,
         loginStatus: true,
+        scheduleWindowEnabled: true,
+        executionWindowStart: true,
+        executionWindowEnd: true,
+        baseJitterSec: true,
       },
     }),
     prisma.actionJobStep.findMany({
@@ -159,6 +164,13 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       await prisma.actionJobStep.update({
         where: { id: step.id },
         data: { status: "RUNNING", startedAt: new Date() },
+      });
+
+      const timing = await waitForAccountExecutionWindow(accountId, `action-job:${input.jobId}:comment-like:${step.id}`, {
+        scheduleWindowEnabled: account.scheduleWindowEnabled,
+        executionWindowStart: account.executionWindowStart,
+        executionWindowEnd: account.executionWindowEnd,
+        baseJitterSec: account.baseJitterSec,
       });
 
       const result = await executor.executeInteraction({
@@ -198,6 +210,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
           stepType: "COMMENT_LIKE",
           targetUrl: step.targetUrl,
           sequenceNo: step.sequenceNo,
+          timing,
         },
         responsePayload: result.responsePayload,
         success,
@@ -256,6 +269,10 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         id: true,
         nickname: true,
         loginStatus: true,
+        scheduleWindowEnabled: true,
+        executionWindowStart: true,
+        executionWindowEnd: true,
+        baseJitterSec: true,
       },
     }),
     prisma.actionJobStep.findMany({
@@ -284,6 +301,13 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
       await prisma.actionJobStep.update({
         where: { id: step.id },
         data: { status: "RUNNING", startedAt: new Date() },
+      });
+
+      const timing = await waitForAccountExecutionWindow(accountId, `action-job:${input.jobId}:repost:${step.id}`, {
+        scheduleWindowEnabled: account.scheduleWindowEnabled,
+        executionWindowStart: account.executionWindowStart,
+        executionWindowEnd: account.executionWindowEnd,
+        baseJitterSec: account.baseJitterSec,
       });
 
       const payload = (step.payload || {}) as { repostContent?: string };
@@ -350,6 +374,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
           sequenceNo: step.sequenceNo,
           repostContent: payload.repostContent || "",
           retryCount,
+          timing,
         },
         responsePayload: result.responsePayload,
         success,

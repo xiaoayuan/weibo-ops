@@ -2,6 +2,8 @@ import { decryptText } from "@/lib/encrypt";
 import { prisma } from "@/lib/prisma";
 import { sendHttpRequestWithRetry } from "@/server/executors/http-client";
 import { validateInteractionPrecheck, validatePlanPrecheck } from "@/server/executors/precheck";
+import { getProxyConfigForAccount, type ProxyConfig } from "@/server/proxy-config";
+import { extractStatusIdFromUrl, fetchStatusCommentsCount, sendStatusComment } from "@/server/plans/first-comment-plan";
 import type { ExecuteInteractionInput, ExecutePlanInput, ExecutorActionResult, SocialExecutor } from "@/server/executors/types";
 import { randomUUID } from "node:crypto";
 
@@ -418,7 +420,7 @@ function isCommentLikeLink(targetUrl: string) {
   );
 }
 
-async function resolveLikeTargetUrl(targetUrl: string, cookie: string) {
+async function resolveLikeTargetUrl(targetUrl: string, cookie: string, proxyConfig?: ProxyConfig | null) {
   try {
     const response = await sendHttpRequestWithRetry(
       {
@@ -429,6 +431,7 @@ async function resolveLikeTargetUrl(targetUrl: string, cookie: string) {
           Referer: "https://weibo.com/",
         },
         timeoutMs: 10_000,
+        proxyConfig,
       },
       {
         retries: 1,
@@ -510,7 +513,7 @@ async function getAccountCookie(accountId: string) {
   };
 }
 
-async function buildConnectivityProbe(cookie: string) {
+async function buildConnectivityProbe(cookie: string, proxyConfig?: ProxyConfig | null) {
   const response = await sendHttpRequestWithRetry({
     url: "https://weibo.com/",
     headers: {
@@ -518,6 +521,7 @@ async function buildConnectivityProbe(cookie: string) {
       Referer: "https://weibo.com/",
     },
     timeoutMs: 10_000,
+    proxyConfig,
   }, {
     retries: 1,
   });
@@ -529,7 +533,7 @@ async function buildConnectivityProbe(cookie: string) {
   };
 }
 
-async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
+async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
   const topicId = tryExtractTopicId(input.topicUrl);
@@ -595,6 +599,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
           "X-Requested-With": "XMLHttpRequest",
         },
         timeoutMs: 12_000,
+        proxyConfig,
       },
       {
         retries: 1,
@@ -646,6 +651,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
           headers,
           body: payload.body,
           timeoutMs: 12_000,
+          proxyConfig,
         },
         {
           retries: 1,
@@ -683,7 +689,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string) {
   };
 }
 
-async function sendLikeRequest(targetUrl: string, cookie: string) {
+async function sendLikeRequest(targetUrl: string, cookie: string, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
 
@@ -691,7 +697,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
   let statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
 
   if (!statusId) {
-    resolvedTargetUrl = await resolveLikeTargetUrl(targetUrl, cookie);
+    resolvedTargetUrl = await resolveLikeTargetUrl(targetUrl, cookie, proxyConfig);
     statusId = normalizeStatusId(tryExtractStatusId(resolvedTargetUrl));
   }
 
@@ -739,6 +745,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
         headers,
         body: form.toString(),
         timeoutMs: 12_000,
+        proxyConfig,
       },
       {
         retries: 1,
@@ -782,7 +789,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string) {
   };
 }
 
-async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
+async function sendCommentLikeRequest(targetUrl: string, cookie: string, proxyConfig?: ProxyConfig | null) {
   const objectId = tryExtractCommentId(targetUrl);
 
   if (!objectId) {
@@ -834,6 +841,7 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
       headers,
       body: body.toString(),
       timeoutMs: 12_000,
+      proxyConfig,
     },
     {
       retries: 1,
@@ -855,7 +863,7 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string) {
   };
 }
 
-async function sendRepostRequest(targetUrl: string, cookie: string, repostContent?: string | null) {
+async function sendRepostRequest(targetUrl: string, cookie: string, repostContent?: string | null, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
 
@@ -875,7 +883,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     };
   }
 
-  const beforeSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId).catch(() => ({
+  const beforeSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId, proxyConfig).catch(() => ({
     ok: false,
     repostsCount: undefined,
     isRepost: false,
@@ -884,7 +892,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   }));
   const requireStrictTargetIncrease = beforeSnapshot.isRepost;
   const originBeforeSnapshot = beforeSnapshot.originStatusId
-    ? await fetchRepostCount(cookie, resolvedTargetUrl, beforeSnapshot.originStatusId).catch(() => ({
+      ? await fetchRepostCount(cookie, resolvedTargetUrl, beforeSnapshot.originStatusId, proxyConfig).catch(() => ({
         ok: false,
         repostsCount: undefined,
         isRepost: false,
@@ -949,6 +957,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         headers,
         body: form.toString(),
         timeoutMs: 12_000,
+        proxyConfig,
       },
       {
         retries: 1,
@@ -976,7 +985,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     });
 
     if (response.ok && (businessOk === true || repostConfirmed)) {
-      const afterSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId).catch(() => ({
+      const afterSnapshot = await fetchRepostCount(cookie, resolvedTargetUrl, statusId, proxyConfig).catch(() => ({
         ok: false,
         repostsCount: undefined,
         isRepost: false,
@@ -984,7 +993,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         summary: "repost-count-after-unavailable",
       }));
       const originAfterSnapshot = beforeSnapshot.originStatusId
-        ? await fetchRepostCount(cookie, resolvedTargetUrl, beforeSnapshot.originStatusId).catch(() => ({
+        ? await fetchRepostCount(cookie, resolvedTargetUrl, beforeSnapshot.originStatusId, proxyConfig).catch(() => ({
             ok: false,
             repostsCount: undefined,
             isRepost: false,
@@ -1079,7 +1088,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   };
 }
 
-async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, cookie: string) {
+async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, cookie: string, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
   const endpoints = getPostEndpoints();
@@ -1169,6 +1178,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
         headers: appHeaders,
         body: appBody.toString(),
         timeoutMs: 12_000,
+        proxyConfig,
       },
       {
         retries: 1,
@@ -1240,6 +1250,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
         headers,
         body: form.toString(),
         timeoutMs: 12_000,
+        proxyConfig,
       },
       {
         retries: 1,
@@ -1422,7 +1433,7 @@ function toNumber(value: unknown) {
   return undefined;
 }
 
-async function fetchRepostCount(cookie: string, referer: string, statusId: string) {
+async function fetchRepostCount(cookie: string, referer: string, statusId: string, proxyConfig?: ProxyConfig | null) {
   const endpoint = `https://weibo.com/ajax/statuses/show?id=${encodeURIComponent(statusId)}`;
   const response = await sendHttpRequestWithRetry(
     {
@@ -1434,6 +1445,7 @@ async function fetchRepostCount(cookie: string, referer: string, statusId: strin
         "X-Requested-With": "XMLHttpRequest",
       },
       timeoutMs: 10_000,
+      proxyConfig,
     },
     {
       retries: 1,
@@ -1458,7 +1470,7 @@ async function fetchRepostCount(cookie: string, referer: string, statusId: strin
   };
 }
 
-async function verifyLikeState(cookie: string, referer: string, candidateIds: Array<string | undefined>) {
+async function verifyLikeState(cookie: string, referer: string, candidateIds: Array<string | undefined>, proxyConfig?: ProxyConfig | null) {
   const ids = Array.from(new Set(candidateIds.filter((id): id is string => Boolean(id && id.trim()))));
 
   const attempts: Array<{ endpoint: string; status: number; summary: unknown }> = [];
@@ -1475,6 +1487,7 @@ async function verifyLikeState(cookie: string, referer: string, candidateIds: Ar
           "X-Requested-With": "XMLHttpRequest",
         },
         timeoutMs: 10_000,
+        proxyConfig,
       },
       {
         retries: 1,
@@ -1521,7 +1534,8 @@ export class WeiboExecutor implements SocialExecutor {
 
     try {
       const account = await getAccountCookie(input.accountId);
-      const probe = await buildConnectivityProbe(account.cookie);
+      const proxyConfig = await getProxyConfigForAccount(input.accountId);
+      const probe = await buildConnectivityProbe(account.cookie, proxyConfig);
 
       if (!probe.ok) {
         return blockedResult("微博连通性探测未通过，无法进入真实执行阶段。", {
@@ -1537,7 +1551,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.planType === "CHECK_IN") {
-        const checkInResult = await sendCheckInRequest(input, account.cookie);
+        const checkInResult = await sendCheckInRequest(input, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(checkInResult.summary);
 
         if (!checkInResult.ok || businessOk === false || businessOk === undefined) {
@@ -1569,7 +1583,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.planType === "POST" && input.content) {
-        const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, account.cookie);
+        const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(postResult.summary);
 
         if (!postResult.ok || businessOk === false) {
@@ -1599,7 +1613,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.planType === "LIKE" && input.targetUrl) {
-        const likeResult = await sendLikeRequest(input.targetUrl, account.cookie);
+        const likeResult = await sendLikeRequest(input.targetUrl, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
         const likeConfirmed = isLikeConfirmed(likeResult.summary) || Boolean(likeResult.likeConfirmed);
 
@@ -1620,7 +1634,7 @@ export class WeiboExecutor implements SocialExecutor {
         const verifyResult = await verifyLikeState(account.cookie, input.targetUrl, [
           likeResult.statusId,
           extractLikeResultId(likeResult.summary),
-        ]);
+        ], proxyConfig);
 
         return successResult(`已发起点赞请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
@@ -1663,7 +1677,8 @@ export class WeiboExecutor implements SocialExecutor {
 
     try {
       const account = await getAccountCookie(input.accountId);
-      const probe = await buildConnectivityProbe(account.cookie);
+      const proxyConfig = await getProxyConfigForAccount(input.accountId);
+      const probe = await buildConnectivityProbe(account.cookie, proxyConfig);
 
       if (!probe.ok) {
         return blockedResult("微博连通性探测未通过，无法进入真实执行阶段。", {
@@ -1681,10 +1696,10 @@ export class WeiboExecutor implements SocialExecutor {
         const commentId = tryExtractCommentId(input.targetUrl);
         const commentMode = Boolean(commentId) || isCommentLikeLink(input.targetUrl);
         const likeResult = commentId
-          ? await sendCommentLikeRequest(input.targetUrl, account.cookie)
+          ? await sendCommentLikeRequest(input.targetUrl, account.cookie, proxyConfig)
           : commentMode
-            ? await sendCommentLikeRequest(input.targetUrl, account.cookie)
-            : await sendLikeRequest(input.targetUrl, account.cookie);
+            ? await sendCommentLikeRequest(input.targetUrl, account.cookie, proxyConfig)
+            : await sendLikeRequest(input.targetUrl, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
         const likeConfirmed = commentMode
           ? businessOk === true || isPostConfirmed(likeResult.summary)
@@ -1709,7 +1724,7 @@ export class WeiboExecutor implements SocialExecutor {
           : await verifyLikeState(account.cookie, input.targetUrl, [
               "statusId" in likeResult ? likeResult.statusId : undefined,
               extractLikeResultId(likeResult.summary),
-            ]);
+            ], proxyConfig);
 
         return successResult(`已发起${commentMode ? "评论点赞" : "点赞"}请求：${input.accountNickname}`, "SUCCESS", {
           executor: "weibo",
@@ -1729,7 +1744,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.actionType === "POST") {
-        const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.repostContent);
+        const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.repostContent, proxyConfig);
         const summaryPayload =
           repostResult.summary && typeof repostResult.summary === "object" && "responseSummary" in repostResult.summary
             ? (repostResult.summary as { responseSummary?: unknown }).responseSummary
@@ -1760,6 +1775,68 @@ export class WeiboExecutor implements SocialExecutor {
           loginStatus: account.loginStatus,
           probe,
           repostResult,
+        });
+      }
+
+      if (input.actionType === "COMMENT") {
+        const statusId = extractStatusIdFromUrl(input.targetUrl);
+
+        if (!statusId) {
+          return blockedResult("未能从目标链接中解析出微博 ID，无法执行回复。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "COMMENT_TARGET_PARSE_FAILED",
+            actionType: input.actionType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+          });
+        }
+
+        const commentsCount = await fetchStatusCommentsCount(statusId, account.cookie, input.targetUrl, proxyConfig);
+
+        if (typeof commentsCount === "number" && commentsCount > 20) {
+          return successResult("已大于20条", "SUCCESS", {
+            executor: "weibo",
+            action: "COMMENT_SKIPPED",
+            actionType: input.actionType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+            statusId,
+            commentsCount,
+            skipReason: "COMMENTS_GT_20",
+          });
+        }
+
+        const commentResult = await sendStatusComment(statusId, input.targetUrl, input.commentText || "", account.cookie, proxyConfig);
+
+        if (!commentResult.success) {
+          return blockedResult("回复请求未通过，请检查目标链接、文案和账号登录态。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "COMMENT_REQUEST_FAILED",
+            actionType: input.actionType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            probe,
+            statusId,
+            commentsCount,
+            commentResult,
+          });
+        }
+
+        return successResult(`已发起回复请求：${input.accountNickname}`, "SUCCESS", {
+          executor: "weibo",
+          action: "COMMENT",
+          actionType: input.actionType,
+          targetUrl: input.targetUrl,
+          loginStatus: account.loginStatus,
+          probe,
+          statusId,
+          commentsCount,
+          commentText: input.commentText,
+          commentResult,
         });
       }
 

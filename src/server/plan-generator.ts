@@ -1,5 +1,33 @@
 import { prisma } from "@/lib/prisma";
+import { toBusinessDate } from "@/lib/business-date";
 import { writeExecutionLog } from "@/server/logs";
+
+type DailyPlanWithRelations = Awaited<ReturnType<typeof loadDailyPlans>>;
+
+async function loadDailyPlans(planDate: Date, ownerUserId?: string) {
+  return prisma.dailyPlan.findMany({
+    where: {
+      planDate,
+      ...(ownerUserId
+        ? {
+            account: {
+              ownerUserId,
+            },
+          }
+        : {}),
+    },
+    include: {
+      account: true,
+      content: true,
+      task: {
+        include: {
+          superTopic: true,
+        },
+      },
+    },
+    orderBy: { scheduledTime: "asc" },
+  });
+}
 
 function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -30,7 +58,18 @@ function randomTimes(date: Date, startTime: string, endTime: string, count: numb
 }
 
 export async function generateDailyPlans(dateText: string, ownerUserId?: string) {
-  const planDate = new Date(`${dateText}T00:00:00`);
+  const result = await generateDailyPlansWithSummary(dateText, ownerUserId);
+  return result.plans;
+}
+
+export async function generateDailyPlansWithSummary(dateText: string, ownerUserId?: string): Promise<{
+  plans: DailyPlanWithRelations;
+  createdCount: number;
+  existingCount: number;
+}> {
+  const planDate = toBusinessDate(dateText);
+  let createdCount = 0;
+  let existingCount = 0;
 
   const tasks = await prisma.accountTopicTask.findMany({
     where: {
@@ -63,6 +102,7 @@ export async function generateDailyPlans(dateText: string, ownerUserId?: string)
 
     const hasCheckInPlan = existingPlans.some((plan) => plan.planType === "CHECK_IN");
     const firstCommentPlanCount = existingPlans.filter((plan) => plan.planType === "FIRST_COMMENT").length;
+    existingCount += existingPlans.length;
 
     const createPayload: Array<{
       taskId: string;
@@ -112,6 +152,7 @@ export async function generateDailyPlans(dateText: string, ownerUserId?: string)
       await prisma.dailyPlan.createMany({
         data: createPayload,
       });
+      createdCount += createPayload.length;
 
       await writeExecutionLog({
         accountId: task.accountId,
@@ -123,26 +164,9 @@ export async function generateDailyPlans(dateText: string, ownerUserId?: string)
     }
   }
 
-  return prisma.dailyPlan.findMany({
-    where: {
-      planDate,
-      ...(ownerUserId
-        ? {
-            account: {
-              ownerUserId,
-            },
-          }
-        : {}),
-    },
-    include: {
-      account: true,
-      content: true,
-      task: {
-        include: {
-          superTopic: true,
-        },
-      },
-    },
-    orderBy: { scheduledTime: "asc" },
-  });
+  return {
+    plans: await loadDailyPlans(planDate, ownerUserId),
+    createdCount,
+    existingCount,
+  };
 }

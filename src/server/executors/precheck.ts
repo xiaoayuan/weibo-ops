@@ -82,5 +82,13 @@ export function validateInteractionPrecheck(input: ExecuteInteractionInput, exec
     });
   }
 
+  if (input.actionType === "COMMENT" && !input.commentText?.trim()) {
+    return buildBlockedResult("回复任务缺少评论文案，无法进入真实执行阶段。", executor, "MISSING_COMMENT_TEXT", {
+      interactionTaskId: input.interactionTaskId,
+      actionType: input.actionType,
+      targetUrl: input.targetUrl,
+    });
+  }
+
   return null;
 }

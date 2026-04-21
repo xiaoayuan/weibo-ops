@@ -1,7 +1,9 @@
+import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { generateDailyPlans } from "@/server/plan-generator";
 import { executePlanById } from "@/server/plans/execute-plan";
 import { writeExecutionLog } from "@/server/logs";
 import { prisma } from "@/lib/prisma";
+import { scheduleTask } from "@/server/task-scheduler";
 
 const AUTO_FIRST_COMMENT_ENABLED = process.env.AUTO_FIRST_COMMENT_ENABLED !== "false";
 const AUTO_FIRST_COMMENT_HOUR = Number(process.env.AUTO_FIRST_COMMENT_HOUR || 1);
@@ -9,13 +11,6 @@ const AUTO_FIRST_COMMENT_MINUTE = Number(process.env.AUTO_FIRST_COMMENT_MINUTE |
 
 declare global {
   var __firstCommentSchedulerStarted: boolean | undefined;
-}
-
-function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function getNextRunAt(now: Date) {
@@ -31,8 +26,8 @@ function getNextRunAt(now: Date) {
 
 async function runAutoFirstCommentOnce() {
   const now = new Date();
-  const dateText = formatDate(now);
-  const planDate = new Date(`${dateText}T00:00:00`);
+  const dateText = getBusinessDateText(now);
+  const planDate = toBusinessDate(dateText);
 
   await generateDailyPlans(dateText);
 
@@ -49,6 +44,11 @@ async function runAutoFirstCommentOnce() {
     },
     select: {
       id: true,
+      account: {
+        select: {
+          ownerUserId: true,
+        },
+      },
     },
   });
 
@@ -56,7 +56,19 @@ async function runAutoFirstCommentOnce() {
   let failed = 0;
 
   for (const plan of candidates) {
-    const result = await executePlanById(plan.id);
+    if (!plan.account.ownerUserId) {
+      failed += 1;
+      continue;
+    }
+
+    const scheduled = await scheduleTask({
+      kind: "PLAN",
+      id: plan.id,
+      ownerUserId: plan.account.ownerUserId,
+      label: `auto-first-comment:${plan.id}`,
+      run: () => executePlanById(plan.id),
+    });
+    const result = scheduled.data;
 
     if (result.ok && result.success) {
       success += 1;
