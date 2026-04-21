@@ -9,19 +9,19 @@ import { ensureDailyCheckinSchedulerStarted } from "@/server/scheduler/daily-che
 import { ensureFirstCommentSchedulerStarted } from "@/server/scheduler/first-comment";
 
 const navItems = [
-  { href: "/", label: "控制台", icon: LayoutDashboard },
-  { href: "/accounts", label: "账号管理", icon: Users },
-  { href: "/super-topics", label: "超话管理", icon: Tags },
-  { href: "/topic-tasks", label: "任务配置", icon: ClipboardList },
-  { href: "/copywriting", label: "文案库", icon: FileText },
-  { href: "/plans", label: "每日计划", icon: CalendarRange },
-  { href: "/interactions", label: "互动任务", icon: MessageCircleHeart },
-  { href: "/ops", label: "控评与轮转", icon: RefreshCw },
-  { href: "/mobile-tasks", label: "手机执行", icon: Smartphone },
-  { href: "/logs", label: "执行日志", icon: Bell },
-  { href: "/scheduler", label: "调度监控", icon: RefreshCw },
-  { href: "/users", label: "用户管理", icon: Shield, minRole: "ADMIN" as const },
-  { href: "/settings", label: "系统设置", icon: Settings, minRole: "ADMIN" as const },
+  { href: "/", label: "控制台", icon: LayoutDashboard, iconName: "LayoutDashboard" },
+  { href: "/accounts", label: "账号管理", icon: Users, iconName: "Users" },
+  { href: "/super-topics", label: "超话管理", icon: Tags, iconName: "Tags" },
+  { href: "/topic-tasks", label: "任务配置", icon: ClipboardList, iconName: "ClipboardList" },
+  { href: "/copywriting", label: "文案库", icon: FileText, iconName: "FileText" },
+  { href: "/plans", label: "每日计划", icon: CalendarRange, iconName: "CalendarRange" },
+  { href: "/interactions", label: "互动任务", icon: MessageCircleHeart, iconName: "MessageCircleHeart" },
+  { href: "/ops", label: "控评与轮转", icon: RefreshCw, iconName: "RefreshCw" },
+  { href: "/mobile-tasks", label: "手机执行", icon: Smartphone, iconName: "Smartphone" },
+  { href: "/logs", label: "执行日志", icon: Bell, iconName: "Bell" },
+  { href: "/scheduler", label: "调度监控", icon: RefreshCw, iconName: "RefreshCw" },
+  { href: "/users", label: "用户管理", icon: Shield, iconName: "Shield", minRole: "ADMIN" as const },
+  { href: "/settings", label: "系统设置", icon: Settings, iconName: "Settings", minRole: "ADMIN" as const },
 ];
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -58,7 +58,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </aside>
 
         <main className="p-6 lg:p-8">
-          <MobileNav items={visibleNavItems} username={session.username} role={session.role} />
+          <MobileNav
+            items={visibleNavItems.map((item) => ({ href: item.href, label: item.label, iconName: item.iconName }))}
+            username={session.username}
+            role={session.role}
+          />
           <div className="mb-6 flex items-center justify-between gap-3">
             <div className="hidden text-sm text-slate-500 lg:block">
               当前用户：<span className="font-medium text-slate-700">{session.username}</span> / {session.role}

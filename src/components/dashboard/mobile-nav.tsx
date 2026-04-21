@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, Menu, MessageCircleHeart, RefreshCw, Settings, Shield, Smartphone, Tags, Users, X } from "lucide-react";
 import { useState } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -10,7 +9,22 @@ import { LogoutButton } from "@/components/auth/logout-button";
 type NavItem = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  iconName: string;
+};
+
+const iconMap = {
+  Bell,
+  CalendarRange,
+  ClipboardList,
+  FileText,
+  LayoutDashboard,
+  MessageCircleHeart,
+  RefreshCw,
+  Settings,
+  Shield,
+  Smartphone,
+  Tags,
+  Users,
 };
 
 export function MobileNav({ items, username, role }: { items: NavItem[]; username: string; role: string }) {
@@ -48,7 +62,7 @@ export function MobileNav({ items, username, role }: { items: NavItem[]; usernam
 
             <nav className="space-y-2">
               {items.map((item) => {
-                const Icon = item.icon;
+                const Icon = iconMap[item.iconName as keyof typeof iconMap] || LayoutDashboard;
 
                 return (
                   <Link
