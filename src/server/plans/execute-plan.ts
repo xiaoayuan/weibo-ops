@@ -6,6 +6,38 @@ import { getProxyConfigForAccount } from "@/server/proxy-config";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 import { checkStatusIsZeroComments, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
+const planInclude = {
+  account: true,
+  content: true,
+  task: {
+    include: {
+      superTopic: true,
+    },
+  },
+} as const;
+
+async function getCancelledPlan(id: string) {
+  const plan = await prisma.dailyPlan.findUnique({
+    where: { id },
+    include: planInclude,
+  });
+
+  if (!plan || plan.status !== "CANCELLED") {
+    return null;
+  }
+
+  return plan;
+}
+
+function toCancelledResult(plan: Awaited<ReturnType<typeof getCancelledPlan>>) {
+  return {
+    ok: true as const,
+    success: false,
+    message: plan?.resultMessage || "计划已停止",
+    data: plan,
+  };
+}
+
 function toDateText(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -16,15 +48,7 @@ function toDateText(date: Date) {
 export async function executePlanById(id: string, ownerUserId?: string) {
   const plan = await prisma.dailyPlan.findUnique({
     where: { id },
-    include: {
-      account: true,
-      content: true,
-      task: {
-        include: {
-          superTopic: true,
-        },
-      },
-    },
+    include: planInclude,
   });
 
   if (!plan) {
@@ -43,12 +67,30 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     };
   }
 
+  if (plan.status === "CANCELLED") {
+    return toCancelledResult(plan);
+  }
+
+  await prisma.dailyPlan.update({
+    where: { id },
+    data: {
+      status: "RUNNING",
+      resultMessage: "执行中，支持手动停止",
+    },
+  });
+
   const timing = await waitForAccountExecutionWindow(plan.account.id, `plan:${plan.id}`, {
     scheduleWindowEnabled: plan.account.scheduleWindowEnabled,
     executionWindowStart: plan.account.executionWindowStart,
     executionWindowEnd: plan.account.executionWindowEnd,
     baseJitterSec: plan.account.baseJitterSec,
   });
+
+  const cancelledAfterWait = await getCancelledPlan(id);
+
+  if (cancelledAfterWait) {
+    return toCancelledResult(cancelledAfterWait);
+  }
 
   if (plan.planType === "FIRST_COMMENT") {
     const planDateText = toDateText(plan.planDate);
@@ -60,15 +102,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           status: "FAILED",
           resultMessage: "首评计划未绑定任务配置",
         },
-        include: {
-          account: true,
-          content: true,
-          task: {
-            include: {
-              superTopic: true,
-            },
-          },
-        },
+        include: planInclude,
       });
 
       return {
@@ -86,15 +120,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           status: "FAILED",
           resultMessage: "账号未录入 Cookie",
         },
-        include: {
-          account: true,
-          content: true,
-          task: {
-            include: {
-              superTopic: true,
-            },
-          },
-        },
+        include: planInclude,
       });
 
       await writeExecutionLog({
@@ -142,15 +168,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           status: "FAILED",
           resultMessage: "首评任务未启用或文案库缺少“首评文案”",
         },
-        include: {
-          account: true,
-          content: true,
-          task: {
-            include: {
-              superTopic: true,
-            },
-          },
-        },
+        include: planInclude,
       });
 
       await writeExecutionLog({
@@ -199,6 +217,12 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     let payload: unknown;
 
     for (const candidate of candidates) {
+      const cancelledBeforeCandidate = await getCancelledPlan(id);
+
+      if (cancelledBeforeCandidate) {
+        return toCancelledResult(cancelledBeforeCandidate);
+      }
+
       if (usedIds.has(candidate.id)) {
         continue;
       }
@@ -230,6 +254,12 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       const commentResult = await sendFirstComment(candidate.id, candidate.targetUrl || topicUrl, commentText, cookie, proxyConfig);
       payload = commentResult.payload;
 
+      const cancelledAfterComment = await getCancelledPlan(id);
+
+      if (cancelledAfterComment) {
+        return toCancelledResult(cancelledAfterComment);
+      }
+
       if (commentResult.success) {
         executed = true;
         message = `首评成功：${plan.account.nickname}`;
@@ -251,21 +281,19 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       }
     }
 
+    const cancelledBeforeFinalize = await getCancelledPlan(id);
+
+    if (cancelledBeforeFinalize) {
+      return toCancelledResult(cancelledBeforeFinalize);
+    }
+
     const updated = await prisma.dailyPlan.update({
       where: { id },
       data: {
         status: executed ? "SUCCESS" : "FAILED",
         resultMessage: message,
       },
-      include: {
-        account: true,
-        content: true,
-        task: {
-          include: {
-            superTopic: true,
-          },
-        },
-      },
+      include: planInclude,
     });
 
     await writeExecutionLog({
@@ -304,21 +332,19 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     topicUrl: plan.task?.superTopic.topicUrl || null,
   });
 
+  const cancelledBeforeFinalize = await getCancelledPlan(id);
+
+  if (cancelledBeforeFinalize) {
+    return toCancelledResult(cancelledBeforeFinalize);
+  }
+
   const updated = await prisma.dailyPlan.update({
     where: { id },
     data: {
       status: executionResult.status,
       resultMessage: executionResult.message,
     },
-    include: {
-      account: true,
-      content: true,
-      task: {
-        include: {
-          superTopic: true,
-        },
-      },
-    },
+    include: planInclude,
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "PLAN_EXECUTE_BLOCKED" : "PLAN_EXECUTE_PRECHECKED";

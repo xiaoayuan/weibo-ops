@@ -90,6 +90,7 @@ export function InteractionsManager({
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
+  const [batchStopping, setBatchStopping] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -235,6 +236,29 @@ export function InteractionsManager({
     }
   }
 
+  async function handleStop(id: string) {
+    if (!window.confirm("确认停止这条互动任务吗？")) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/interaction-tasks/${id}/stop`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "停止互动任务失败");
+      }
+
+      setTasks((current) => current.map((item) => (item.id === id ? normalizeTask(result.data) : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "停止互动任务失败");
+    }
+  }
+
   async function handleBatchExecute() {
     const selectedSet = new Set(selectedTaskIds);
     const baseCandidates = selectedTaskIds.length > 0 ? filteredTasks.filter((task) => selectedSet.has(task.id)) : filteredTasks;
@@ -303,6 +327,58 @@ export function InteractionsManager({
       }
     } finally {
       setBatchExecuting(false);
+    }
+  }
+
+  async function handleBatchStop() {
+    const selectedSet = new Set(selectedTaskIds);
+    const baseCandidates = selectedTaskIds.length > 0 ? filteredTasks.filter((task) => selectedSet.has(task.id)) : filteredTasks;
+    const candidates = baseCandidates.filter((task) => ["PENDING", "READY", "RUNNING"].includes(task.status));
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可停止的互动任务");
+      return;
+    }
+
+    if (!window.confirm(`确认停止当前筛选的 ${candidates.length} 条互动任务吗？`)) {
+      return;
+    }
+
+    try {
+      setBatchStopping(true);
+      setError(null);
+      setNotice(null);
+
+      let stopped = 0;
+      let failed = 0;
+
+      for (const task of candidates) {
+        try {
+          const response = await fetch(`/api/interaction-tasks/${task.id}/stop`, {
+            method: "POST",
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "停止互动任务失败");
+          }
+
+          setTasks((current) => current.map((item) => (item.id === task.id ? normalizeTask(result.data) : item)));
+          stopped += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      const summary = `批量停止完成：成功 ${stopped} 条${failed > 0 ? `，失败 ${failed} 条` : ""}`;
+
+      if (failed > 0) {
+        setError(summary);
+      } else {
+        setNotice(summary);
+      }
+    } finally {
+      setBatchStopping(false);
     }
   }
 
@@ -531,7 +607,7 @@ export function InteractionsManager({
                 <button
                   type="button"
                   onClick={handleBatchExecute}
-                  disabled={batchExecuting}
+                  disabled={batchExecuting || batchStopping}
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {batchExecuting
@@ -539,6 +615,20 @@ export function InteractionsManager({
                     : selectedTaskIds.length > 0
                       ? `执行/重试选中 (${selectedTaskIds.length})`
                       : "执行/重试当前筛选"}
+                </button>
+              ) : null}
+              {canExecute ? (
+                <button
+                  type="button"
+                  onClick={handleBatchStop}
+                  disabled={batchExecuting || batchStopping}
+                  className="rounded-lg border border-amber-200 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {batchStopping
+                    ? "批量停止中..."
+                    : selectedTaskIds.length > 0
+                      ? `停止选中 (${selectedTaskIds.length})`
+                      : "停止当前筛选"}
                 </button>
               ) : null}
               {canManage ? (
@@ -585,6 +675,7 @@ export function InteractionsManager({
                 selected={selectedTaskIds.includes(task.id)}
                 onToggle={() => toggleTask(task.id)}
                 onExecute={() => handleExecute(task.id)}
+                onStop={() => handleStop(task.id)}
                 onDelete={() => handleDelete(task.id)}
               />
             ))
@@ -642,6 +733,11 @@ export function InteractionsManager({
                           <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
                             执行
                           </button>
+                          {["PENDING", "READY", "RUNNING"].includes(task.status) ? (
+                            <button onClick={() => handleStop(task.id)} className="text-amber-700 hover:text-amber-800">
+                              停止
+                            </button>
+                          ) : null}
                           {canManage ? (
                             <button onClick={() => handleDelete(task.id)} className="text-rose-700 hover:text-rose-800">
                               删除

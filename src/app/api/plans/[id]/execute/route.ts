@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { executePlanById } from "@/server/plans/execute-plan";
 import { scheduleTask } from "@/server/task-scheduler";
+import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
 
 export async function POST(_request: Request, context: RouteContext<"/api/plans/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
@@ -69,7 +70,24 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       userConcurrency: scheduled.userConcurrency,
       queueDepth: scheduled.queueDepth,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof ScheduledTaskCancelledError) {
+      const plan = await prisma.dailyPlan.findUnique({
+        where: { id },
+        include: {
+          account: true,
+          content: true,
+          task: {
+            include: {
+              superTopic: true,
+            },
+          },
+        },
+      });
+
+      return Response.json({ success: false, data: plan, message: plan?.resultMessage || "计划已停止" });
+    }
+
     return Response.json({ success: false, message: "执行计划失败" }, { status: 500 });
   }
 }

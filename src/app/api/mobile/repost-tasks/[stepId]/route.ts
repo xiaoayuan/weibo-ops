@@ -32,6 +32,7 @@ export async function POST(request: Request, context: RouteContext<"/api/mobile/
         job: {
           select: {
             id: true,
+            status: true,
             createdBy: true,
             config: true,
           },
@@ -47,6 +48,10 @@ export async function POST(request: Request, context: RouteContext<"/api/mobile/
 
     if (config?.executionMode !== "MOBILE_ASSISTED") {
       return Response.json({ success: false, message: "该任务不是手机执行模式" }, { status: 400 });
+    }
+
+    if (step.status === "CANCELLED" || step.job.status === "CANCELLED") {
+      return Response.json({ success: false, message: "该任务已停止" }, { status: 400 });
     }
 
     const updatedStep = await prisma.actionJobStep.update({

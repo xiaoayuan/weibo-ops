@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { UserQueue } from "@/server/task-scheduler/user-queue";
-import type { ScheduledTask, ScheduledTaskResult } from "@/server/task-scheduler/types";
+import { ScheduledTaskCancelledError, type ScheduledTask, type ScheduledTaskResult } from "@/server/task-scheduler/types";
 
 type WorkerState = {
   id: string;
@@ -47,12 +47,15 @@ export class WorkerPool {
       worker.queues.set(task.ownerUserId, queue);
     } else {
       concurrency = await loadUserConcurrency(task.ownerUserId);
+      queue.setConcurrency(concurrency);
     }
 
     const queueDepth = queue.getPendingCount() + queue.getRunningCount() + 1;
 
     return new Promise<ScheduledTaskResult<T>>((resolve, reject) => {
       queue.enqueue({
+        kind: task.kind,
+        id: task.id,
         label: task.label,
         run: async () => ({
           workerId: worker.id,
@@ -64,6 +67,18 @@ export class WorkerPool {
         reject,
       });
     });
+  }
+
+  async cancel(task: Pick<ScheduledTask<unknown>, "kind" | "id" | "ownerUserId">) {
+    const worker = this.workers[hashUserId(task.ownerUserId) % this.workers.length];
+    const queue = worker.queues.get(task.ownerUserId);
+
+    if (!queue) {
+      return { removed: 0 };
+    }
+
+    const removed = queue.cancelPending(task.kind, task.id, new ScheduledTaskCancelledError());
+    return { removed };
   }
 
   async getSnapshot() {

@@ -54,6 +54,7 @@ export function PlansManager({
   const [editContentId, setEditContentId] = useState("");
   const [loading, setLoading] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
+  const [batchStopping, setBatchStopping] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -151,6 +152,29 @@ export function PlansManager({
     }
   }
 
+  async function handleStop(id: string) {
+    if (!window.confirm("确认停止这条计划吗？")) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/plans/${id}/stop`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "停止计划失败");
+      }
+
+      setPlans((current) => current.map((item) => (item.id === id ? result.data : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "停止计划失败");
+    }
+  }
+
   function togglePlanSelection(id: string) {
     setSelectedPlanIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
@@ -207,6 +231,58 @@ export function PlansManager({
       }
     } finally {
       setBatchExecuting(false);
+    }
+  }
+
+  async function handleBatchStop() {
+    const selectedSet = new Set(selectedPlanIds);
+    const baseCandidates = selectedPlanIds.length > 0 ? filteredPlans.filter((plan) => selectedSet.has(plan.id)) : filteredPlans;
+    const candidates = baseCandidates.filter((plan) => ["PENDING", "READY", "RUNNING"].includes(plan.status));
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可停止的计划");
+      return;
+    }
+
+    if (!window.confirm(`确认停止当前筛选的 ${candidates.length} 条计划吗？`)) {
+      return;
+    }
+
+    try {
+      setBatchStopping(true);
+      setError(null);
+      setNotice(null);
+
+      let stopped = 0;
+      let failed = 0;
+
+      for (const plan of candidates) {
+        try {
+          const response = await fetch(`/api/plans/${plan.id}/stop`, {
+            method: "POST",
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.message || "停止计划失败");
+          }
+
+          setPlans((current) => current.map((item) => (item.id === plan.id ? result.data : item)));
+          stopped += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      const summary = `批量停止完成：成功 ${stopped} 条${failed > 0 ? `，失败 ${failed} 条` : ""}`;
+
+      if (failed > 0) {
+        setError(summary);
+      } else {
+        setNotice(summary);
+      }
+    } finally {
+      setBatchStopping(false);
     }
   }
 
@@ -432,7 +508,7 @@ export function PlansManager({
               <button
                 type="button"
                 onClick={handleBatchExecute}
-                disabled={batchExecuting || loading}
+                disabled={batchExecuting || batchStopping || loading}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {batchExecuting
@@ -440,6 +516,20 @@ export function PlansManager({
                   : selectedPlanIds.length > 0
                     ? `执行/重试选中 (${selectedPlanIds.length})`
                     : "执行/重试当前筛选"}
+              </button>
+            ) : null}
+            {canExecute ? (
+              <button
+                type="button"
+                onClick={handleBatchStop}
+                disabled={batchExecuting || batchStopping || loading}
+                className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {batchStopping
+                  ? "批量停止中..."
+                  : selectedPlanIds.length > 0
+                    ? `停止选中 (${selectedPlanIds.length})`
+                    : "停止当前筛选"}
               </button>
             ) : null}
             {canManage ? (
@@ -573,14 +663,19 @@ export function PlansManager({
                              </button>
                            ) : null}
                             {canExecute ? (
-                              <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">
+                             <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">
                                 执行
                               </button>
-                            ) : null}
-                            {canManage ? (
-                              <button onClick={() => handleDelete(plan.id)} className="text-rose-700 hover:text-rose-800">
-                                删除
+                             ) : null}
+                            {canExecute && ["PENDING", "READY", "RUNNING"].includes(plan.status) ? (
+                              <button onClick={() => handleStop(plan.id)} className="text-amber-700 hover:text-amber-800">
+                                停止
                               </button>
+                            ) : null}
+                             {canManage ? (
+                               <button onClick={() => handleDelete(plan.id)} className="text-rose-700 hover:text-rose-800">
+                                 删除
+                               </button>
                             ) : null}
                           </div>
                         ) : <span className="text-slate-400">只读</span>}

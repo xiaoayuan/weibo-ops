@@ -1,4 +1,6 @@
 type QueueTask<T> = {
+  kind: string;
+  id: string;
   label: string;
   run: () => Promise<T>;
   resolve: (value: T) => void;
@@ -13,11 +15,14 @@ export type UserQueueSnapshot = {
 };
 
 export class UserQueue {
-  private readonly pending: Array<QueueTask<unknown>> = [];
+  private pending: Array<QueueTask<unknown>> = [];
   private readonly runningLabels = new Set<string>();
   private running = 0;
+  private concurrency: number;
 
-  constructor(private readonly concurrency: number) {}
+  constructor(concurrency: number) {
+    this.concurrency = concurrency;
+  }
 
   enqueue<T>(task: QueueTask<T>) {
     this.pending.push(task as QueueTask<unknown>);
@@ -30,6 +35,29 @@ export class UserQueue {
 
   getRunningCount() {
     return this.running;
+  }
+
+  setConcurrency(nextConcurrency: number) {
+    this.concurrency = Math.max(1, nextConcurrency);
+    this.drain();
+  }
+
+  cancelPending(kind: string, id: string, error: unknown) {
+    const nextPending: Array<QueueTask<unknown>> = [];
+    let removed = 0;
+
+    for (const task of this.pending) {
+      if (task.kind === kind && task.id === id) {
+        removed += 1;
+        task.reject(error);
+        continue;
+      }
+
+      nextPending.push(task);
+    }
+
+    this.pending = nextPending;
+    return removed;
   }
 
   getSnapshot(): UserQueueSnapshot {

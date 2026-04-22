@@ -3,6 +3,7 @@ import { requireApiRole } from "@/lib/permissions";
 import { executeInteractionTaskById } from "@/server/interactions/execute-task";
 import { writeExecutionLog } from "@/server/logs";
 import { scheduleTask } from "@/server/task-scheduler";
+import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
 
 export async function POST(_request: Request, context: RouteContext<"/api/interaction-tasks/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
@@ -78,7 +79,20 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       userConcurrency: scheduled.userConcurrency,
       queueDepth: scheduled.queueDepth,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof ScheduledTaskCancelledError) {
+      const task = await prisma.interactionTask.findUnique({
+        where: { id },
+        include: {
+          account: true,
+          target: true,
+          content: true,
+        },
+      });
+
+      return Response.json({ success: false, data: task, message: task?.resultMessage || "互动任务已停止" });
+    }
+
     return Response.json({ success: false, message: "执行互动任务失败" }, { status: 500 });
   }
 }

@@ -124,11 +124,20 @@ export function OpsManager({
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
   const [rotationCopyTexts, setRotationCopyTexts] = useState("1\n2\n3\n4\n5");
   const [rotationExecutionMode, setRotationExecutionMode] = useState<"SERVER" | "MOBILE_ASSISTED">("SERVER");
+  const [jobStatusFilter, setJobStatusFilter] = useState<"ALL" | ActionJob["status"]>("ALL");
   const [submitting, setSubmitting] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const repostTargetPreview = useMemo(() => parseRepostTargetPreview(rotationTargetUrl), [rotationTargetUrl]);
+
+  const filteredJobs = useMemo(() => {
+    if (jobStatusFilter === "ALL") {
+      return jobs;
+    }
+
+    return jobs.filter((job) => job.status === jobStatusFilter);
+  }, [jobStatusFilter, jobs]);
 
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
@@ -444,6 +453,29 @@ export function OpsManager({
       setError(err instanceof Error ? err.message : "启动轮转转发失败");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleStopJob(id: string) {
+    if (!window.confirm("确认停止这批任务吗？")) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const response = await fetch(`/api/action-jobs/${id}/stop`, {
+        method: "POST",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "停止批量任务失败");
+      }
+
+      setJobs((current) => current.map((job) => (job.id === id ? result.data : job)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "停止批量任务失败");
     }
   }
 
@@ -763,7 +795,22 @@ export function OpsManager({
       )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-medium">最近任务</h3>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <h3 className="text-lg font-medium">最近任务</h3>
+          <select
+            value={jobStatusFilter}
+            onChange={(event) => setJobStatusFilter(event.target.value as "ALL" | ActionJob["status"])}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+          >
+            <option value="ALL">全部状态</option>
+            <option value="RUNNING">仅运行中</option>
+            <option value="PENDING">待执行</option>
+            <option value="SUCCESS">成功</option>
+            <option value="PARTIAL_FAILED">部分失败</option>
+            <option value="FAILED">失败</option>
+            <option value="CANCELLED">已取消</option>
+          </select>
+        </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
@@ -772,23 +819,33 @@ export function OpsManager({
                 <th className="px-3 py-2 font-medium">类型</th>
                 <th className="px-3 py-2 font-medium">状态</th>
                 <th className="px-3 py-2 font-medium">账号执行</th>
+                <th className="px-3 py-2 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
-              {jobs.length === 0 ? (
+              {filteredJobs.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-slate-500">
-                    暂无任务记录。
+                  <td colSpan={5} className="px-3 py-6 text-slate-500">
+                    当前筛选下暂无任务记录。
                   </td>
                 </tr>
               ) : (
-                jobs.map((job) => (
+                filteredJobs.map((job) => (
                   <tr key={job.id} className="border-t border-slate-200 align-top">
                     <td className="px-3 py-3">{new Date(job.createdAt).toLocaleString("zh-CN")}</td>
                     <td className="px-3 py-3">{job.jobType === "COMMENT_LIKE_BATCH" ? "控评点赞" : "轮转转发"}</td>
                     <td className="px-3 py-3">{jobStatusText[job.status]}</td>
                     <td className="px-3 py-3">
                       {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
+                    </td>
+                    <td className="px-3 py-3">
+                      {["PENDING", "RUNNING"].includes(job.status) ? (
+                        <button onClick={() => handleStopJob(job.id)} className="text-amber-700 hover:text-amber-800">
+                          停止
+                        </button>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
                     </td>
                   </tr>
                 ))

@@ -57,7 +57,21 @@ function computeJobStatus(total: number, success: number, failed: number) {
   return "PARTIAL_FAILED" as const;
 }
 
+async function isActionJobCancelled(jobId: string) {
+  const job = await prisma.actionJob.findUnique({
+    where: { id: jobId },
+    select: { status: true },
+  });
+
+  return job?.status === "CANCELLED";
+}
+
 export async function recomputeRepostRunStatus(jobId: string, accountId: string) {
+  const existingRun = await prisma.actionJobAccountRun.findFirst({
+    where: { jobId, accountId },
+    select: { status: true },
+  });
+
   const steps = await prisma.actionJobStep.findMany({
     where: {
       jobId,
@@ -78,6 +92,14 @@ export async function recomputeRepostRunStatus(jobId: string, accountId: string)
   const latestFailed = failedSteps[failedSteps.length - 1];
   const status = computeJobStatus(steps.length, successCount, failedCount);
 
+  if (existingRun?.status === "CANCELLED") {
+    return {
+      total: steps.length,
+      successCount,
+      failedCount,
+    };
+  }
+
   await prisma.actionJobAccountRun.updateMany({
     where: { jobId, accountId },
     data: {
@@ -95,6 +117,15 @@ export async function recomputeRepostRunStatus(jobId: string, accountId: string)
 }
 
 export async function recomputeRepostJobSummary(jobId: string, targetUrl: string, times: number, intervalSec: 0 | 3 | 5 | 10) {
+  const existingJob = await prisma.actionJob.findUnique({
+    where: { id: jobId },
+    select: { status: true },
+  });
+
+  if (existingJob?.status === "CANCELLED") {
+    return;
+  }
+
   const finalRuns = await prisma.actionJobAccountRun.findMany({ where: { jobId } });
   const successAccounts = finalRuns.filter((item) => item.status === "SUCCESS").length;
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
@@ -119,6 +150,10 @@ export async function recomputeRepostJobSummary(jobId: string, targetUrl: string
 }
 
 export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
+  if (await isActionJobCancelled(input.jobId)) {
+    return;
+  }
+
   const [accounts, steps] = await Promise.all([
     prisma.weiboAccount.findMany({
       where: {
@@ -144,6 +179,10 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const executor = getExecutor();
 
   for (const accountId of input.accountIds) {
+    if (await isActionJobCancelled(input.jobId)) {
+      return;
+    }
+
     const account = accountMap.get(accountId);
     const accountSteps = steps.filter((item) => item.accountId === accountId);
 
@@ -161,6 +200,10 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     });
 
     for (const step of accountSteps) {
+      if (await isActionJobCancelled(input.jobId)) {
+        return;
+      }
+
       await prisma.actionJobStep.update({
         where: { id: step.id },
         data: { status: "RUNNING", startedAt: new Date() },
@@ -173,6 +216,10 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         baseJitterSec: account.baseJitterSec,
       });
 
+      if (await isActionJobCancelled(input.jobId)) {
+        return;
+      }
+
       const result = await executor.executeInteraction({
         interactionTaskId: step.id,
         accountId,
@@ -181,6 +228,10 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         actionType: "LIKE",
         targetUrl: step.targetUrl,
       });
+
+      if (await isActionJobCancelled(input.jobId)) {
+        return;
+      }
 
       const success = result.success && result.status === "SUCCESS";
 
@@ -239,6 +290,10 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     });
   }
 
+  if (await isActionJobCancelled(input.jobId)) {
+    return;
+  }
+
   const finalRuns = await prisma.actionJobAccountRun.findMany({ where: { jobId: input.jobId } });
   const successAccounts = finalRuns.filter((item) => item.status === "SUCCESS").length;
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
@@ -260,6 +315,10 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 }
 
 export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
+  if (await isActionJobCancelled(input.jobId)) {
+    return;
+  }
+
   const [accounts, steps] = await Promise.all([
     prisma.weiboAccount.findMany({
       where: {
@@ -285,6 +344,10 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
   const executor = getExecutor();
 
   for (const accountId of input.accountIds) {
+    if (await isActionJobCancelled(input.jobId)) {
+      return;
+    }
+
     const account = accountMap.get(accountId);
     const accountSteps = steps.filter((item) => item.accountId === accountId);
 
@@ -298,6 +361,10 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
     });
 
     for (const step of accountSteps) {
+      if (await isActionJobCancelled(input.jobId)) {
+        return;
+      }
+
       await prisma.actionJobStep.update({
         where: { id: step.id },
         data: { status: "RUNNING", startedAt: new Date() },
@@ -310,6 +377,10 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         baseJitterSec: account.baseJitterSec,
       });
 
+      if (await isActionJobCancelled(input.jobId)) {
+        return;
+      }
+
       const payload = (step.payload || {}) as { repostContent?: string };
       let result = await executor.executeInteraction({
         interactionTaskId: step.id,
@@ -321,11 +392,20 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         repostContent: payload.repostContent || null,
       });
 
+      if (await isActionJobCancelled(input.jobId)) {
+        return;
+      }
+
       let retryCount = 0;
 
       if (shouldRetryBusy(result)) {
         retryCount = 1;
         await sleep(2000);
+
+        if (await isActionJobCancelled(input.jobId)) {
+          return;
+        }
+
         result = await executor.executeInteraction({
           interactionTaskId: step.id,
           accountId,
@@ -335,11 +415,20 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
           targetUrl: step.targetUrl,
           repostContent: payload.repostContent || null,
         });
+
+        if (await isActionJobCancelled(input.jobId)) {
+          return;
+        }
       }
 
       if (!result.success && shouldRetryBusy(result)) {
         retryCount = 2;
         await sleep(5000);
+
+        if (await isActionJobCancelled(input.jobId)) {
+          return;
+        }
+
         result = await executor.executeInteraction({
           interactionTaskId: step.id,
           accountId,
@@ -349,6 +438,10 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
           targetUrl: step.targetUrl,
           repostContent: payload.repostContent || null,
         });
+
+        if (await isActionJobCancelled(input.jobId)) {
+          return;
+        }
       }
 
       const success = result.success && result.status === "SUCCESS";
@@ -385,10 +478,18 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
       if (step.sequenceNo < input.times) {
         await sleep(computeStepDelayMs(input.intervalSec));
+
+        if (await isActionJobCancelled(input.jobId)) {
+          return;
+        }
       }
     }
 
     await recomputeRepostRunStatus(input.jobId, accountId);
+  }
+
+  if (await isActionJobCancelled(input.jobId)) {
+    return;
   }
 
   await recomputeRepostJobSummary(input.jobId, input.targetUrl, input.times, input.intervalSec);

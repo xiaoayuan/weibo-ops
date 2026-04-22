@@ -30,6 +30,7 @@ export function InteractionTaskCard({
   selected,
   onToggle,
   onExecute,
+  onStop,
   onDelete,
 }: {
   task: InteractionTaskWithRelations;
@@ -38,6 +39,7 @@ export function InteractionTaskCard({
   selected: boolean;
   onToggle: () => void;
   onExecute: () => void;
+  onStop: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -65,6 +67,11 @@ export function InteractionTaskCard({
         {canExecute ? (
           <button type="button" onClick={onExecute} className="text-violet-600 transition hover:text-violet-700">
             执行
+          </button>
+        ) : null}
+        {canExecute && ["PENDING", "READY", "RUNNING"].includes(task.status) ? (
+          <button type="button" onClick={onStop} className="text-amber-700 transition hover:text-amber-800">
+            停止
           </button>
         ) : null}
         {canManage ? (

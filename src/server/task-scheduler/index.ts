@@ -17,6 +17,10 @@ export async function scheduleTask<T>(task: ScheduledTask<T>) {
   return getWorkerPool().submit(task);
 }
 
+export async function cancelTask(task: Pick<ScheduledTask<unknown>, "kind" | "id" | "ownerUserId">) {
+  return getWorkerPool().cancel(task);
+}
+
 export async function getTaskSchedulerSnapshot() {
   return getWorkerPool().getSnapshot();
 }

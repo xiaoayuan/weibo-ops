@@ -3,6 +3,34 @@ import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 
+const interactionInclude = {
+  account: true,
+  target: true,
+  content: true,
+} as const;
+
+async function getCancelledInteractionTask(id: string) {
+  const task = await prisma.interactionTask.findUnique({
+    where: { id },
+    include: interactionInclude,
+  });
+
+  if (!task || task.status !== "CANCELLED") {
+    return null;
+  }
+
+  return task;
+}
+
+function toCancelledResult(task: Awaited<ReturnType<typeof getCancelledInteractionTask>>) {
+  return {
+    ok: true as const,
+    success: false,
+    data: task,
+    message: task?.resultMessage || "互动任务已停止",
+  };
+}
+
 function shouldRetryBusy(result: { success: boolean; message: string; responsePayload?: unknown }) {
   if (result.success) {
     return false;
@@ -22,11 +50,7 @@ function sleep(ms: number) {
 export async function executeInteractionTaskById(id: string, ownerUserId: string, executorAccountId?: string) {
   const task = await prisma.interactionTask.findUnique({
     where: { id },
-    include: {
-      account: true,
-      target: true,
-      content: true,
-    },
+    include: interactionInclude,
   });
 
   if (!task) {
@@ -36,6 +60,18 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
   if (task.account.ownerUserId !== ownerUserId) {
     return { ok: false as const, status: 403, message: "互动任务不属于当前用户" };
   }
+
+  if (task.status === "CANCELLED") {
+    return toCancelledResult(task);
+  }
+
+  await prisma.interactionTask.update({
+    where: { id },
+    data: {
+      status: "RUNNING",
+      resultMessage: "执行中，支持手动停止",
+    },
+  });
 
   let executionAccount = task.account;
 
@@ -56,6 +92,13 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     executionWindowEnd: executionAccount.executionWindowEnd,
     baseJitterSec: executionAccount.baseJitterSec,
   });
+
+  const cancelledAfterWait = await getCancelledInteractionTask(id);
+
+  if (cancelledAfterWait) {
+    return toCancelledResult(cancelledAfterWait);
+  }
+
   let executionResult = await executor.executeInteraction({
     interactionTaskId: task.id,
     accountId: executionAccount.id,
@@ -71,6 +114,13 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
   if (shouldRetryBusy(executionResult)) {
     retryCount = 1;
     await sleep(1200);
+
+    const cancelledBeforeRetry = await getCancelledInteractionTask(id);
+
+    if (cancelledBeforeRetry) {
+      return toCancelledResult(cancelledBeforeRetry);
+    }
+
     executionResult = await executor.executeInteraction({
       interactionTaskId: task.id,
       accountId: executionAccount.id,
@@ -82,17 +132,19 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     });
   }
 
+  const cancelledBeforeFinalize = await getCancelledInteractionTask(id);
+
+  if (cancelledBeforeFinalize) {
+    return toCancelledResult(cancelledBeforeFinalize);
+  }
+
   const updated = await prisma.interactionTask.update({
     where: { id },
     data: {
       status: executionResult.status,
       resultMessage: executionResult.message,
     },
-    include: {
-      account: true,
-      target: true,
-      content: true,
-    },
+    include: interactionInclude,
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "INTERACTION_EXECUTE_BLOCKED" : "INTERACTION_EXECUTE_PRECHECKED";

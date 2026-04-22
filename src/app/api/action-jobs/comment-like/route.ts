@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { runCommentLikeJob } from "@/server/action-jobs/runner";
 import { writeExecutionLog } from "@/server/logs";
 import { scheduleTask } from "@/server/task-scheduler";
+import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
 import { startCommentLikeJobSchema } from "@/server/validators/ops";
 
 export async function POST(request: Request) {
@@ -131,7 +132,11 @@ export async function POST(request: Request) {
     });
 
     return Response.json({ success: true, data: finalJob, workerId: scheduled.workerId });
-  } catch {
+  } catch (error) {
+    if (error instanceof ScheduledTaskCancelledError) {
+      return Response.json({ success: false, message: "任务已停止" });
+    }
+
     return Response.json({ success: false, message: "创建控评点赞任务失败" }, { status: 500 });
   }
 }
