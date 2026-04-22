@@ -40,14 +40,13 @@ export async function POST(request: Request) {
     const job = await prisma.actionJob.create({
       data: {
         jobType: "REPOST_ROTATION",
-        status: parsed.data.executionMode === "MOBILE_ASSISTED" ? "PENDING" : "RUNNING",
+        status: "RUNNING",
         config: {
           accountIds: parsed.data.accountIds,
           targetUrl: parsed.data.targetUrl,
           times: parsed.data.times,
           intervalSec: parsed.data.intervalSec,
           copywritingTexts: parsed.data.copywritingTexts || [],
-          executionMode: parsed.data.executionMode,
         },
         createdBy: auth.session.id,
       },
@@ -81,38 +80,33 @@ export async function POST(request: Request) {
     );
 
     await prisma.actionJobStep.createMany({ data: stepData });
-    let workerId: string | undefined;
-
-    if (parsed.data.executionMode === "SERVER") {
-      const scheduled = await scheduleTask({
-        kind: "ACTION_JOB",
-        id: job.id,
-        ownerUserId: auth.session.id,
-        label: `action-job:${job.id}:repost-rotation`,
-        run: () =>
-          runRepostRotationJob({
-            jobId: job.id,
-            accountIds: parsed.data.accountIds,
-            targetUrl: parsed.data.targetUrl,
-            times: parsed.data.times,
-            intervalSec: parsed.data.intervalSec,
-          }),
-      });
-      workerId = scheduled.workerId;
-
-      await writeExecutionLog({
-        actionType: "ACTION_JOB_SCHEDULED",
-        requestPayload: {
+    const scheduled = await scheduleTask({
+      kind: "ACTION_JOB",
+      id: job.id,
+      ownerUserId: auth.session.id,
+      label: `action-job:${job.id}:repost-rotation`,
+      run: () =>
+        runRepostRotationJob({
           jobId: job.id,
-          jobType: "REPOST_ROTATION",
-          ownerUserId: auth.session.id,
-          workerId: scheduled.workerId,
-          userConcurrency: scheduled.userConcurrency,
-          queueDepth: scheduled.queueDepth,
-        },
-        success: true,
-      });
-    }
+          accountIds: parsed.data.accountIds,
+          targetUrl: parsed.data.targetUrl,
+          times: parsed.data.times,
+          intervalSec: parsed.data.intervalSec,
+        }),
+    });
+
+    await writeExecutionLog({
+      actionType: "ACTION_JOB_SCHEDULED",
+      requestPayload: {
+        jobId: job.id,
+        jobType: "REPOST_ROTATION",
+        ownerUserId: auth.session.id,
+        workerId: scheduled.workerId,
+        userConcurrency: scheduled.userConcurrency,
+        queueDepth: scheduled.queueDepth,
+      },
+      success: true,
+    });
 
     const finalJob = await prisma.actionJob.findUnique({
       where: { id: job.id },
@@ -131,7 +125,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json({ success: true, data: finalJob, workerId });
+    return Response.json({ success: true, data: finalJob, workerId: scheduled.workerId });
   } catch (error) {
     if (error instanceof ScheduledTaskCancelledError) {
       return Response.json({ success: false, message: "任务已停止" });

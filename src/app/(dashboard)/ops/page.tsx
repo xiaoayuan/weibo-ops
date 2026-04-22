@@ -35,7 +35,12 @@ export default async function OpsPage() {
     }),
   ]);
 
-  const jobs = rawJobs.map((job) => ({
+  const jobs = rawJobs
+    .filter((job) => {
+      const config = job.config as { executionMode?: string } | null;
+      return config?.executionMode !== "MOBILE_ASSISTED";
+    })
+    .map((job) => ({
     ...job,
     accountRuns: job.accountRuns.map((run) => ({
       ...run,
@@ -44,7 +49,7 @@ export default async function OpsPage() {
         nickname: run.account.ownerUserId === session.id ? run.account.nickname : "其他用户账号",
       },
     })),
-  }));
+    }));
 
   return <OpsManager accounts={accounts} currentUserRole={session.role} initialJobs={jobs} initialPoolItems={poolItems} />;
 }

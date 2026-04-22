@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, Menu, MessageCircleHeart, RefreshCw, Settings, Shield, Smartphone, Tags, Users, X } from "lucide-react";
+import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, Menu, MessageCircleHeart, RefreshCw, Settings, Shield, Tags, Users, X } from "lucide-react";
 import { useState } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -22,7 +22,6 @@ const iconMap = {
   RefreshCw,
   Settings,
   Shield,
-  Smartphone,
   Tags,
   Users,
 };

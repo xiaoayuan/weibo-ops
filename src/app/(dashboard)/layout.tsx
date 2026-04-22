@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, MessageCircleHeart, RefreshCw, Settings, Shield, Smartphone, Tags, Users } from "lucide-react";
+import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, MessageCircleHeart, RefreshCw, Settings, Shield, Tags, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -17,7 +17,6 @@ const navItems = [
   { href: "/plans", label: "每日计划", icon: CalendarRange, iconName: "CalendarRange" },
   { href: "/interactions", label: "互动任务", icon: MessageCircleHeart, iconName: "MessageCircleHeart" },
   { href: "/ops", label: "控评与轮转", icon: RefreshCw, iconName: "RefreshCw" },
-  { href: "/mobile-tasks", label: "手机执行", icon: Smartphone, iconName: "Smartphone" },
   { href: "/logs", label: "执行日志", icon: Bell, iconName: "Bell" },
   { href: "/scheduler", label: "调度监控", icon: RefreshCw, iconName: "RefreshCw" },
   { href: "/users", label: "用户管理", icon: Shield, iconName: "Shield", minRole: "ADMIN" as const },
