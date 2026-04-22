@@ -897,36 +897,66 @@ export function OpsManager({
                 <th className="px-3 py-2 font-medium">类型</th>
                 <th className="px-3 py-2 font-medium">状态</th>
                 <th className="px-3 py-2 font-medium">账号执行</th>
+                <th className="px-3 py-2 font-medium">明细</th>
                 <th className="px-3 py-2 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
               {filteredJobs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-slate-500">
+                  <td colSpan={6} className="px-3 py-6 text-slate-500">
                     当前筛选下暂无任务记录。
                   </td>
                 </tr>
               ) : (
-                filteredJobs.map((job) => (
-                  <tr key={job.id} className="border-t border-slate-200 align-top">
-                    <td className="px-3 py-3">{new Date(job.createdAt).toLocaleString("zh-CN")}</td>
-                    <td className="px-3 py-3">{getJobTypeText(job.jobType)}</td>
-                    <td className="px-3 py-3">{jobStatusText[job.status]}</td>
-                    <td className="px-3 py-3">
-                      {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
-                    </td>
-                    <td className="px-3 py-3">
-                      {["PENDING", "RUNNING"].includes(job.status) ? (
-                        <button onClick={() => handleStopJob(job.id)} className="text-amber-700 hover:text-amber-800">
-                          停止
+                filteredJobs.flatMap((job) => {
+                  const expanded = expandedJobId === job.id;
+
+                  return [
+                    <tr key={job.id} className="border-t border-slate-200 align-top">
+                      <td className="px-3 py-3">{new Date(job.createdAt).toLocaleString("zh-CN")}</td>
+                      <td className="px-3 py-3">{getJobTypeText(job.jobType)}</td>
+                      <td className="px-3 py-3">{jobStatusText[job.status]}</td>
+                      <td className="px-3 py-3">
+                        {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
+                      </td>
+                      <td className="px-3 py-3">
+                        <button onClick={() => toggleJobExpanded(job.id)} className="text-sky-700 hover:text-sky-800">
+                          {expanded ? "收起" : "展开"}
                         </button>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-3 py-3">
+                        {["PENDING", "RUNNING"].includes(job.status) ? (
+                          <button onClick={() => handleStopJob(job.id)} className="text-amber-700 hover:text-amber-800">
+                            停止
+                          </button>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                    </tr>,
+                    expanded ? (
+                      <tr key={`${job.id}-details`} className="border-t border-slate-100 bg-slate-50">
+                        <td colSpan={6} className="px-3 py-3">
+                          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                            {job.accountRuns.map((run) => (
+                              <div key={run.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="font-medium">{run.account.nickname}</span>
+                                  <span>{jobStatusText[run.status]}</span>
+                                </div>
+                                <p className="mt-2 text-xs text-slate-500">
+                                  进度 {run.currentStep}/{run.totalSteps}
+                                </p>
+                                {run.errorMessage ? <p className="mt-1 text-xs text-rose-600">失败原因：{run.errorMessage}</p> : null}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null,
+                  ];
+                })
               )}
             </tbody>
           </table>
