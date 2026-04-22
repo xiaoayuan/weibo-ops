@@ -4,7 +4,7 @@ import type { CopywritingTemplate, DailyPlan, SuperTopic, WeiboAccount } from "@
 import { getBusinessDateText } from "@/lib/business-date";
 import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 type PlanWithRelations = DailyPlan & {
   account: WeiboAccount;
@@ -15,6 +15,24 @@ type PlanWithRelations = DailyPlan & {
 };
 
 type PlanStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
+
+type PlanBatch = {
+  id: string;
+  createdAt: string;
+  planDate: string;
+  plans: PlanWithRelations[];
+  typeCounts: Record<string, number>;
+  statusCounts: {
+    total: number;
+    pending: number;
+    running: number;
+    success: number;
+    failed: number;
+    cancelled: number;
+  };
+  accountNames: string[];
+  topicNames: string[];
+};
 
 const statusText: Record<PlanStatus, string> = {
   PENDING: "待审核",
@@ -64,7 +82,9 @@ export function PlansManager({
   const [statusFilter, setStatusFilter] = useState<PlanStatus | "ALL">("ALL");
   const [accountFilter, setAccountFilter] = useState("ALL");
   const [topicFilter, setTopicFilter] = useState("ALL");
+  const [viewMode, setViewMode] = useState<"BATCH" | "DETAIL">("BATCH");
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
+  const [expandedBatchIds, setExpandedBatchIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editScheduledTime, setEditScheduledTime] = useState("");
   const [editContentId, setEditContentId] = useState("");
@@ -89,6 +109,54 @@ export function PlansManager({
 
     return matchesStatus && matchesAccount && matchesTopic;
   });
+
+  const planBatches = useMemo(() => {
+    const sorted = [...filteredPlans].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const groups: Array<{ anchor: number; plans: PlanWithRelations[] }> = [];
+
+    for (const plan of sorted) {
+      const ts = new Date(plan.createdAt).getTime();
+      const last = groups[groups.length - 1];
+
+      if (last && Math.abs(last.anchor - ts) <= 60_000) {
+        last.plans.push(plan);
+        continue;
+      }
+
+      groups.push({ anchor: ts, plans: [plan] });
+    }
+
+    return groups.map((group, index): PlanBatch => {
+      const accountNames = Array.from(new Set(group.plans.map((plan) => plan.account.nickname)));
+      const topicNames = Array.from(
+        new Set(group.plans.map((plan) => plan.task?.superTopic.name).filter((item): item is string => Boolean(item))),
+      );
+      const typeCounts: Record<string, number> = {};
+
+      for (const plan of group.plans) {
+        const key = getPlanTypeText(plan.planType);
+        typeCounts[key] = (typeCounts[key] || 0) + 1;
+      }
+
+      return {
+        id: `${group.anchor}-${index}`,
+        createdAt: new Date(Math.max(...group.plans.map((plan) => new Date(plan.createdAt).getTime()))).toISOString(),
+        planDate: new Date(group.plans[0]?.scheduledTime || new Date()).toLocaleDateString("zh-CN"),
+        plans: group.plans,
+        typeCounts,
+        statusCounts: {
+          total: group.plans.length,
+          pending: group.plans.filter((plan) => plan.status === "PENDING" || plan.status === "READY").length,
+          running: group.plans.filter((plan) => plan.status === "RUNNING").length,
+          success: group.plans.filter((plan) => plan.status === "SUCCESS").length,
+          failed: group.plans.filter((plan) => plan.status === "FAILED").length,
+          cancelled: group.plans.filter((plan) => plan.status === "CANCELLED").length,
+        },
+        accountNames,
+        topicNames,
+      };
+    });
+  }, [filteredPlans]);
 
   async function loadPlansByDate() {
     try {
@@ -201,6 +269,24 @@ export function PlansManager({
 
   function clearSelection() {
     setSelectedPlanIds([]);
+  }
+
+  function toggleBatchExpand(id: string) {
+    setExpandedBatchIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function toggleBatchSelection(batch: PlanBatch) {
+    const ids = batch.plans.map((plan) => plan.id);
+
+    setSelectedPlanIds((current) => {
+      const allSelected = ids.every((id) => current.includes(id));
+
+      if (allSelected) {
+        return current.filter((id) => !ids.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...ids]));
+    });
   }
 
   async function handleBatchExecute() {
@@ -489,6 +575,14 @@ export function PlansManager({
                 </option>
               ))}
             </select>
+            <select
+              value={viewMode}
+              onChange={(event) => setViewMode(event.target.value as "BATCH" | "DETAIL")}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="BATCH">批次视图</option>
+              <option value="DETAIL">明细视图</option>
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-2 md:flex md:flex-row md:items-center">
             <button
@@ -585,7 +679,176 @@ export function PlansManager({
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      {viewMode === "BATCH" ? (
+        <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+          {planBatches.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">当前筛选下暂无计划。</div>
+          ) : (
+            planBatches.map((batch) => {
+              const expanded = expandedBatchIds.includes(batch.id);
+              const typeSummary = Object.entries(batch.typeCounts)
+                .map(([type, count]) => `${type} ${count}`)
+                .join(" / ");
+              const selectedCount = batch.plans.filter((plan) => selectedPlanIds.includes(plan.id)).length;
+
+              return (
+                <article key={batch.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-900">
+                        {batch.planDate} / {new Date(batch.createdAt).toLocaleString("zh-CN")}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">{typeSummary || "-"}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        账号：{batch.accountNames.slice(0, 3).join(" / ")}
+                        {batch.accountNames.length > 3 ? ` 等 ${batch.accountNames.length} 个` : ""}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        超话：{batch.topicNames.length > 0 ? batch.topicNames.slice(0, 3).join(" / ") : "-"}
+                        {batch.topicNames.length > 3 ? ` 等 ${batch.topicNames.length} 个` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleBatchExpand(batch.id)}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700"
+                    >
+                      {expanded ? "收起明细" : "展开明细"}
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full bg-white px-2.5 py-1 text-slate-700">共 {batch.statusCounts.total} 条</span>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-amber-700">待执行 {batch.statusCounts.pending}</span>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-violet-700">执行中 {batch.statusCounts.running}</span>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-emerald-700">成功 {batch.statusCounts.success}</span>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-rose-700">失败 {batch.statusCounts.failed}</span>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-slate-600">已取消 {batch.statusCounts.cancelled}</span>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                    <button type="button" onClick={() => toggleBatchSelection(batch)} className="text-sky-700 hover:text-sky-800">
+                      {selectedCount === batch.plans.length ? "取消选中本批" : `选中本批 (${batch.plans.length})`}
+                    </button>
+                  </div>
+
+                  {expanded ? (
+                    <div className="mt-3 space-y-4">
+                      <div className="space-y-3 md:hidden">
+                        {batch.plans.map((plan) => {
+                          const isEditing = editingId === plan.id;
+
+                          return (
+                            <article key={plan.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPlanIds.includes(plan.id)}
+                                      onChange={() => togglePlanSelection(plan.id)}
+                                    />
+                                    <p className="text-sm font-medium text-slate-900">{plan.account.nickname}</p>
+                                  </div>
+                                  <p className="mt-1 text-xs text-slate-500">{new Date(plan.scheduledTime).toLocaleString("zh-CN")}</p>
+                                  <p className="mt-1 text-xs text-slate-500">{plan.task?.superTopic.name || "-"}</p>
+                                </div>
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">{statusText[plan.status]}</span>
+                              </div>
+
+                              <div className="mt-2 text-sm text-slate-600">
+                                {plan.planType === "FIRST_COMMENT" ? "自动使用任务配置中的首评文案池" : plan.content?.content || "-"}
+                              </div>
+
+                              {isEditing && canManage ? (
+                                <div className="mt-2 space-y-2">
+                                  <input
+                                    type="datetime-local"
+                                    value={editScheduledTime}
+                                    onChange={(event) => setEditScheduledTime(event.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                                  />
+                                  {plan.planType !== "FIRST_COMMENT" ? (
+                                    <select
+                                      value={editContentId}
+                                      onChange={(event) => setEditContentId(event.target.value)}
+                                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                                    >
+                                      <option value="">不绑定文案</option>
+                                      {contents.map((content) => (
+                                        <option key={content.id} value={content.id}>
+                                          {content.title}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : null}
+                                </div>
+                              ) : null}
+
+                              <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                                {isEditing && canManage ? (
+                                  <>
+                                    <button onClick={() => saveEdit(plan.id)} className="text-emerald-600 hover:text-emerald-700">保存</button>
+                                    <button onClick={cancelEdit} className="text-slate-600 hover:text-slate-700">取消</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    {canManage ? <button onClick={() => startEdit(plan)} className="text-sky-600 hover:text-sky-700">编辑</button> : null}
+                                    {canExecute ? <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">执行</button> : null}
+                                    {canExecute && ["PENDING", "READY", "RUNNING"].includes(plan.status) ? (
+                                      <button onClick={() => handleStop(plan.id)} className="text-amber-700 hover:text-amber-800">停止</button>
+                                    ) : null}
+                                    {canManage ? <button onClick={() => handleDelete(plan.id)} className="text-rose-700 hover:text-rose-800">删除</button> : null}
+                                  </>
+                                )}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-slate-100 text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2 font-medium">选择</th>
+                              <th className="px-3 py-2 font-medium">时间</th>
+                              <th className="px-3 py-2 font-medium">账号</th>
+                              <th className="px-3 py-2 font-medium">超话</th>
+                              <th className="px-3 py-2 font-medium">类型</th>
+                              <th className="px-3 py-2 font-medium">状态</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {batch.plans.map((plan) => (
+                              <tr key={plan.id} className="border-t border-slate-200 bg-white">
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedPlanIds.includes(plan.id)}
+                                    onChange={() => togglePlanSelection(plan.id)}
+                                  />
+                                </td>
+                                <td className="px-3 py-2">{new Date(plan.scheduledTime).toLocaleString("zh-CN")}</td>
+                                <td className="px-3 py-2">{plan.account.nickname}</td>
+                                <td className="px-3 py-2">{plan.task?.superTopic.name || "-"}</td>
+                                <td className="px-3 py-2">{getPlanTypeText(plan.planType)}</td>
+                                <td className="px-3 py-2">{statusText[plan.status]}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })
+          )}
+        </section>
+      ) : null}
+
+      <section className={`${viewMode === "BATCH" ? "hidden" : "overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"}`}>
         <div className="space-y-4 p-4 md:hidden">
           {filteredPlans.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">
