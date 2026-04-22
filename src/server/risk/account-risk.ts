@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { classifyExecutionOutcome, type ExecutionErrorClass } from "@/server/risk/error-classifier";
+import { getRiskRules } from "@/server/risk/rules";
 
 type RiskInput = {
   accountId?: string;
@@ -22,30 +23,45 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function computeFailureDelta(errorClass: ExecutionErrorClass) {
+function computeRiskDelta(errorClass: ExecutionErrorClass, rules: Awaited<ReturnType<typeof getRiskRules>>) {
   if (errorClass === "ACCOUNT_RISK") {
-    return { riskDelta: 3, failureDelta: 1 };
+    return rules.score.accountRisk;
   }
 
-  if (errorClass === "TRANSIENT_NETWORK" || errorClass === "PLATFORM_BUSY") {
-    return { riskDelta: 1, failureDelta: 1 };
+  if (errorClass === "TRANSIENT_NETWORK") {
+    return rules.score.transientNetwork;
   }
 
-  if (errorClass === "TARGET_ISSUE" || errorClass === "CONTENT_ISSUE") {
-    return { riskDelta: 0, failureDelta: 0 };
+  if (errorClass === "PLATFORM_BUSY") {
+    return rules.score.platformBusy;
   }
 
-  return { riskDelta: 1, failureDelta: 1 };
+  if (errorClass === "TARGET_ISSUE") {
+    return rules.score.targetIssue;
+  }
+
+  if (errorClass === "CONTENT_ISSUE") {
+    return rules.score.contentIssue;
+  }
+
+  if (errorClass === "SUCCESS") {
+    return rules.score.success;
+  }
+
+  return rules.score.unknownFailure;
 }
 
 export async function classifyAndApplyAccountRisk(input: RiskInput): Promise<RiskMeta> {
-  const errorClass = classifyExecutionOutcome(input);
+  const rules = await getRiskRules();
+  const errorClass = classifyExecutionOutcome(input, rules);
+  const riskDelta = computeRiskDelta(errorClass, rules);
+  const failureDelta = input.success ? 0 : riskDelta > 0 ? 1 : 0;
 
   if (!input.accountId) {
     return {
       errorClass,
-      riskDelta: input.success ? -1 : computeFailureDelta(errorClass).riskDelta,
-      consecutiveFailureDelta: input.success ? 0 : computeFailureDelta(errorClass).failureDelta,
+      riskDelta,
+      consecutiveFailureDelta: failureDelta,
     };
   }
 
@@ -70,30 +86,24 @@ export async function classifyAndApplyAccountRisk(input: RiskInput): Promise<Ris
   const beforeRisk = account.riskLevel;
   const beforeFailures = account.consecutiveFailures;
 
-  let riskDelta = 0;
-  let failureDelta = 0;
   let nextRisk = beforeRisk;
   let nextFailures = beforeFailures;
 
   if (input.success) {
-    riskDelta = -1;
-    nextRisk = clamp(beforeRisk - 1, 0, 20);
+    nextRisk = clamp(beforeRisk + riskDelta, 0, rules.threshold.maxRiskLevel);
     nextFailures = 0;
   } else {
-    const delta = computeFailureDelta(errorClass);
-    riskDelta = delta.riskDelta;
-    failureDelta = delta.failureDelta;
-    nextRisk = clamp(beforeRisk + delta.riskDelta, 0, 20);
-    nextFailures = beforeFailures + delta.failureDelta;
+    nextRisk = clamp(beforeRisk + riskDelta, 0, rules.threshold.maxRiskLevel);
+    nextFailures = beforeFailures + failureDelta;
   }
 
   let nextStatus = account.status;
 
-  if (nextRisk >= 8 && account.status === "ACTIVE") {
+  if (nextRisk >= rules.threshold.markRiskyAt && account.status === "ACTIVE") {
     nextStatus = "RISKY";
   }
 
-  if (nextRisk <= 3 && account.status === "RISKY") {
+  if (nextRisk <= rules.threshold.recoverActiveAt && account.status === "RISKY") {
     nextStatus = "ACTIVE";
   }
 
@@ -110,7 +120,7 @@ export async function classifyAndApplyAccountRisk(input: RiskInput): Promise<Ris
   return {
     errorClass,
     riskDelta,
-    consecutiveFailureDelta: failureDelta,
+    consecutiveFailureDelta: input.success ? 0 : failureDelta,
     riskLevelBefore: beforeRisk,
     riskLevelAfter: nextRisk,
     consecutiveFailuresBefore: beforeFailures,

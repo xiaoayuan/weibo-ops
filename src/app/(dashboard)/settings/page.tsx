@@ -2,7 +2,9 @@ import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ProfileSecurityForm } from "@/components/settings/profile-security-form";
+import { RiskRulesForm } from "@/components/settings/risk-rules-form";
 import { sanitizeProxySettings } from "@/server/proxy-config";
+import { getRiskRules } from "@/server/risk/rules";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +81,7 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -128,6 +130,7 @@ export default async function SettingsPage() {
       },
     }),
     prisma.$queryRaw`SELECT 1`,
+    getRiskRules(),
   ]);
 
   const executorMode = process.env.EXECUTOR_MODE === "weibo" ? "weibo" : "mock";
@@ -229,7 +232,8 @@ export default async function SettingsPage() {
         <p className="mt-1 text-sm text-slate-500">仅管理员可查看系统配置摘要、运行状态和环境风险。</p>
       </div>
 
-            <ProfileSecurityForm initialUsername={session.username} initialProxySettings={sanitizeProxySettings(currentUser || {})} initialTaskConcurrency={currentUser?.taskConcurrency || 1} />
+      <ProfileSecurityForm initialUsername={session.username} initialProxySettings={sanitizeProxySettings(currentUser || {})} initialTaskConcurrency={currentUser?.taskConcurrency || 1} />
+      <RiskRulesForm initialRules={riskRules} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item) => (
