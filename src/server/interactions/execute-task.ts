@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
+import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 
 const interactionInclude = {
@@ -148,6 +149,12 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "INTERACTION_EXECUTE_BLOCKED" : "INTERACTION_EXECUTE_PRECHECKED";
+  const riskMeta = await classifyAndApplyAccountRisk({
+    accountId: executionAccount.id,
+    success: executionResult.success,
+    message: executionResult.message,
+    responsePayload: executionResult.responsePayload,
+  });
 
   await writeExecutionLog({
     accountId: executionAccount.id,
@@ -161,8 +168,9 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
       retryCount,
       stage: executionResult.stage,
       timing,
+      riskClass: riskMeta.errorClass,
     },
-    responsePayload: executionResult.responsePayload,
+    responsePayload: attachRiskMetaToPayload(executionResult.responsePayload, riskMeta),
     success: executionResult.success,
     errorMessage: executionResult.success ? undefined : executionResult.message,
   });

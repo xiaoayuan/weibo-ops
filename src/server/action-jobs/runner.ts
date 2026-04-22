@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
+import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 
 type StartCommentLikeJobInput = {
@@ -252,6 +253,13 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         },
       });
 
+      const riskMeta = await classifyAndApplyAccountRisk({
+        accountId,
+        success,
+        message: success ? undefined : result.message,
+        responsePayload: result.responsePayload,
+      });
+
       await writeExecutionLog({
         accountId,
         actionType: success ? "ACTION_JOB_STEP_SUCCESS" : "ACTION_JOB_STEP_FAILED",
@@ -262,8 +270,9 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
           targetUrl: step.targetUrl,
           sequenceNo: step.sequenceNo,
           timing,
+          riskClass: riskMeta.errorClass,
         },
-        responsePayload: result.responsePayload,
+        responsePayload: attachRiskMetaToPayload(result.responsePayload, riskMeta),
         success,
         errorMessage: success ? undefined : result.message,
       });
@@ -456,6 +465,13 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         },
       });
 
+      const riskMeta = await classifyAndApplyAccountRisk({
+        accountId,
+        success,
+        message: success ? undefined : result.message,
+        responsePayload: result.responsePayload,
+      });
+
       await writeExecutionLog({
         accountId,
         actionType: success ? "ACTION_JOB_STEP_SUCCESS" : "ACTION_JOB_STEP_FAILED",
@@ -468,8 +484,9 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
           repostContent: payload.repostContent || "",
           retryCount,
           timing,
+          riskClass: riskMeta.errorClass,
         },
-        responsePayload: result.responsePayload,
+        responsePayload: attachRiskMetaToPayload(result.responsePayload, riskMeta),
         success,
         errorMessage: success ? undefined : result.message,
       });

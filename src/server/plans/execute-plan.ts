@@ -3,6 +3,7 @@ import { decryptText } from "@/lib/encrypt";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
+import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 import { checkStatusIsZeroComments, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
@@ -132,6 +133,11 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           trigger: "manual_or_auto",
           timing,
         },
+        responsePayload: attachRiskMetaToPayload(null, await classifyAndApplyAccountRisk({
+          accountId: updated.accountId,
+          success: false,
+          message: updated.resultMessage,
+        })),
         success: false,
         errorMessage: updated.resultMessage || "首评执行失败",
       });
@@ -180,6 +186,11 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           trigger: "manual_or_auto",
           timing,
         },
+        responsePayload: attachRiskMetaToPayload(null, await classifyAndApplyAccountRisk({
+          accountId: updated.accountId,
+          success: false,
+          message: updated.resultMessage,
+        })),
         success: false,
         errorMessage: updated.resultMessage || "首评执行失败",
       });
@@ -296,6 +307,13 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       include: planInclude,
     });
 
+    const firstCommentRiskMeta = await classifyAndApplyAccountRisk({
+      accountId: updated.accountId,
+      success: executed,
+      message,
+      responsePayload: payload,
+    });
+
     await writeExecutionLog({
       accountId: updated.accountId,
       planId: updated.id,
@@ -305,8 +323,9 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         planDate: planDateText,
         trigger: "manual_or_auto",
         timing,
+        riskClass: firstCommentRiskMeta.errorClass,
       },
-      responsePayload: payload,
+      responsePayload: attachRiskMetaToPayload(payload, firstCommentRiskMeta),
       success: executed,
       errorMessage: executed ? undefined : message,
     });
@@ -348,6 +367,12 @@ export async function executePlanById(id: string, ownerUserId?: string) {
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "PLAN_EXECUTE_BLOCKED" : "PLAN_EXECUTE_PRECHECKED";
+  const riskMeta = await classifyAndApplyAccountRisk({
+    accountId: updated.accountId,
+    success: executionResult.success,
+    message: executionResult.message,
+    responsePayload: executionResult.responsePayload,
+  });
 
   await writeExecutionLog({
     accountId: updated.accountId,
@@ -358,8 +383,9 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       stage: executionResult.stage,
       trigger: "manual_or_auto",
       timing,
+      riskClass: riskMeta.errorClass,
     },
-    responsePayload: executionResult.responsePayload,
+    responsePayload: attachRiskMetaToPayload(executionResult.responsePayload, riskMeta),
     success: executionResult.success,
     errorMessage: executionResult.success ? undefined : executionResult.message,
   });
