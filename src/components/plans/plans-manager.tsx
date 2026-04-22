@@ -25,6 +25,22 @@ const statusText: Record<PlanStatus, string> = {
   CANCELLED: "已取消",
 };
 
+function getPlanTypeText(planType: DailyPlan["planType"]) {
+  if (planType === "CHECK_IN") {
+    return "签到";
+  }
+
+  if (planType === "FIRST_COMMENT") {
+    return "首评";
+  }
+
+  if (planType === "POST") {
+    return "转发";
+  }
+
+  return "点赞";
+}
+
 function toLocalDateTimeValue(value: string | Date) {
   const date = new Date(value);
   const offset = date.getTimezoneOffset();
@@ -426,9 +442,9 @@ export function PlansManager({
         {notice ? <p className="mt-2 text-sky-700">{notice}</p> : null}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
         <form className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between" onSubmit={handleGenerate}>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="grid gap-3 md:flex md:flex-row md:items-center">
             <label className="text-sm font-medium text-slate-700">计划日期</label>
             <input
               type="date"
@@ -473,6 +489,8 @@ export function PlansManager({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:flex md:flex-row md:items-center">
             <button
               type="button"
               onClick={() => setStatusFilter("FAILED")}
@@ -502,8 +520,8 @@ export function PlansManager({
               清空已选
             </button>
           </div>
-          <div className="flex items-center gap-3">
-            {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}
+          <div className="grid gap-2 md:flex md:items-center md:gap-3">
+            {error ? <p className="text-sm text-rose-600 md:mr-2">{error}</p> : null}
             {canExecute ? (
               <button
                 type="button"
@@ -568,7 +586,109 @@ export function PlansManager({
       </section>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
+        <div className="space-y-4 p-4 md:hidden">
+          {filteredPlans.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">
+              当前日期暂无计划，请先生成。
+            </div>
+          ) : (
+            filteredPlans.map((plan) => {
+              const isEditing = editingId === plan.id;
+
+              return (
+                <article key={plan.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedPlanIds.includes(plan.id)}
+                          onChange={() => togglePlanSelection(plan.id)}
+                        />
+                        <p className="text-sm font-medium text-slate-900">{plan.account.nickname}</p>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">{plan.task?.superTopic.name || "-"}</p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full bg-white px-2.5 py-1 text-slate-700">{getPlanTypeText(plan.planType)}</span>
+                        <span className="rounded-full bg-white px-2.5 py-1 text-slate-700">{statusText[plan.status]}</span>
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-slate-500">{new Date(plan.scheduledTime).toLocaleString("zh-CN")}</div>
+                  </div>
+
+                  <div className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">
+                    {plan.planType === "FIRST_COMMENT" ? (
+                      <span className="text-slate-500">自动使用任务配置中的首评文案池</span>
+                    ) : isEditing && canManage ? (
+                      <div className="space-y-3">
+                        <input
+                          type="datetime-local"
+                          value={editScheduledTime}
+                          onChange={(event) => setEditScheduledTime(event.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                        />
+                        <select
+                          value={editContentId}
+                          onChange={(event) => setEditContentId(event.target.value)}
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                        >
+                          <option value="">不绑定文案</option>
+                          {contents.map((content) => (
+                            <option key={content.id} value={content.id}>
+                              {content.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      plan.content?.content || "-"
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                    {isEditing && canManage ? (
+                      <>
+                        <button onClick={() => saveEdit(plan.id)} className="text-emerald-600 hover:text-emerald-700">
+                          保存
+                        </button>
+                        <button onClick={cancelEdit} className="text-slate-600 hover:text-slate-700">
+                          取消
+                        </button>
+                      </>
+                    ) : canManage || canExecute ? (
+                      <>
+                        {canManage ? (
+                          <button onClick={() => startEdit(plan)} className="text-sky-600 hover:text-sky-700">
+                            编辑
+                          </button>
+                        ) : null}
+                        {canExecute ? (
+                          <button onClick={() => handleExecute(plan.id)} className="text-violet-600 hover:text-violet-700">
+                            执行
+                          </button>
+                        ) : null}
+                        {canExecute && ["PENDING", "READY", "RUNNING"].includes(plan.status) ? (
+                          <button onClick={() => handleStop(plan.id)} className="text-amber-700 hover:text-amber-800">
+                            停止
+                          </button>
+                        ) : null}
+                        {canManage ? (
+                          <button onClick={() => handleDelete(plan.id)} className="text-rose-700 hover:text-rose-800">
+                            删除
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-slate-400">只读</span>
+                    )}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        <table className="hidden w-full text-left text-sm md:table">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-6 py-3 font-medium">选择</th>
@@ -615,15 +735,7 @@ export function PlansManager({
                     </td>
                     <td className="px-6 py-4">{plan.account.nickname}</td>
                     <td className="px-6 py-4">{plan.task?.superTopic.name || "-"}</td>
-                    <td className="px-6 py-4">
-                      {plan.planType === "CHECK_IN"
-                        ? "签到"
-                        : plan.planType === "FIRST_COMMENT"
-                          ? "首评"
-                          : plan.planType === "POST"
-                            ? "转发"
-                            : "点赞"}
-                    </td>
+                    <td className="px-6 py-4">{getPlanTypeText(plan.planType)}</td>
                     <td className="max-w-sm px-6 py-4 text-slate-600">
                       {plan.planType === "FIRST_COMMENT" ? (
                         <span className="text-slate-500">自动使用任务配置中的首评文案池</span>

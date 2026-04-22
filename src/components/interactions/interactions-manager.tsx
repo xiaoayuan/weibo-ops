@@ -463,7 +463,7 @@ export function InteractionsManager({
       </div>
 
       {canManage ? (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
           <h3 className="text-lg font-medium">新增互动任务</h3>
           <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
           <select
@@ -541,8 +541,8 @@ export function InteractionsManager({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
-            {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            {error ? <p className="text-sm text-rose-600">{error}</p> : null}
             <button
               type="submit"
               disabled={submitting}
@@ -556,10 +556,10 @@ export function InteractionsManager({
       ) : null}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-6 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="border-b border-slate-200 px-4 py-4 md:px-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <h3 className="text-lg font-medium">任务列表</h3>
-            <div className="flex flex-col gap-3 md:flex-row">
+            <div className="grid gap-3 md:flex md:flex-row">
               <input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
@@ -603,6 +603,9 @@ export function InteractionsManager({
                   ))}
                 </select>
               ) : null}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 md:flex md:flex-row">
               {canExecute ? (
                 <button
                   type="button"
