@@ -6,7 +6,7 @@ import { InteractionTaskCard } from "@/components/interactions/interaction-task-
 import { canManageBusinessData, canReviewAndExecuteTasks } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 type InteractionTaskWithRelations = InteractionTask & {
   account: {
@@ -31,6 +31,22 @@ type RawInteractionTask = InteractionTask & {
 
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 type InteractionActionType = "LIKE" | "POST" | "COMMENT";
+
+type InteractionBatch = {
+  id: string;
+  actionType: InteractionActionType;
+  createdAt: string;
+  targetUrls: string[];
+  tasks: InteractionTaskWithRelations[];
+  counts: {
+    total: number;
+    pending: number;
+    running: number;
+    success: number;
+    failed: number;
+    cancelled: number;
+  };
+};
 
 const actionText: Record<InteractionActionType, string> = {
   LIKE: "点赞",
@@ -87,7 +103,9 @@ export function InteractionsManager({
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<InteractionStatus | "ALL">("ALL");
   const [actionFilter, setActionFilter] = useState<InteractionActionType | "ALL">("ALL");
+  const [viewMode, setViewMode] = useState<"BATCH" | "DETAIL">("BATCH");
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [expandedBatchIds, setExpandedBatchIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
   const [batchStopping, setBatchStopping] = useState(false);
@@ -108,6 +126,47 @@ export function InteractionsManager({
 
     return matchesStatus && matchesAction && matchesKeyword;
   });
+
+  const batches = useMemo(() => {
+    const sorted = [...filteredTasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const grouped: Array<{ anchor: number; actionType: InteractionActionType; tasks: InteractionTaskWithRelations[] }> = [];
+
+    for (const task of sorted) {
+      const taskTime = new Date(task.createdAt).getTime();
+      const last = grouped[grouped.length - 1];
+
+      if (last && last.actionType === task.actionType && Math.abs(last.anchor - taskTime) <= 60_000) {
+        last.tasks.push(task);
+        continue;
+      }
+
+      grouped.push({
+        anchor: taskTime,
+        actionType: task.actionType as InteractionActionType,
+        tasks: [task],
+      });
+    }
+
+    return grouped.map((group, index): InteractionBatch => {
+      const targetUrls = Array.from(new Set(group.tasks.map((task) => task.target.targetUrl)));
+
+      return {
+        id: `${group.actionType}-${group.anchor}-${index}`,
+        actionType: group.actionType,
+        createdAt: new Date(Math.max(...group.tasks.map((task) => new Date(task.createdAt).getTime()))).toISOString(),
+        targetUrls,
+        tasks: group.tasks,
+        counts: {
+          total: group.tasks.length,
+          pending: group.tasks.filter((task) => task.status === "PENDING" || task.status === "READY").length,
+          running: group.tasks.filter((task) => task.status === "RUNNING").length,
+          success: group.tasks.filter((task) => task.status === "SUCCESS").length,
+          failed: group.tasks.filter((task) => task.status === "FAILED").length,
+          cancelled: group.tasks.filter((task) => task.status === "CANCELLED").length,
+        },
+      };
+    });
+  }, [filteredTasks]);
 
   function normalizeTask(task: RawInteractionTask): InteractionTaskWithRelations {
     const isOwned = typeof task.isOwned === "boolean" ? task.isOwned : task.account?.ownerUserId === currentUserId;
@@ -152,6 +211,24 @@ export function InteractionsManager({
 
   function clearSelectedTasks() {
     setSelectedTaskIds([]);
+  }
+
+  function toggleBatchExpand(id: string) {
+    setExpandedBatchIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function toggleBatchSelection(batch: InteractionBatch) {
+    const ids = batch.tasks.map((task) => task.id);
+
+    setSelectedTaskIds((current) => {
+      const allSelected = ids.every((id) => current.includes(id));
+
+      if (allSelected) {
+        return current.filter((id) => !ids.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...ids]));
+    });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -603,6 +680,14 @@ export function InteractionsManager({
                   ))}
                 </select>
               ) : null}
+              <select
+                value={viewMode}
+                onChange={(event) => setViewMode(event.target.value as "BATCH" | "DETAIL")}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="BATCH">批次视图</option>
+                <option value="DETAIL">明细视图</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-2 md:flex md:flex-row">
@@ -665,7 +750,123 @@ export function InteractionsManager({
             </div>
           </div>
         </div>
-        <div className="space-y-4 p-4 md:hidden">
+        {viewMode === "BATCH" ? (
+          <div className="space-y-3 p-4">
+            {batches.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">暂无互动任务。</div>
+            ) : (
+              batches.map((batch) => {
+                const expanded = expandedBatchIds.includes(batch.id);
+                const primaryTarget = batch.targetUrls[0] || "-";
+                const extraTargetCount = Math.max(0, batch.targetUrls.length - 1);
+                const selectedCount = batch.tasks.filter((task) => selectedTaskIds.includes(task.id)).length;
+
+                return (
+                  <article key={batch.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-900">
+                          {getActionText(batch.actionType)} / {new Date(batch.createdAt).toLocaleString("zh-CN")}
+                        </p>
+                        <p className="mt-1 break-all text-sm text-sky-700">
+                          {primaryTarget}
+                          {extraTargetCount > 0 ? ` 等 ${extraTargetCount + 1} 个链接` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleBatchExpand(batch.id)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700"
+                      >
+                        {expanded ? "收起明细" : "展开明细"}
+                      </button>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-white px-2.5 py-1 text-slate-700">共 {batch.counts.total} 条</span>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-amber-700">待执行 {batch.counts.pending}</span>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-violet-700">执行中 {batch.counts.running}</span>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-emerald-700">成功 {batch.counts.success}</span>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-rose-700">失败 {batch.counts.failed}</span>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-slate-600">已取消 {batch.counts.cancelled}</span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                      <button type="button" onClick={() => toggleBatchSelection(batch)} className="text-sky-700 hover:text-sky-800">
+                        {selectedCount === batch.tasks.length ? "取消选中本批" : `选中本批 (${batch.tasks.length})`}
+                      </button>
+                    </div>
+
+                    {expanded ? (
+                      <div className="mt-3 space-y-4">
+                        {batch.tasks.map((task) => (
+                          <InteractionTaskCard
+                            key={task.id}
+                            task={task}
+                            canExecute={canExecute}
+                            canManage={canManage}
+                            selected={selectedTaskIds.includes(task.id)}
+                            onToggle={() => toggleTask(task.id)}
+                            onExecute={() => handleExecute(task.id)}
+                            onStop={() => handleStop(task.id)}
+                            onDelete={() => handleDelete(task.id)}
+                          />
+                        ))}
+                        <div className="hidden overflow-x-auto md:block">
+                          <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-100 text-slate-500">
+                              <tr>
+                                {canExecute ? <th className="px-3 py-2 font-medium">选择</th> : null}
+                                <th className="px-3 py-2 font-medium">账号</th>
+                                <th className="px-3 py-2 font-medium">状态</th>
+                                <th className="px-3 py-2 font-medium">文案</th>
+                                <th className="px-3 py-2 font-medium">操作</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {batch.tasks.map((task) => (
+                                <tr key={task.id} className="border-t border-slate-200 bg-white">
+                                  {canExecute ? (
+                                    <td className="px-3 py-2">
+                                      <input type="checkbox" checked={selectedTaskIds.includes(task.id)} onChange={() => toggleTask(task.id)} />
+                                    </td>
+                                  ) : null}
+                                  <td className="px-3 py-2">{task.account.nickname}</td>
+                                  <td className="px-3 py-2">{statusText[task.status]}</td>
+                                  <td className="px-3 py-2 text-slate-600">{task.content?.title || "-"}</td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex flex-wrap gap-2">
+                                      {canExecute ? (
+                                        <button onClick={() => handleExecute(task.id)} className="text-violet-600 hover:text-violet-700">
+                                          执行
+                                        </button>
+                                      ) : null}
+                                      {canExecute && ["PENDING", "READY", "RUNNING"].includes(task.status) ? (
+                                        <button onClick={() => handleStop(task.id)} className="text-amber-700 hover:text-amber-800">
+                                          停止
+                                        </button>
+                                      ) : null}
+                                      {canManage ? (
+                                        <button onClick={() => handleDelete(task.id)} className="text-rose-700 hover:text-rose-800">
+                                          删除
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
+        ) : null}
+        <div className={`${viewMode === "BATCH" ? "hidden" : "space-y-4"} p-4 md:hidden`}>
           {filteredTasks.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">暂无互动任务。</div>
           ) : (
@@ -684,7 +885,7 @@ export function InteractionsManager({
             ))
           )}
         </div>
-        <div className="hidden overflow-x-auto md:block">
+        <div className={`${viewMode === "BATCH" ? "hidden" : "hidden overflow-x-auto md:block"}`}>
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
