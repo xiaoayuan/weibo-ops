@@ -90,7 +90,7 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
         throw new Error(result.message || "保存代理节点失败");
       }
 
-      setNotice(editingId ? "代理节点已更新" : "代理节点已创建");
+      setNotice(result.message || (editingId ? "代理节点已更新" : "代理节点已创建"));
       setForm(initialForm);
       setEditingId(null);
       await refreshNodes();
@@ -134,7 +134,7 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
         throw new Error(result.message || "删除代理失败");
       }
 
-      setNotice("代理节点已删除");
+      setNotice(result.message || "代理节点已删除");
       await refreshNodes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "删除代理失败");

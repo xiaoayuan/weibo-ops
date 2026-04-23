@@ -161,7 +161,11 @@ export async function assignMissingProxyNodes(ownerUserId: string) {
   return accounts.length;
 }
 
-export async function reassignAccountsForProxyNode(ownerUserId: string, proxyNodeId: string) {
+export async function reassignAccountsForProxyNode(
+  ownerUserId: string,
+  proxyNodeId: string,
+  options?: { allowUnbindWhenInsufficientCapacity?: boolean },
+) {
   const node = await prisma.proxyNode.findFirst({ where: { id: proxyNodeId, ownerUserId } });
 
   if (!node) {
@@ -194,6 +198,18 @@ export async function reassignAccountsForProxyNode(ownerUserId: string, proxyNod
   const totalFree = candidates.reduce((sum, item) => sum + Math.max(0, item.maxAccounts - item._count.accounts), 0);
 
   if (totalFree < accounts.length) {
+    if (options?.allowUnbindWhenInsufficientCapacity) {
+      await prisma.weiboAccount.updateMany({
+        where: { ownerUserId, proxyNodeId },
+        data: { proxyNodeId: null },
+      });
+
+      return {
+        reassignedCount: 0,
+        unboundCount: accounts.length,
+      };
+    }
+
     throw new Error("其余代理容量不足，无法迁移绑定账号，请先新增代理或释放容量");
   }
 
@@ -228,6 +244,11 @@ export async function reassignAccountsForProxyNode(ownerUserId: string, proxyNod
       loadMap.set(targetNode.id, (loadMap.get(targetNode.id) || 0) + 1);
     }
   });
+
+  return {
+    reassignedCount: accounts.length,
+    unboundCount: 0,
+  };
 }
 
 export async function getProxyConfigForBoundNode(accountId: string) {

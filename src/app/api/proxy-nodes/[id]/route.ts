@@ -28,12 +28,21 @@ export async function PATCH(request: Request, context: RouteContext<"/api/proxy-
       password: parsed.data.password,
     });
 
+    let message: string | undefined;
+
     if (parsed.data.enabled === false) {
-      await reassignAccountsForProxyNode(auth.session.id, id);
+      const result = await reassignAccountsForProxyNode(auth.session.id, id, {
+        allowUnbindWhenInsufficientCapacity: true,
+      });
+
+      if (result?.unboundCount && result.unboundCount > 0) {
+        message = `该节点下账号已解除代理绑定（${result.unboundCount} 个），可继续无代理运行`;
+      }
     }
 
     return Response.json({
       success: true,
+      ...(message ? { message } : {}),
       data: {
         id: updated.id,
         name: updated.name,
@@ -66,10 +75,17 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/prox
   const { id } = await context.params;
 
   try {
-    await reassignAccountsForProxyNode(auth.session.id, id);
+    const result = await reassignAccountsForProxyNode(auth.session.id, id, {
+      allowUnbindWhenInsufficientCapacity: true,
+    });
     await deleteProxyNode(auth.session.id, id);
 
-    return Response.json({ success: true, message: "代理节点已删除" });
+    const message =
+      result?.unboundCount && result.unboundCount > 0
+        ? `代理节点已删除，${result.unboundCount} 个账号已解除代理绑定`
+        : "代理节点已删除";
+
+    return Response.json({ success: true, message });
   } catch (error) {
     const message = error instanceof Error ? error.message : "删除代理节点失败";
     return Response.json({ success: false, message }, { status: 500 });
