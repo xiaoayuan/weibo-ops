@@ -524,7 +524,6 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
       const success = result.success && result.status === "SUCCESS";
       await recordExecutionOutcome({ accountId, proxyNodeId: account.proxyNodeId, success });
-      await recordExecutionOutcome({ accountId, proxyNodeId: account.proxyNodeId, success });
 
       if (success) {
         successCount += 1;
