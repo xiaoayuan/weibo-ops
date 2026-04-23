@@ -3,6 +3,7 @@ import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
+import { getExecutionStrategy, type ExecutionStrategy } from "@/server/strategy/config";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 
 type StartCommentLikeJobInput = {
@@ -21,11 +22,6 @@ type StartRepostRotationJobInput = {
   urgency?: "S" | "A" | "B";
 };
 
-type SlaThreshold = {
-  targetSec: number;
-  limitSec: number;
-};
-
 type SlaSummary = {
   urgency: "S" | "A" | "B";
   targetMinutes: number;
@@ -41,41 +37,17 @@ type WaveRule = {
   windowsSec: [number, number, number];
 };
 
-function getWaveRule(urgency: "S" | "A" | "B"): WaveRule {
-  if (urgency === "S") {
-    return {
-      ratios: [0.3, 0.4, 0.3],
-      windowsSec: [180, 600, 1800],
-    };
-  }
-
-  if (urgency === "A") {
-    return {
-      ratios: [0.2, 0.3, 0.5],
-      windowsSec: [600, 1800, 7200],
-    };
-  }
+function getWaveRule(strategy: ExecutionStrategy, urgency: "S" | "A" | "B"): WaveRule {
+  const config = strategy.actionJob.urgency[urgency];
 
   return {
-    ratios: [0.1, 0.2, 0.7],
-    windowsSec: [1800, 7200, 43200],
+    ratios: config.waveRatios,
+    windowsSec: config.waveWindowsSec,
   };
 }
 
-function getSlaThreshold(urgency: "S" | "A" | "B"): SlaThreshold {
-  if (urgency === "S") {
-    return { targetSec: 300, limitSec: 600 };
-  }
-
-  if (urgency === "A") {
-    return { targetSec: 600, limitSec: 1800 };
-  }
-
-  return { targetSec: 1800, limitSec: 7200 };
-}
-
-async function computeJobSlaSummary(jobId: string, urgency: "S" | "A" | "B"): Promise<SlaSummary> {
-  const thresholds = getSlaThreshold(urgency);
+async function computeJobSlaSummary(jobId: string, urgency: "S" | "A" | "B", strategy: ExecutionStrategy): Promise<SlaSummary> {
+  const thresholds = strategy.actionJob.urgency[urgency];
   const steps = await prisma.actionJobStep.findMany({
     where: { jobId },
     select: {
@@ -113,13 +85,13 @@ async function computeJobSlaSummary(jobId: string, urgency: "S" | "A" | "B"): Pr
   for (const range of accountRange.values()) {
     const costSec = Math.max(0, Math.floor((range.end - range.start) / 1000));
 
-    if (costSec <= thresholds.targetSec) {
+    if (costSec <= thresholds.targetSlaSec) {
       withinTargetAccounts += 1;
       withinLimitAccounts += 1;
       continue;
     }
 
-    if (costSec <= thresholds.limitSec) {
+    if (costSec <= thresholds.limitSlaSec) {
       withinLimitAccounts += 1;
       continue;
     }
@@ -129,8 +101,8 @@ async function computeJobSlaSummary(jobId: string, urgency: "S" | "A" | "B"): Pr
 
   return {
     urgency,
-    targetMinutes: Math.floor(thresholds.targetSec / 60),
-    limitMinutes: Math.floor(thresholds.limitSec / 60),
+    targetMinutes: Math.floor(thresholds.targetSlaSec / 60),
+    limitMinutes: Math.floor(thresholds.limitSlaSec / 60),
     withinTargetAccounts,
     withinLimitAccounts,
     overtimeAccounts,
@@ -138,9 +110,9 @@ async function computeJobSlaSummary(jobId: string, urgency: "S" | "A" | "B"): Pr
   };
 }
 
-function buildWaveDelayMap(accountIds: string[], urgency: "S" | "A" | "B") {
+function buildWaveDelayMap(accountIds: string[], urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
   const total = accountIds.length;
-  const rule = getWaveRule(urgency);
+  const rule = getWaveRule(strategy, urgency);
 
   const firstCount = Math.max(1, Math.floor(total * rule.ratios[0]));
   const secondCount = Math.max(0, Math.floor(total * rule.ratios[1]));
@@ -222,33 +194,22 @@ function computeStepDelayMs(intervalSec: number) {
   return base + jitter;
 }
 
-function getCooldownRangeMs(urgency: "S" | "A" | "B") {
-  if (urgency === "S") {
-    return { minMs: 8_000, maxMs: 25_000 };
-  }
-
-  if (urgency === "A") {
-    return { minMs: 20_000, maxMs: 60_000 };
-  }
-
-  return { minMs: 60_000, maxMs: 180_000 };
+function getCooldownRangeMs(urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
+  const range = strategy.actionJob.urgency[urgency].cooldownSecRange;
+  return {
+    minMs: range[0] * 1000,
+    maxMs: range[1] * 1000,
+  };
 }
 
-function computeAccountCooldownMs(urgency: "S" | "A" | "B") {
-  const range = getCooldownRangeMs(urgency);
+function computeAccountCooldownMs(urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
+  const range = getCooldownRangeMs(urgency, strategy);
   return randomBetween(range.minMs, range.maxMs);
 }
 
-function computeRetryDelayMs(urgency: "S" | "A" | "B") {
-  if (urgency === "S") {
-    return randomBetween(2000, 5000);
-  }
-
-  if (urgency === "A") {
-    return randomBetween(4000, 8000);
-  }
-
-  return randomBetween(8000, 15000);
+function computeRetryDelayMs(urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
+  const range = strategy.actionJob.urgency[urgency].retryDelaySecRange;
+  return randomBetween(range[0] * 1000, range[1] * 1000);
 }
 
 function computeJobStatus(total: number, success: number, failed: number) {
@@ -337,7 +298,8 @@ export async function recomputeRepostJobSummary(jobId: string, targetUrl: string
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
   const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
   const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
-  const sla = await computeJobSlaSummary(jobId, urgency);
+  const strategy = await getExecutionStrategy();
+  const sla = await computeJobSlaSummary(jobId, urgency, strategy);
 
   await prisma.actionJob.update({
     where: { id: jobId },
@@ -385,10 +347,11 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     }),
   ]);
 
+  const strategy = await getExecutionStrategy();
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
   const urgency = input.urgency || "S";
-  const delayMap = buildWaveDelayMap(input.accountIds, urgency);
+  const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
 
   for (const accountId of input.accountIds) {
     if (await isActionJobCancelled(input.jobId)) {
@@ -533,9 +496,13 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
       let retryCount = 0;
 
-      if (shouldRetryTransient(result)) {
-        retryCount = 1;
-        await sleep(computeRetryDelayMs(urgency));
+      for (let attempt = 0; attempt < strategy.actionJob.maxRetry; attempt += 1) {
+        if (!shouldRetryTransient(result)) {
+          break;
+        }
+
+        retryCount = attempt + 1;
+        await sleep(computeRetryDelayMs(urgency, strategy));
 
         if (await isActionJobCancelled(input.jobId)) {
           return;
@@ -612,7 +579,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       });
 
       if (step.sequenceNo < accountSteps.length) {
-        await sleep(computeAccountCooldownMs(urgency));
+        await sleep(computeAccountCooldownMs(urgency, strategy));
 
         if (await isActionJobCancelled(input.jobId)) {
           return;
@@ -641,7 +608,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
   const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
   const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
-  const sla = await computeJobSlaSummary(input.jobId, urgency);
+  const sla = await computeJobSlaSummary(input.jobId, urgency, strategy);
 
   await prisma.actionJob.update({
     where: { id: input.jobId },
@@ -686,10 +653,11 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
     }),
   ]);
 
+  const strategy = await getExecutionStrategy();
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
   const urgency = input.urgency || "A";
-  const delayMap = buildWaveDelayMap(input.accountIds, urgency);
+  const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
 
   for (const accountId of input.accountIds) {
     if (await isActionJobCancelled(input.jobId)) {
@@ -752,9 +720,13 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
       let retryCount = 0;
 
-      if (shouldRetryTransient(result)) {
-        retryCount = 1;
-        await sleep(computeRetryDelayMs(urgency));
+      for (let attempt = 0; attempt < strategy.actionJob.maxRetry; attempt += 1) {
+        if (!shouldRetryTransient(result)) {
+          break;
+        }
+
+        retryCount = attempt + 1;
+        await sleep(computeRetryDelayMs(urgency, strategy));
 
         if (await isActionJobCancelled(input.jobId)) {
           return;
@@ -818,7 +790,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
       if (step.sequenceNo < input.times) {
         const intervalDelayMs = computeStepDelayMs(input.intervalSec);
-        const cooldownDelayMs = computeAccountCooldownMs(urgency);
+        const cooldownDelayMs = computeAccountCooldownMs(urgency, strategy);
         await sleep(Math.max(intervalDelayMs, cooldownDelayMs));
 
         if (await isActionJobCancelled(input.jobId)) {

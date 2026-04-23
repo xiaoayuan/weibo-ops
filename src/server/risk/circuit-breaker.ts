@@ -1,12 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-const ACCOUNT_FAILURE_THRESHOLD = 3;
-const ACCOUNT_PAUSE_MS = 6 * 60 * 60 * 1000;
-
-const PROXY_WINDOW_MS = 10 * 60 * 1000;
-const PROXY_MIN_SAMPLES = 10;
-const PROXY_FAILURE_RATIO = 0.4;
-const PROXY_PAUSE_MS = 30 * 60 * 1000;
+import { getExecutionStrategy } from "@/server/strategy/config";
 
 type AccountCircuitState = {
   consecutiveFailures?: number;
@@ -86,6 +79,13 @@ export async function recordExecutionOutcome(input: {
   proxyNodeId?: string | null;
   success: boolean;
 }) {
+  const strategy = await getExecutionStrategy();
+  const accountFailureThreshold = strategy.circuitBreaker.accountFailureThreshold;
+  const accountPauseMs = strategy.circuitBreaker.accountPauseMinutes * 60 * 1000;
+  const proxyWindowMs = strategy.circuitBreaker.proxyWindowMinutes * 60 * 1000;
+  const proxyMinSamples = strategy.circuitBreaker.proxyMinSamples;
+  const proxyFailureRatio = strategy.circuitBreaker.proxyFailureRatio;
+  const proxyPauseMs = strategy.circuitBreaker.proxyPauseMinutes * 60 * 1000;
   const now = Date.now();
 
   if (input.accountId) {
@@ -102,8 +102,8 @@ export async function recordExecutionOutcome(input: {
     } else {
       const consecutiveFailures = (current.consecutiveFailures || 0) + 1;
       const nextPausedUntil =
-        consecutiveFailures >= ACCOUNT_FAILURE_THRESHOLD
-          ? new Date(now + ACCOUNT_PAUSE_MS).toISOString()
+        consecutiveFailures >= accountFailureThreshold
+          ? new Date(now + accountPauseMs).toISOString()
           : pausedActive
             ? pausedUntil?.toISOString()
             : undefined;
@@ -121,15 +121,15 @@ export async function recordExecutionOutcome(input: {
     const pausedUntil = parseDate(current.pausedUntil);
     const pausedActive = Boolean(pausedUntil && pausedUntil.getTime() > now);
     const windowStartedAt = parseDate(current.windowStartedAt);
-    const shouldResetWindow = !windowStartedAt || now - windowStartedAt.getTime() > PROXY_WINDOW_MS;
+    const shouldResetWindow = !windowStartedAt || now - windowStartedAt.getTime() > proxyWindowMs;
 
     const total = (shouldResetWindow ? 0 : current.total || 0) + 1;
     const failed = (shouldResetWindow ? 0 : current.failed || 0) + (input.success ? 0 : 1);
     const failureRatio = total > 0 ? failed / total : 0;
 
     const nextPausedUntil =
-      total >= PROXY_MIN_SAMPLES && failureRatio > PROXY_FAILURE_RATIO
-        ? new Date(now + PROXY_PAUSE_MS).toISOString()
+      total >= proxyMinSamples && failureRatio > proxyFailureRatio
+        ? new Date(now + proxyPauseMs).toISOString()
         : pausedActive
           ? pausedUntil?.toISOString()
           : undefined;

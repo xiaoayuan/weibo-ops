@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { ProfileSecurityForm } from "@/components/settings/profile-security-form";
 import { ProxyPoolForm } from "@/components/settings/proxy-pool-form";
 import { RiskRulesForm } from "@/components/settings/risk-rules-form";
+import { ExecutionStrategyForm } from "@/components/settings/execution-strategy-form";
 import { sanitizeProxySettings } from "@/server/proxy-config";
 import { getRiskRules } from "@/server/risk/rules";
+import { getExecutionStrategy } from "@/server/strategy/config";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +89,7 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, proxyNodes] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, proxyNodes] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -137,6 +139,7 @@ export default async function SettingsPage() {
     }),
     prisma.$queryRaw`SELECT 1`,
     getRiskRules(),
+    getExecutionStrategy(),
     prisma.proxyNode.findMany({
       where: { ownerUserId: session.id },
       include: {
@@ -274,6 +277,7 @@ export default async function SettingsPage() {
           hasPassword: Boolean(node.passwordEncrypted),
         }))}
       />
+      <ExecutionStrategyForm initialConfig={executionStrategy} />
       <RiskRulesForm initialRules={riskRules} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
