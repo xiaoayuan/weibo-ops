@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
+import { getActionTypeText, getTaskStatusText } from "@/lib/display-text";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -106,7 +107,9 @@ export default async function DashboardPage() {
   ];
 
   const recentAlerts = [
-    ...recentLogs.map((log) => `${log.account?.nickname || "系统"} 在 ${new Date(log.executedAt).toLocaleString("zh-CN")} 执行 ${log.actionType} 失败。`),
+    ...recentLogs.map(
+      (log) => `${log.account?.nickname || "系统"} 在 ${new Date(log.executedAt).toLocaleString("zh-CN")} 执行 ${getActionTypeText(log.actionType)} 失败。`,
+    ),
     copywritingCount < 5 ? `当前启用文案仅剩 ${copywritingCount} 条，建议尽快补充文案池。` : null,
     pendingPlans > 0 ? `当前有 ${pendingPlans} 条计划处于待审核状态。` : null,
   ].filter(Boolean) as string[];
@@ -175,7 +178,7 @@ export default async function DashboardPage() {
                       <td className="px-4 py-3">{new Date(plan.scheduledTime).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</td>
                       <td className="px-4 py-3">{plan.account.nickname}</td>
                       <td className="px-4 py-3">{plan.task?.superTopic.name || "-"}</td>
-                      <td className="px-4 py-3">{plan.status}</td>
+                      <td className="px-4 py-3">{getTaskStatusText(plan.status)}</td>
                     </tr>
                   ))}
                 </tbody>

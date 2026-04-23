@@ -1,4 +1,5 @@
 import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
+import { getActionTypeText } from "@/lib/display-text";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ProfileSecurityForm } from "@/components/settings/profile-security-form";
@@ -162,7 +163,7 @@ export default async function SettingsPage() {
     ...recentFailedInteractions.map((task) => ({
       id: task.id,
       type: "互动" as const,
-      title: `${task.account.nickname} / ${task.actionType}`,
+      title: `${task.account.nickname} / ${getActionTypeText(task.actionType)}`,
       subtitle: task.target.targetUrl,
       detail: task.resultMessage || "无失败说明",
       occurredAt: task.updatedAt,

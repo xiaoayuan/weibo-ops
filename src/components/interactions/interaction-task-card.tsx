@@ -1,6 +1,7 @@
 import type { CopywritingTemplate, InteractionTarget, InteractionTask } from "@/generated/prisma/client";
 
 import { InteractionResultPreview } from "@/components/interactions/interaction-result-preview";
+import { getActionTypeText } from "@/lib/display-text";
 
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
@@ -49,7 +50,7 @@ export function InteractionTaskCard({
           <p className="break-all text-sm text-sky-700">{task.target.targetUrl}</p>
           <div className="mt-2 space-y-1 text-sm text-slate-600">
             <p>账号：{task.account.nickname}</p>
-            <p>动作：{task.actionType}</p>
+            <p>动作：{getActionTypeText(task.actionType)}</p>
             <p>状态：{statusText[task.status]}</p>
             <p>文案：{task.content?.title || "-"}</p>
             <p>创建时间：{new Date(task.createdAt).toLocaleString("zh-CN")}</p>
