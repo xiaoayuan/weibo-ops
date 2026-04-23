@@ -59,6 +59,7 @@ export async function POST(request: Request) {
         config: {
           accountIds: parsed.data.accountIds,
           poolItemIds: poolItems.map((item) => item.id),
+          urgency: parsed.data.urgency || "S",
         },
         createdBy: auth.session.id,
       },
@@ -93,12 +94,13 @@ export async function POST(request: Request) {
       id: job.id,
       ownerUserId: auth.session.id,
       label: `action-job:${job.id}:comment-like`,
-      run: () =>
-        runCommentLikeJob({
-          jobId: job.id,
-          accountIds: parsed.data.accountIds,
-          poolItems,
-        }),
+        run: () =>
+          runCommentLikeJob({
+            jobId: job.id,
+            accountIds: parsed.data.accountIds,
+            poolItems,
+            urgency: parsed.data.urgency || "S",
+          }),
     });
 
     await writeExecutionLog({

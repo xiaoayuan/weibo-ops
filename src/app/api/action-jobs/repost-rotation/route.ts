@@ -47,6 +47,7 @@ export async function POST(request: Request) {
           times: parsed.data.times,
           intervalSec: parsed.data.intervalSec,
           copywritingTexts: parsed.data.copywritingTexts || [],
+          urgency: parsed.data.urgency || "A",
         },
         createdBy: auth.session.id,
       },
@@ -85,14 +86,15 @@ export async function POST(request: Request) {
       id: job.id,
       ownerUserId: auth.session.id,
       label: `action-job:${job.id}:repost-rotation`,
-      run: () =>
-        runRepostRotationJob({
-          jobId: job.id,
-          accountIds: parsed.data.accountIds,
-          targetUrl: parsed.data.targetUrl,
-          times: parsed.data.times,
-          intervalSec: parsed.data.intervalSec,
-        }),
+        run: () =>
+          runRepostRotationJob({
+            jobId: job.id,
+            accountIds: parsed.data.accountIds,
+            targetUrl: parsed.data.targetUrl,
+            times: parsed.data.times,
+            intervalSec: parsed.data.intervalSec,
+            urgency: parsed.data.urgency || "A",
+          }),
     });
 
     await writeExecutionLog({

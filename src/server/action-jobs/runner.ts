@@ -8,6 +8,7 @@ type StartCommentLikeJobInput = {
   jobId: string;
   accountIds: string[];
   poolItems: Array<{ id: string; sourceUrl: string }>;
+  urgency?: "S" | "A" | "B";
 };
 
 type StartRepostRotationJobInput = {
@@ -16,7 +17,68 @@ type StartRepostRotationJobInput = {
   targetUrl: string;
   times: number;
   intervalSec: 0 | 3 | 5 | 10;
+  urgency?: "S" | "A" | "B";
 };
+
+type WaveRule = {
+  ratios: [number, number, number];
+  windowsSec: [number, number, number];
+};
+
+function getWaveRule(urgency: "S" | "A" | "B"): WaveRule {
+  if (urgency === "S") {
+    return {
+      ratios: [0.3, 0.4, 0.3],
+      windowsSec: [180, 600, 1800],
+    };
+  }
+
+  if (urgency === "A") {
+    return {
+      ratios: [0.2, 0.3, 0.5],
+      windowsSec: [600, 1800, 7200],
+    };
+  }
+
+  return {
+    ratios: [0.1, 0.2, 0.7],
+    windowsSec: [1800, 7200, 43200],
+  };
+}
+
+function buildWaveDelayMap(accountIds: string[], urgency: "S" | "A" | "B") {
+  const total = accountIds.length;
+  const rule = getWaveRule(urgency);
+
+  const firstCount = Math.max(1, Math.floor(total * rule.ratios[0]));
+  const secondCount = Math.max(0, Math.floor(total * rule.ratios[1]));
+  const thirdCount = Math.max(0, total - firstCount - secondCount);
+
+  const plan = [
+    { count: firstCount, maxSec: rule.windowsSec[0], minSec: 0 },
+    { count: secondCount, maxSec: rule.windowsSec[1], minSec: rule.windowsSec[0] },
+    { count: thirdCount, maxSec: rule.windowsSec[2], minSec: rule.windowsSec[1] },
+  ];
+
+  const map = new Map<string, number>();
+  let cursor = 0;
+
+  for (const wave of plan) {
+    for (let i = 0; i < wave.count && cursor < accountIds.length; i += 1) {
+      const accountId = accountIds[cursor];
+      const delaySec = randomBetween(wave.minSec, Math.max(wave.minSec, wave.maxSec));
+      map.set(accountId, delaySec * 1000);
+      cursor += 1;
+    }
+  }
+
+  while (cursor < accountIds.length) {
+    map.set(accountIds[cursor], randomBetween(rule.windowsSec[1], rule.windowsSec[2]) * 1000);
+    cursor += 1;
+  }
+
+  return map;
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
@@ -178,6 +240,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
+  const delayMap = buildWaveDelayMap(input.accountIds, input.urgency || "S");
 
   for (const accountId of input.accountIds) {
     if (await isActionJobCancelled(input.jobId)) {
@@ -186,6 +249,12 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
     const account = accountMap.get(accountId);
     const accountSteps = steps.filter((item) => item.accountId === accountId);
+
+    const waveDelayMs = delayMap.get(accountId) || 0;
+
+    if (waveDelayMs > 0) {
+      await sleep(waveDelayMs);
+    }
 
     if (!account || accountSteps.length === 0) {
       continue;
@@ -352,6 +421,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
+  const delayMap = buildWaveDelayMap(input.accountIds, input.urgency || "A");
 
   for (const accountId of input.accountIds) {
     if (await isActionJobCancelled(input.jobId)) {
@@ -360,6 +430,12 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
     const account = accountMap.get(accountId);
     const accountSteps = steps.filter((item) => item.accountId === accountId);
+
+    const waveDelayMs = delayMap.get(accountId) || 0;
+
+    if (waveDelayMs > 0) {
+      await sleep(waveDelayMs);
+    }
 
     if (!account || accountSteps.length === 0) {
       continue;

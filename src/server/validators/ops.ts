@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const urgencySchema = z.enum(["S", "A", "B"]);
+
 export const createCommentPoolItemSchema = z.object({
   sourceUrl: z.string().url("请填写有效链接"),
   note: z.string().trim().max(80, "备注不能超过 80 字").optional().or(z.literal("")),
@@ -17,6 +19,7 @@ export const batchImportCommentPoolSchema = z.object({
 export const startCommentLikeJobSchema = z.object({
   accountIds: z.array(z.string().min(1)).min(1, "至少选择一个账号"),
   poolItemIds: z.array(z.string().min(1)).min(1, "至少选择一条评论链接"),
+  urgency: urgencySchema.default("S").optional(),
 });
 
 export const startRepostRotationJobSchema = z.object({
@@ -25,4 +28,5 @@ export const startRepostRotationJobSchema = z.object({
   times: z.number().int().min(1).max(20).default(5),
   intervalSec: z.union([z.literal(0), z.literal(3), z.literal(5), z.literal(10)]).default(3),
   copywritingTexts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
+  urgency: urgencySchema.default("A").optional(),
 });
