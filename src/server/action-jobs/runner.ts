@@ -5,9 +5,11 @@ import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/r
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { getExecutionStrategy, type ExecutionStrategy } from "@/server/strategy/config";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
+import { reserveRateLimitedExecution, resolveActionJobTaskType } from "@/server/task-scheduler/rate-limit";
 
 type StartCommentLikeJobInput = {
   jobId: string;
+  ownerUserId: string;
   accountIds: string[];
   poolItems: Array<{ id: string; sourceUrl: string }>;
   urgency?: "S" | "A" | "B";
@@ -15,6 +17,7 @@ type StartCommentLikeJobInput = {
 
 type StartRepostRotationJobInput = {
   jobId: string;
+  ownerUserId: string;
   accountIds: string[];
   targetUrl: string;
   times: number;
@@ -350,7 +353,17 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const strategy = await getExecutionStrategy();
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
-  const urgency = input.urgency || "S";
+  const scheduleDecision = await reserveRateLimitedExecution({
+    ownerUserId: input.ownerUserId,
+    taskType: resolveActionJobTaskType("COMMENT_LIKE_BATCH"),
+    baseTier: input.urgency || "S",
+  });
+  const urgency = scheduleDecision.effectiveTier;
+
+  if (scheduleDecision.delayMs > 0) {
+    await sleep(scheduleDecision.delayMs);
+  }
+
   const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
 
   for (const accountId of input.accountIds) {
@@ -567,6 +580,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
           sequenceNo: step.sequenceNo,
           retryCount,
           timing,
+          scheduleDecision,
           riskClass: riskMeta.errorClass,
         },
         responsePayload: attachRiskMetaToPayload(result.responsePayload, riskMeta),
@@ -625,6 +639,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         failedAccounts,
         partialAccounts,
         urgency,
+        scheduleDecision,
         sla,
       },
     },
@@ -661,7 +676,17 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
   const strategy = await getExecutionStrategy();
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
-  const urgency = input.urgency || "A";
+  const scheduleDecision = await reserveRateLimitedExecution({
+    ownerUserId: input.ownerUserId,
+    taskType: resolveActionJobTaskType("REPOST_ROTATION"),
+    baseTier: input.urgency || "A",
+  });
+  const urgency = scheduleDecision.effectiveTier;
+
+  if (scheduleDecision.delayMs > 0) {
+    await sleep(scheduleDecision.delayMs);
+  }
+
   const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
 
   for (const accountId of input.accountIds) {
@@ -784,6 +809,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
           repostContent: payload.repostContent || "",
           retryCount,
           timing,
+          scheduleDecision,
           riskClass: riskMeta.errorClass,
         },
         responsePayload: attachRiskMetaToPayload(result.responsePayload, riskMeta),
@@ -811,5 +837,5 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
     return;
   }
 
-  await recomputeRepostJobSummary(input.jobId, input.targetUrl, input.times, input.intervalSec, input.urgency || "A");
+  await recomputeRepostJobSummary(input.jobId, input.targetUrl, input.times, input.intervalSec, urgency);
 }

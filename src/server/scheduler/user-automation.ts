@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { generateDailyPlansWithSummary } from "@/server/plan-generator";
 import { executePlanById } from "@/server/plans/execute-plan";
+import { taskTierToLane } from "@/server/task-scheduler/rate-limit";
 import { scheduleTask } from "@/server/task-scheduler";
 
 declare global {
@@ -155,6 +156,7 @@ async function runAutoExecute(now: Date) {
         id: plan.id,
         ownerUserId: user.id,
         label: `auto-plan:${plan.id}`,
+        lane: taskTierToLane("B"),
         run: () => executePlanById(plan.id, user.id),
       }).catch(async (error) => {
         await prisma.dailyPlan.update({

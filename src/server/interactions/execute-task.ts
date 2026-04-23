@@ -4,6 +4,7 @@ import { writeExecutionLog } from "@/server/logs";
 import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
+import { reserveRateLimitedExecution, resolveInteractionTaskType } from "@/server/task-scheduler/rate-limit";
 
 const interactionInclude = {
   account: true,
@@ -109,6 +110,22 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     return { ok: true as const, success: false, data: updated, message: updated.resultMessage || "互动任务已暂停" };
   }
 
+  const scheduleDecision = await reserveRateLimitedExecution({
+    ownerUserId,
+    taskType: resolveInteractionTaskType(task.actionType),
+    baseTier: "A",
+  });
+
+  if (scheduleDecision.delayMs > 0) {
+    await prisma.interactionTask.update({
+      where: { id },
+      data: {
+        resultMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行`,
+      },
+    });
+    await sleep(scheduleDecision.delayMs);
+  }
+
   const timing = await waitForAccountExecutionWindow(executionAccount.id, `interaction:${task.id}`, {
     scheduleWindowEnabled: executionAccount.scheduleWindowEnabled,
     executionWindowStart: executionAccount.executionWindowStart,
@@ -196,6 +213,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
       retryCount,
       stage: executionResult.stage,
       timing,
+      scheduleDecision,
       riskClass: riskMeta.errorClass,
     },
     responsePayload: attachRiskMetaToPayload(executionResult.responsePayload, riskMeta),

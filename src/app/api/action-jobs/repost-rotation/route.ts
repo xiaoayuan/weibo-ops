@@ -2,6 +2,7 @@ import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { runRepostRotationJob } from "@/server/action-jobs/runner";
 import { writeExecutionLog } from "@/server/logs";
+import { taskTierToLane } from "@/server/task-scheduler/rate-limit";
 import { scheduleTask } from "@/server/task-scheduler";
 import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
 import { startRepostRotationJobSchema } from "@/server/validators/ops";
@@ -86,15 +87,17 @@ export async function POST(request: Request) {
       id: job.id,
       ownerUserId: auth.session.id,
       label: `action-job:${job.id}:repost-rotation`,
-        run: () =>
-          runRepostRotationJob({
-            jobId: job.id,
-            accountIds: parsed.data.accountIds,
-            targetUrl: parsed.data.targetUrl,
-            times: parsed.data.times,
-            intervalSec: parsed.data.intervalSec,
-            urgency: parsed.data.urgency || "A",
-          }),
+      lane: taskTierToLane(parsed.data.urgency || "A"),
+      run: () =>
+        runRepostRotationJob({
+          jobId: job.id,
+          ownerUserId: auth.session.id,
+          accountIds: parsed.data.accountIds,
+          targetUrl: parsed.data.targetUrl,
+          times: parsed.data.times,
+          intervalSec: parsed.data.intervalSec,
+          urgency: parsed.data.urgency || "A",
+        }),
     });
 
     await writeExecutionLog({

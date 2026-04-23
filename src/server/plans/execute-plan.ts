@@ -8,6 +8,7 @@ import { classifyExecutionOutcome } from "@/server/risk/error-classifier";
 import { getRiskRules } from "@/server/risk/rules";
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
+import { reserveRateLimitedExecution, resolvePlanTaskType } from "@/server/task-scheduler/rate-limit";
 import { checkStatusIsZeroComments, extractStatusIdFromUrl, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
 const planInclude = {
@@ -47,6 +48,10 @@ function toDateText(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function executePlanById(id: string, ownerUserId?: string) {
@@ -112,6 +117,22 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       resultMessage: "执行中，支持手动停止",
     },
   });
+
+  const scheduleDecision = await reserveRateLimitedExecution({
+    ownerUserId: plan.account.ownerUserId || `account:${plan.accountId}`,
+    taskType: resolvePlanTaskType(plan.planType),
+    baseTier: "B",
+  });
+
+  if (scheduleDecision.delayMs > 0) {
+    await prisma.dailyPlan.update({
+      where: { id },
+      data: {
+        resultMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行`,
+      },
+    });
+    await sleep(scheduleDecision.delayMs);
+  }
 
   const timing = await waitForAccountExecutionWindow(plan.account.id, `plan:${plan.id}`, {
     scheduleWindowEnabled: plan.account.scheduleWindowEnabled,
@@ -374,6 +395,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         planDate: planDateText,
         trigger: "manual_or_auto",
         timing,
+        scheduleDecision,
         riskClass: firstCommentRiskMeta.errorClass,
       },
       responsePayload: attachRiskMetaToPayload(payload, firstCommentRiskMeta),
@@ -470,6 +492,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       stage: executionResult.stage,
       trigger: "manual_or_auto",
       timing,
+      scheduleDecision,
       targetUrl: resolvedTargetUrl || plan.targetUrl,
       riskClass: riskMeta.errorClass,
     },

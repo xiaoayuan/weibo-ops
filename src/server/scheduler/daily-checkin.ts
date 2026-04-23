@@ -2,6 +2,7 @@ import { getBusinessDateText } from "@/lib/business-date";
 import { generateDailyPlans } from "@/server/plan-generator";
 import { executePlanById } from "@/server/plans/execute-plan";
 import { writeExecutionLog } from "@/server/logs";
+import { taskTierToLane } from "@/server/task-scheduler/rate-limit";
 import { scheduleTask } from "@/server/task-scheduler";
 
 const AUTO_CHECKIN_ENABLED = process.env.AUTO_CHECKIN_ENABLED !== "false";
@@ -44,6 +45,7 @@ async function runAutoCheckInOnce() {
       id: plan.id,
       ownerUserId: plan.account.ownerUserId,
       label: `auto-checkin:${plan.id}`,
+      lane: taskTierToLane("B"),
       run: () => executePlanById(plan.id),
     });
     const result = scheduled.data;

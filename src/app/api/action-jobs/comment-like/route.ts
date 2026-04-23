@@ -2,6 +2,7 @@ import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { runCommentLikeJob } from "@/server/action-jobs/runner";
 import { writeExecutionLog } from "@/server/logs";
+import { taskTierToLane } from "@/server/task-scheduler/rate-limit";
 import { scheduleTask } from "@/server/task-scheduler";
 import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
 import { startCommentLikeJobSchema } from "@/server/validators/ops";
@@ -94,13 +95,15 @@ export async function POST(request: Request) {
       id: job.id,
       ownerUserId: auth.session.id,
       label: `action-job:${job.id}:comment-like`,
-        run: () =>
-          runCommentLikeJob({
-            jobId: job.id,
-            accountIds: parsed.data.accountIds,
-            poolItems,
-            urgency: parsed.data.urgency || "S",
-          }),
+      lane: taskTierToLane(parsed.data.urgency || "S"),
+      run: () =>
+        runCommentLikeJob({
+          jobId: job.id,
+          ownerUserId: auth.session.id,
+          accountIds: parsed.data.accountIds,
+          poolItems,
+          urgency: parsed.data.urgency || "S",
+        }),
     });
 
     await writeExecutionLog({
