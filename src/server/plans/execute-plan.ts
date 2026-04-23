@@ -5,7 +5,7 @@ import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
 import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
-import { checkStatusIsZeroComments, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
+import { checkStatusIsZeroComments, extractStatusIdFromUrl, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
 const planInclude = {
   account: true,
@@ -339,17 +339,47 @@ export async function executePlanById(id: string, ownerUserId?: string) {
   }
 
   const executor = getExecutor();
-  const executionResult = await executor.executePlan({
-    planId: plan.id,
-    accountId: plan.accountId,
-    accountNickname: plan.account.nickname,
-    accountLoginStatus: plan.account.loginStatus,
-    planType: plan.planType,
-    targetUrl: plan.targetUrl,
-    content: plan.content?.content || null,
-    topicName: plan.task?.superTopic.name || null,
-    topicUrl: plan.task?.superTopic.topicUrl || null,
-  });
+  let resolvedTargetUrl = plan.targetUrl || null;
+
+  if ((plan.planType === "LIKE" || plan.planType === "COMMENT") && !extractStatusIdFromUrl(resolvedTargetUrl || "")) {
+    const topicUrl = plan.task?.superTopic.topicUrl || "https://weibo.com/";
+
+    if (plan.account.cookieEncrypted) {
+      try {
+        const cookie = decryptText(plan.account.cookieEncrypted);
+        const proxyConfig = await getProxyConfigForAccount(plan.accountId);
+        const posts = await fetchLatestPosts(topicUrl, cookie, 30, proxyConfig);
+        resolvedTargetUrl = posts[0]?.targetUrl || topicUrl;
+      } catch {
+        resolvedTargetUrl = resolvedTargetUrl || topicUrl;
+      }
+    } else {
+      resolvedTargetUrl = resolvedTargetUrl || topicUrl;
+    }
+  }
+
+  const executionResult =
+    plan.planType === "COMMENT"
+      ? await executor.executeInteraction({
+          interactionTaskId: plan.id,
+          accountId: plan.accountId,
+          accountNickname: plan.account.nickname,
+          accountLoginStatus: plan.account.loginStatus,
+          actionType: "COMMENT",
+          targetUrl: resolvedTargetUrl || plan.targetUrl || plan.task?.superTopic.topicUrl || "https://weibo.com/",
+          commentText: plan.content?.content || null,
+        })
+      : await executor.executePlan({
+          planId: plan.id,
+          accountId: plan.accountId,
+          accountNickname: plan.account.nickname,
+          accountLoginStatus: plan.account.loginStatus,
+          planType: plan.planType,
+          targetUrl: resolvedTargetUrl,
+          content: plan.content?.content || null,
+          topicName: plan.task?.superTopic.name || null,
+          topicUrl: plan.task?.superTopic.topicUrl || null,
+        });
 
   const cancelledBeforeFinalize = await getCancelledPlan(id);
 
@@ -383,6 +413,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       stage: executionResult.stage,
       trigger: "manual_or_auto",
       timing,
+      targetUrl: resolvedTargetUrl || plan.targetUrl,
       riskClass: riskMeta.errorClass,
     },
     responsePayload: attachRiskMetaToPayload(executionResult.responsePayload, riskMeta),

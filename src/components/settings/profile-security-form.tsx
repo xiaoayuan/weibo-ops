@@ -30,10 +30,18 @@ export function ProfileSecurityForm({
   initialUsername,
   initialProxySettings,
   initialTaskConcurrency,
+  initialAutoGenerateEnabled,
+  initialAutoGenerateTime,
+  initialAutoExecuteEnabled,
+  initialAutoExecuteStartTime,
 }: {
   initialUsername: string;
   initialProxySettings: ProxySettings;
   initialTaskConcurrency: number;
+  initialAutoGenerateEnabled: boolean;
+  initialAutoGenerateTime: string;
+  initialAutoExecuteEnabled: boolean;
+  initialAutoExecuteStartTime: string;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState(initialUsername);
@@ -47,6 +55,10 @@ export function ProfileSecurityForm({
   const [proxyPassword, setProxyPassword] = useState("");
   const [proxyPasswordConfigured, setProxyPasswordConfigured] = useState(initialProxySettings.proxyPasswordConfigured);
   const [taskConcurrency, setTaskConcurrency] = useState(String(initialTaskConcurrency));
+  const [autoGenerateEnabled, setAutoGenerateEnabled] = useState(initialAutoGenerateEnabled);
+  const [autoGenerateTime, setAutoGenerateTime] = useState(initialAutoGenerateTime);
+  const [autoExecuteEnabled, setAutoExecuteEnabled] = useState(initialAutoExecuteEnabled);
+  const [autoExecuteStartTime, setAutoExecuteStartTime] = useState(initialAutoExecuteStartTime);
   const [submitting, setSubmitting] = useState(false);
   const [testingProxy, setTestingProxy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +89,11 @@ export function ProfileSecurityForm({
       (numericProxyPort || 0) !== initialProxySettings.proxyPort ||
       trimmedProxyUsername !== initialProxySettings.proxyUsername ||
       proxyPassword !== "" ||
-      Number(taskConcurrency) !== initialTaskConcurrency;
+      Number(taskConcurrency) !== initialTaskConcurrency ||
+      autoGenerateEnabled !== initialAutoGenerateEnabled ||
+      autoGenerateTime !== initialAutoGenerateTime ||
+      autoExecuteEnabled !== initialAutoExecuteEnabled ||
+      autoExecuteStartTime !== initialAutoExecuteStartTime;
 
     if (!hasUsernameChange && !hasPasswordChange && !hasProxyChange) {
       setError("请至少修改用户名、密码或代理配置");
@@ -109,6 +125,10 @@ export function ProfileSecurityForm({
           proxyUsername: trimmedProxyUsername,
           proxyPassword: proxyPassword !== "" ? proxyPassword : undefined,
           taskConcurrency: Number(taskConcurrency),
+          autoGenerateEnabled,
+          autoGenerateTime,
+          autoExecuteEnabled,
+          autoExecuteStartTime,
         }),
       });
       const result = await response.json();
@@ -290,6 +310,50 @@ export function ProfileSecurityForm({
                 <option value="5">5</option>
               </select>
               <span className="mt-2 block text-xs text-slate-500">同一用户的所有任务会共享这个并发额度，默认 1 最稳。</span>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">每日自动生成</span>
+              <select
+                value={autoGenerateEnabled ? "ENABLED" : "DISABLED"}
+                onChange={(event) => setAutoGenerateEnabled(event.target.value === "ENABLED")}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="ENABLED">启用</option>
+                <option value="DISABLED">停用</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">生成时间</span>
+              <input
+                type="time"
+                value={autoGenerateTime}
+                onChange={(event) => setAutoGenerateTime(event.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">每日自动执行</span>
+              <select
+                value={autoExecuteEnabled ? "ENABLED" : "DISABLED"}
+                onChange={(event) => setAutoExecuteEnabled(event.target.value === "ENABLED")}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="ENABLED">启用</option>
+                <option value="DISABLED">停用</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">执行起始时间</span>
+              <input
+                type="time"
+                value={autoExecuteStartTime}
+                onChange={(event) => setAutoExecuteStartTime(event.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              />
             </label>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 type LogInput = {
+  userId?: string;
   accountId?: string;
   planId?: string;
   actionType: string;
@@ -14,6 +15,7 @@ export async function writeExecutionLog(input: LogInput) {
   try {
     await prisma.executionLog.create({
       data: {
+        userId: input.userId,
         accountId: input.accountId,
         planId: input.planId,
         actionType: input.actionType,

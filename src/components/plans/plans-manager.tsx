@@ -56,6 +56,10 @@ function getPlanTypeText(planType: DailyPlan["planType"]) {
     return "转发";
   }
 
+  if (planType === "COMMENT") {
+    return "回复";
+  }
+
   return "点赞";
 }
 

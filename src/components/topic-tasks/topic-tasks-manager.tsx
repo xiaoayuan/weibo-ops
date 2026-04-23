@@ -17,6 +17,13 @@ type FormState = {
   signEnabled: boolean;
   firstCommentEnabled: boolean;
   firstCommentPerDay: number;
+  firstCommentIntervalSec: number;
+  likePerDay: number;
+  likeIntervalSec: number;
+  repostPerDay: number;
+  repostIntervalSec: number;
+  commentPerDay: number;
+  commentIntervalSec: number;
   postEnabled: boolean;
   minPostsPerDay: number;
   maxPostsPerDay: number;
@@ -79,6 +86,13 @@ export function TopicTasksManager({
     signEnabled: true,
     firstCommentEnabled: false,
     firstCommentPerDay: 4,
+    firstCommentIntervalSec: 1800,
+    likePerDay: 0,
+    likeIntervalSec: 1200,
+    repostPerDay: 0,
+    repostIntervalSec: 1800,
+    commentPerDay: 0,
+    commentIntervalSec: 1800,
     postEnabled: false,
     minPostsPerDay: 0,
     maxPostsPerDay: 0,
@@ -120,6 +134,13 @@ export function TopicTasksManager({
                 signEnabled: form.signEnabled,
                 firstCommentEnabled: form.firstCommentEnabled,
                 firstCommentPerDay: form.firstCommentPerDay,
+                firstCommentIntervalSec: form.firstCommentIntervalSec,
+                likePerDay: form.likePerDay,
+                likeIntervalSec: form.likeIntervalSec,
+                repostPerDay: form.repostPerDay,
+                repostIntervalSec: form.repostIntervalSec,
+                commentPerDay: form.commentPerDay,
+                commentIntervalSec: form.commentIntervalSec,
                 postEnabled: false,
                 minPostsPerDay: 0,
                 maxPostsPerDay: 0,
@@ -129,6 +150,13 @@ export function TopicTasksManager({
               }),
           firstCommentEnabled: form.firstCommentEnabled,
           firstCommentPerDay: form.firstCommentPerDay,
+          firstCommentIntervalSec: form.firstCommentIntervalSec,
+          likePerDay: form.likePerDay,
+          likeIntervalSec: form.likeIntervalSec,
+          repostPerDay: form.repostPerDay,
+          repostIntervalSec: form.repostIntervalSec,
+          commentPerDay: form.commentPerDay,
+          commentIntervalSec: form.commentIntervalSec,
           postEnabled: false,
           minPostsPerDay: 0,
           maxPostsPerDay: 0,
@@ -166,6 +194,13 @@ export function TopicTasksManager({
       signEnabled: task.signEnabled,
       firstCommentEnabled: task.firstCommentEnabled,
       firstCommentPerDay: task.firstCommentPerDay,
+      firstCommentIntervalSec: task.firstCommentIntervalSec,
+      likePerDay: task.likePerDay,
+      likeIntervalSec: task.likeIntervalSec,
+      repostPerDay: task.repostPerDay,
+      repostIntervalSec: task.repostIntervalSec,
+      commentPerDay: task.commentPerDay,
+      commentIntervalSec: task.commentIntervalSec,
       postEnabled: task.postEnabled,
       minPostsPerDay: task.minPostsPerDay,
       maxPostsPerDay: task.maxPostsPerDay,
@@ -185,6 +220,13 @@ export function TopicTasksManager({
       signEnabled: true,
       firstCommentEnabled: false,
       firstCommentPerDay: 4,
+      firstCommentIntervalSec: 1800,
+      likePerDay: 0,
+      likeIntervalSec: 1200,
+      repostPerDay: 0,
+      repostIntervalSec: 1800,
+      commentPerDay: 0,
+      commentIntervalSec: 1800,
       postEnabled: false,
       minPostsPerDay: 0,
       maxPostsPerDay: 0,
@@ -367,6 +409,50 @@ export function TopicTasksManager({
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
                 />
                 <p className="text-xs text-slate-500">每天首评条数，默认 4；文案将自动从文案库的“首评文案”标签随机抽取。</p>
+                <input
+                  type="number"
+                  min={60}
+                  max={86400}
+                  value={form.firstCommentIntervalSec}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      firstCommentIntervalSec: Number(event.target.value) || 1800,
+                    }))
+                  }
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                />
+                <p className="text-xs text-slate-500">首评最小间隔（秒），默认 1800 秒。</p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-4 text-sm md:col-span-2">
+              <p className="font-medium text-slate-700">互动频次（每日自动生成）</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">点赞次数/天</span>
+                  <input type="number" min={0} max={300} value={form.likePerDay} onChange={(event) => setForm((current) => ({ ...current, likePerDay: Number(event.target.value) || 0 }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">转发次数/天</span>
+                  <input type="number" min={0} max={200} value={form.repostPerDay} onChange={(event) => setForm((current) => ({ ...current, repostPerDay: Number(event.target.value) || 0 }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">回复次数/天</span>
+                  <input type="number" min={0} max={100} value={form.commentPerDay} onChange={(event) => setForm((current) => ({ ...current, commentPerDay: Number(event.target.value) || 0 }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">点赞间隔（秒）</span>
+                  <input type="number" min={30} max={86400} value={form.likeIntervalSec} onChange={(event) => setForm((current) => ({ ...current, likeIntervalSec: Number(event.target.value) || 1200 }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">转发间隔（秒）</span>
+                  <input type="number" min={60} max={86400} value={form.repostIntervalSec} onChange={(event) => setForm((current) => ({ ...current, repostIntervalSec: Number(event.target.value) || 1800 }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">回复间隔（秒）</span>
+                  <input type="number" min={60} max={86400} value={form.commentIntervalSec} onChange={(event) => setForm((current) => ({ ...current, commentIntervalSec: Number(event.target.value) || 1800 }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400" />
+                </label>
               </div>
             </div>
 
@@ -447,7 +533,8 @@ export function TopicTasksManager({
               <th className="px-6 py-3 font-medium">超话</th>
               <th className="px-6 py-3 font-medium">签到任务</th>
               <th className="px-6 py-3 font-medium">首评任务</th>
-              <th className="px-6 py-3 font-medium">时间窗口</th>
+               <th className="px-6 py-3 font-medium">互动设置</th>
+               <th className="px-6 py-3 font-medium">时间窗口</th>
               <th className="px-6 py-3 font-medium">状态</th>
               {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
              </tr>
@@ -455,7 +542,7 @@ export function TopicTasksManager({
            <tbody>
                {filteredTasks.length === 0 ? (
                 <tr>
-                   <td colSpan={canManage ? 7 : 6} className="px-6 py-8 text-slate-500">
+                   <td colSpan={canManage ? 8 : 7} className="px-6 py-8 text-slate-500">
                      暂无任务配置。
                    </td>
                  </tr>
@@ -466,7 +553,8 @@ export function TopicTasksManager({
                   <td className="px-6 py-4">{task.superTopic.name}</td>
                   <td className="px-6 py-4">{task.signEnabled ? "已启用" : "未启用"}</td>
                   <td className="px-6 py-4">{task.firstCommentEnabled ? `已启用 / ${task.firstCommentPerDay} 条` : "未启用"}</td>
-                  <td className="px-6 py-4">{task.startTime || "09:00"} - {task.endTime || "22:00"}</td>
+                   <td className="px-6 py-4">赞{task.likePerDay}/转{task.repostPerDay}/评{task.commentPerDay}</td>
+                   <td className="px-6 py-4">{task.startTime || "09:00"} - {task.endTime || "22:00"}</td>
                   <td className="px-6 py-4">{task.status ? "启用" : "停用"}</td>
                    {canManage ? (
                      <td className="px-6 py-4">

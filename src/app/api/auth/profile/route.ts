@@ -51,6 +51,10 @@ export async function PATCH(request: Request) {
         proxyPort: parsed.data.proxyPort ?? null,
         proxyUsername,
         taskConcurrency: parsed.data.taskConcurrency,
+        autoGenerateEnabled: parsed.data.autoGenerateEnabled,
+        autoGenerateTime: parsed.data.autoGenerateTime,
+        autoExecuteEnabled: parsed.data.autoExecuteEnabled,
+        autoExecuteStartTime: parsed.data.autoExecuteStartTime,
         proxyPasswordEncrypted:
           proxyPassword !== undefined
             ? proxyPassword === ""
@@ -69,6 +73,10 @@ export async function PATCH(request: Request) {
         proxyUsername: true,
         proxyPasswordEncrypted: true,
         taskConcurrency: true,
+        autoGenerateEnabled: true,
+        autoGenerateTime: true,
+        autoExecuteEnabled: true,
+        autoExecuteStartTime: true,
       },
     });
 
@@ -87,6 +95,10 @@ export async function PATCH(request: Request) {
           role: updated.role,
           ...sanitizeProxySettings(updated),
           taskConcurrency: updated.taskConcurrency,
+          autoGenerateEnabled: updated.autoGenerateEnabled,
+          autoGenerateTime: updated.autoGenerateTime,
+          autoExecuteEnabled: updated.autoExecuteEnabled,
+          autoExecuteStartTime: updated.autoExecuteStartTime,
         },
         message: "账号信息已更新",
       }),

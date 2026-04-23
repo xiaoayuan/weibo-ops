@@ -98,6 +98,10 @@ export default async function SettingsPage() {
       proxyUsername: true,
       proxyPasswordEncrypted: true,
       taskConcurrency: true,
+      autoGenerateEnabled: true,
+      autoGenerateTime: true,
+      autoExecuteEnabled: true,
+      autoExecuteStartTime: true,
     },
   });
 
@@ -188,7 +192,15 @@ export default async function SettingsPage() {
       id: plan.id,
       type: "计划" as const,
       title: `${plan.account.nickname} / ${
-        plan.planType === "CHECK_IN" ? "签到" : plan.planType === "FIRST_COMMENT" ? "首评" : plan.planType === "POST" ? "转发" : "点赞"
+        plan.planType === "CHECK_IN"
+          ? "签到"
+          : plan.planType === "FIRST_COMMENT"
+            ? "首评"
+            : plan.planType === "POST"
+              ? "转发"
+              : plan.planType === "COMMENT"
+                ? "回复"
+                : "点赞"
       }`,
       subtitle: plan.task?.superTopic.name || "未绑定超话",
       detail: plan.resultMessage || "无失败说明",
@@ -277,7 +289,15 @@ export default async function SettingsPage() {
         <p className="mt-1 text-sm text-slate-500">仅管理员可查看系统配置摘要、运行状态和环境风险。</p>
       </div>
 
-      <ProfileSecurityForm initialUsername={session.username} initialProxySettings={sanitizeProxySettings(currentUser || {})} initialTaskConcurrency={currentUser?.taskConcurrency || 1} />
+      <ProfileSecurityForm
+        initialUsername={session.username}
+        initialProxySettings={sanitizeProxySettings(currentUser || {})}
+        initialTaskConcurrency={currentUser?.taskConcurrency || 1}
+        initialAutoGenerateEnabled={currentUser?.autoGenerateEnabled ?? true}
+        initialAutoGenerateTime={currentUser?.autoGenerateTime || "00:10"}
+        initialAutoExecuteEnabled={currentUser?.autoExecuteEnabled ?? true}
+        initialAutoExecuteStartTime={currentUser?.autoExecuteStartTime || "09:00"}
+      />
       <ProxyPoolForm
         initialNodes={proxyNodes.map((node) => ({
           id: node.id,

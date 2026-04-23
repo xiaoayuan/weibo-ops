@@ -5,8 +5,7 @@ import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { hasRequiredRole, requirePageRole } from "@/lib/permissions";
-import { ensureDailyCheckinSchedulerStarted } from "@/server/scheduler/daily-checkin";
-import { ensureFirstCommentSchedulerStarted } from "@/server/scheduler/first-comment";
+import { ensureUserAutomationSchedulerStarted } from "@/server/scheduler/user-automation";
 
 const navItems = [
   { href: "/", label: "控制台", icon: LayoutDashboard, iconName: "LayoutDashboard" },
@@ -24,8 +23,7 @@ const navItems = [
 ];
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  ensureDailyCheckinSchedulerStarted();
-  ensureFirstCommentSchedulerStarted();
+  ensureUserAutomationSchedulerStarted();
   const session = await requirePageRole("VIEWER");
   const visibleNavItems = navItems.filter((item) => !item.minRole || hasRequiredRole(session.role, item.minRole));
 

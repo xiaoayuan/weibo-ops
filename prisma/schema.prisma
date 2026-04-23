@@ -91,6 +91,10 @@ model User {
   proxyUsername String?
   proxyPasswordEncrypted String?
   taskConcurrency Int @default(1)
+  autoGenerateEnabled Boolean @default(true)
+  autoGenerateTime String @default("00:10")
+  autoExecuteEnabled Boolean @default(true)
+  autoExecuteStartTime String @default("09:00")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -209,6 +213,13 @@ model AccountTopicTask {
   signEnabled    Boolean      @default(false)
   firstCommentEnabled Boolean  @default(false)
   firstCommentPerDay  Int      @default(4)
+  firstCommentIntervalSec Int   @default(1800)
+  likePerDay      Int          @default(0)
+  likeIntervalSec Int          @default(1200)
+  repostPerDay    Int          @default(0)
+  repostIntervalSec Int        @default(1800)
+  commentPerDay   Int          @default(0)
+  commentIntervalSec Int       @default(1800)
   firstCommentTemplates String[]
   postEnabled    Boolean      @default(false)
   minPostsPerDay Int          @default(0)

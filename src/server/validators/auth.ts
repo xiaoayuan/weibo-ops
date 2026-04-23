@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const proxyProtocolSchema = z.enum(["HTTP", "HTTPS", "SOCKS5"]);
+const hhmmSchema = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "时间格式应为 HH:MM");
 
 export const proxySettingsSchema = z
   .object({
@@ -11,6 +12,10 @@ export const proxySettingsSchema = z
     proxyUsername: z.string().max(255, "代理用户名过长").optional().or(z.literal("")),
     proxyPassword: z.string().max(255, "代理密码过长").optional().or(z.literal("")),
     taskConcurrency: z.number().int("并发数必须是整数").min(1, "并发数至少为 1").max(5, "并发数最多为 5").optional(),
+    autoGenerateEnabled: z.boolean().optional(),
+    autoGenerateTime: hhmmSchema.optional(),
+    autoExecuteEnabled: z.boolean().optional(),
+    autoExecuteStartTime: hhmmSchema.optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.proxyEnabled) {
@@ -52,6 +57,10 @@ export const updateProfileSchema = z
     proxyUsername: z.string().max(255, "代理用户名过长").optional().or(z.literal("")),
     proxyPassword: z.string().max(255, "代理密码过长").optional().or(z.literal("")),
     taskConcurrency: z.number().int("并发数必须是整数").min(1, "并发数至少为 1").max(5, "并发数最多为 5").optional(),
+    autoGenerateEnabled: z.boolean().optional(),
+    autoGenerateTime: hhmmSchema.optional(),
+    autoExecuteEnabled: z.boolean().optional(),
+    autoExecuteStartTime: hhmmSchema.optional(),
   })
   .superRefine((data, ctx) => {
     const hasProfileChange = (data.username && data.username.trim() !== "") || (data.password && data.password !== "");
@@ -62,7 +71,11 @@ export const updateProfileSchema = z
       data.proxyPort !== undefined ||
       data.proxyUsername !== undefined ||
       data.proxyPassword !== undefined ||
-      data.taskConcurrency !== undefined;
+      data.taskConcurrency !== undefined ||
+      data.autoGenerateEnabled !== undefined ||
+      data.autoGenerateTime !== undefined ||
+      data.autoExecuteEnabled !== undefined ||
+      data.autoExecuteStartTime !== undefined;
 
     if (!hasProfileChange && !hasProxyChange) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["username"], message: "至少填写一个修改项" });
