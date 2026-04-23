@@ -16,7 +16,7 @@ export function getExecutorHealthStatus(): ExecutorHealthStatus {
   const mode = (process.env.EXECUTOR_MODE || "weibo").toLowerCase();
   const executor = getExecutor();
   const executorClass = executor.constructor?.name || "UnknownExecutor";
-  const isRealExecutor = executorClass === "WeiboExecutor";
+  const isRealExecutor = executor instanceof WeiboExecutor;
 
   return {
     mode,
