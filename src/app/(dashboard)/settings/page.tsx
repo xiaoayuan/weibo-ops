@@ -66,6 +66,25 @@ function toneClasses(tone: "emerald" | "amber" | "rose" | "slate") {
   return "bg-slate-100 text-slate-700 border border-slate-200";
 }
 
+function readTrafficBytes(payload: unknown): number {
+  if (!payload || typeof payload !== "object") {
+    return 0;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const traffic = record.traffic;
+
+  if (traffic && typeof traffic === "object") {
+    const totalBytes = (traffic as Record<string, unknown>).totalBytes;
+
+    if (typeof totalBytes === "number" && Number.isFinite(totalBytes) && totalBytes > 0) {
+      return totalBytes;
+    }
+  }
+
+  return 0;
+}
+
 export default async function SettingsPage() {
   const session = await requirePageRole("ADMIN");
   const currentUser = await prisma.user.findUnique({
@@ -83,7 +102,9 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, proxyNodes] = await Promise.all([
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, proxyNodes, recentTrafficLogs] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -142,6 +163,19 @@ export default async function SettingsPage() {
       },
       orderBy: [{ enabled: "desc" }, { createdAt: "asc" }],
     }),
+    prisma.executionLog.findMany({
+      where: {
+        executedAt: { gte: sevenDaysAgo },
+        account: {
+          ownerUserId: session.id,
+        },
+      },
+      select: {
+        responsePayload: true,
+      },
+      take: 2000,
+      orderBy: { executedAt: "desc" },
+    }),
   ]);
 
   const authCookieSecure = process.env.AUTH_COOKIE_SECURE === "true";
@@ -170,12 +204,16 @@ export default async function SettingsPage() {
     })),
   ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()).slice(0, 5);
 
+  const sevenDayTrafficBytes = recentTrafficLogs.reduce((sum, log) => sum + readTrafficBytes(log.responsePayload), 0);
+  const sevenDayTrafficMb = sevenDayTrafficBytes / (1024 * 1024);
+
   const summaryCards = [
     { label: "后台用户", value: String(userCount) },
     { label: "账号总数", value: String(accountCount) },
     { label: "启用文案", value: String(activeCopyCount) },
     { label: "今日计划", value: String(todayPlanCount) },
     { label: "失败日志", value: String(failedLogCount) },
+    { label: "近7天流量", value: sevenDayTrafficMb > 0 ? `${sevenDayTrafficMb.toFixed(2)} MB` : "0 MB" },
   ];
 
   const configItems = [

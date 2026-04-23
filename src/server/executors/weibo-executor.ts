@@ -8,6 +8,11 @@ import type { ExecuteInteractionInput, ExecutePlanInput, ExecutorActionResult, S
 import { randomUUID } from "node:crypto";
 
 type CookieMap = Record<string, string>;
+type TrafficSnapshot = {
+  requestBytes: number;
+  responseBytes: number;
+  totalBytes: number;
+};
 
 function parseCookieMap(cookie: string): CookieMap {
   return cookie
@@ -456,6 +461,34 @@ function summarizePayload(payload: unknown) {
   }
 }
 
+function readTrafficFromResponse(response: { requestBytes?: number; responseBytes?: number; totalBytes?: number }): TrafficSnapshot {
+  const requestBytes = response.requestBytes ?? 0;
+  const responseBytes = response.responseBytes ?? 0;
+  const totalBytes = response.totalBytes ?? requestBytes + responseBytes;
+
+  return {
+    requestBytes,
+    responseBytes,
+    totalBytes,
+  };
+}
+
+function mergeTraffic(...items: Array<TrafficSnapshot | undefined>): TrafficSnapshot {
+  return items.reduce<TrafficSnapshot>(
+    (acc, item) => {
+      if (!item) {
+        return acc;
+      }
+
+      acc.requestBytes += item.requestBytes;
+      acc.responseBytes += item.responseBytes;
+      acc.totalBytes += item.totalBytes;
+      return acc;
+    },
+    { requestBytes: 0, responseBytes: 0, totalBytes: 0 },
+  );
+}
+
 function getHostPlatform() {
   if (process.platform === "darwin") {
     return "MacIntel";
@@ -530,6 +563,7 @@ async function buildConnectivityProbe(cookie: string, proxyConfig?: ProxyConfig 
     ok: response.ok,
     status: response.status,
     summary: response.json ?? response.text.slice(0, 200),
+    traffic: readTrafficFromResponse(response),
   };
 }
 
@@ -568,6 +602,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxy
   ];
 
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+  let traffic = mergeTraffic();
 
   if (topicId) {
     const legacyUrl = new URL("https://weibo.com/p/aj/general/button");
@@ -607,6 +642,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxy
     );
 
     const legacySummary = legacyResponse.json ?? legacyResponse.text.slice(0, 220);
+    traffic = mergeTraffic(traffic, readTrafficFromResponse(legacyResponse));
     const legacyBusinessOk = tryExtractBusinessOk(legacySummary);
     attempts.push({
       endpoint: "https://weibo.com/p/aj/general/button",
@@ -626,6 +662,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxy
         mode: "legacy-get",
         businessOk: legacyBusinessOk,
         attempts,
+        traffic,
       };
     }
   }
@@ -659,6 +696,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxy
       );
 
       const summary = response.json ?? response.text.slice(0, 220);
+      traffic = mergeTraffic(traffic, readTrafficFromResponse(response));
       const businessOk = tryExtractBusinessOk(summary);
       attempts.push({ endpoint, mode: payload.mode, ok: response.ok, status: response.status, summary, businessOk });
 
@@ -671,6 +709,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxy
           mode: payload.mode,
           businessOk,
           attempts,
+          traffic,
         };
       }
     }
@@ -686,6 +725,7 @@ async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxy
     mode: latest?.mode || "form",
     businessOk: latest?.businessOk,
     attempts,
+    traffic,
   };
 }
 
@@ -716,6 +756,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string, proxyConfig?: 
 
   const endpoints = getLikeEndpoints();
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+  let traffic = mergeTraffic();
 
   for (const endpoint of endpoints) {
     const form = new URLSearchParams();
@@ -753,6 +794,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string, proxyConfig?: 
     );
 
     const summary = response.json ?? response.text.slice(0, 220);
+    traffic = mergeTraffic(traffic, readTrafficFromResponse(response));
     const businessOk = tryExtractBusinessOk(summary);
     const likeConfirmed = isLikeConfirmed(summary);
     attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
@@ -769,6 +811,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string, proxyConfig?: 
         statusId,
         resolvedTargetUrl,
         attempts,
+        traffic,
       };
     }
   }
@@ -786,6 +829,7 @@ async function sendLikeRequest(targetUrl: string, cookie: string, proxyConfig?: 
     statusId,
     resolvedTargetUrl,
     attempts,
+    traffic,
   };
 }
 
@@ -850,6 +894,7 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string, proxyCo
 
   const summary = response.json ?? response.text.slice(0, 220);
   const businessOk = tryExtractBusinessOk(summary);
+  const traffic = readTrafficFromResponse(response);
 
   return {
     ok: response.ok,
@@ -860,6 +905,7 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string, proxyCo
       businessOk,
       objectId,
     attempts: [{ endpoint: getCommentLikeEndpoint(), mode: "web-form-post", ok: response.ok, status: response.status, summary, businessOk }],
+    traffic,
   };
 }
 
@@ -889,6 +935,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     isRepost: false,
     originStatusId: undefined,
     summary: "repost-count-before-unavailable",
+    traffic: mergeTraffic(),
   }));
   const requireStrictTargetIncrease = beforeSnapshot.isRepost;
   const originBeforeSnapshot = beforeSnapshot.originStatusId
@@ -898,6 +945,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         isRepost: false,
         originStatusId: undefined,
         summary: "origin-repost-count-before-unavailable",
+        traffic: mergeTraffic(),
       }))
     : undefined;
 
@@ -905,6 +953,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     ? ["https://weibo.com/ajax/statuses/normal_repost"]
     : getRepostEndpoints();
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+  let traffic = mergeTraffic(beforeSnapshot.traffic, originBeforeSnapshot?.traffic);
   const targetUid = tryExtractUidFromStatusUrl(resolvedTargetUrl);
   const userPageReferer = targetUid ? `https://weibo.com/u/${targetUid}` : resolvedTargetUrl;
 
@@ -965,6 +1014,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     );
 
     const summary = response.json ?? response.text.slice(0, 220);
+    traffic = mergeTraffic(traffic, readTrafficFromResponse(response));
     const businessOk = tryExtractBusinessOk(summary);
     const repostConfirmed = isPostConfirmed(summary);
     attempts.push({
@@ -991,6 +1041,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         isRepost: false,
         originStatusId: undefined,
         summary: "repost-count-after-unavailable",
+        traffic: mergeTraffic(),
       }));
       const originAfterSnapshot = beforeSnapshot.originStatusId
         ? await fetchRepostCount(cookie, resolvedTargetUrl, beforeSnapshot.originStatusId, proxyConfig).catch(() => ({
@@ -999,8 +1050,10 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
             isRepost: false,
             originStatusId: undefined,
             summary: "origin-repost-count-after-unavailable",
+            traffic: mergeTraffic(),
           }))
         : undefined;
+      traffic = mergeTraffic(traffic, afterSnapshot.traffic, originAfterSnapshot?.traffic);
       const countIncreased =
         beforeSnapshot.repostsCount !== undefined &&
         afterSnapshot.repostsCount !== undefined &&
@@ -1069,6 +1122,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
         beforeRepostsCount: beforeSnapshot.repostsCount,
         afterRepostsCount: afterSnapshot.repostsCount,
         attempts,
+        traffic,
       };
     }
   }
@@ -1085,6 +1139,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
     statusId,
     resolvedTargetUrl,
     attempts,
+    traffic,
   };
 }
 
@@ -1095,6 +1150,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
   const text = topicName ? `${content}\n#${topicName}#` : content;
 
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
+  let traffic = mergeTraffic();
 
   const appAuthorization = process.env.WEIBO_APP_AUTHORIZATION;
   const appSessionId = process.env.WEIBO_APP_SESSION_ID;
@@ -1186,6 +1242,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
     );
 
     const appSummary = appResponse.json ?? appResponse.text.slice(0, 220);
+    traffic = mergeTraffic(traffic, readTrafficFromResponse(appResponse));
     const appBusinessOk = tryExtractBusinessOk(appSummary);
     const postConfirmed = isPostConfirmed(appSummary);
     attempts.push({
@@ -1206,6 +1263,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
         mode: "app-form-post",
         businessOk: appBusinessOk,
         attempts,
+        traffic,
       };
     }
   }
@@ -1221,6 +1279,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
       mode: "app-form-post",
       businessOk: latest?.businessOk,
       attempts,
+      traffic,
     };
   }
 
@@ -1258,6 +1317,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
     );
 
     const summary = response.json ?? response.text.slice(0, 220);
+    traffic = mergeTraffic(traffic, readTrafficFromResponse(response));
     const businessOk = tryExtractBusinessOk(summary);
     const postConfirmed = isPostConfirmed(summary);
     attempts.push({ endpoint, mode: "form-post", ok: response.ok, status: response.status, summary, businessOk });
@@ -1271,6 +1331,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
         mode: "form-post",
         businessOk,
         attempts,
+        traffic,
       };
     }
   }
@@ -1285,6 +1346,7 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
     mode: latest?.mode || "form-post",
     businessOk: latest?.businessOk,
     attempts,
+    traffic,
   };
 }
 
@@ -1467,6 +1529,7 @@ async function fetchRepostCount(cookie: string, referer: string, statusId: strin
         ? String((record?.retweeted_status as Record<string, unknown>).id)
         : undefined,
     summary,
+    traffic: readTrafficFromResponse(response),
   };
 }
 
@@ -1474,6 +1537,7 @@ async function verifyLikeState(cookie: string, referer: string, candidateIds: Ar
   const ids = Array.from(new Set(candidateIds.filter((id): id is string => Boolean(id && id.trim()))));
 
   const attempts: Array<{ endpoint: string; status: number; summary: unknown }> = [];
+  let traffic = mergeTraffic();
 
   for (const id of ids) {
     const endpoint = `https://weibo.com/ajax/statuses/show?id=${encodeURIComponent(id)}`;
@@ -1495,6 +1559,7 @@ async function verifyLikeState(cookie: string, referer: string, candidateIds: Ar
     );
 
     const summary = response.json ?? response.text.slice(0, 220);
+    traffic = mergeTraffic(traffic, readTrafficFromResponse(response));
     attempts.push({ endpoint, status: response.status, summary });
 
     if (response.ok && isLikeConfirmed(summary)) {
@@ -1503,6 +1568,7 @@ async function verifyLikeState(cookie: string, referer: string, candidateIds: Ar
         confirmedId: id,
         summary,
         attempts,
+        traffic,
       };
     }
   }
@@ -1511,6 +1577,7 @@ async function verifyLikeState(cookie: string, referer: string, candidateIds: Ar
     ok: false,
     summary: attempts[attempts.length - 1]?.summary ?? "点赞回查未拿到可用数据",
     attempts,
+    traffic,
   };
 }
 
@@ -1564,6 +1631,7 @@ export class WeiboExecutor implements SocialExecutor {
             topicName: input.topicName,
             topicUrl: input.topicUrl,
             loginStatus: account.loginStatus,
+            traffic: mergeTraffic(probe.traffic, checkInResult.traffic),
             probe,
             checkInResult,
           });
@@ -1577,6 +1645,7 @@ export class WeiboExecutor implements SocialExecutor {
           topicName: input.topicName,
           topicUrl: input.topicUrl,
           loginStatus: account.loginStatus,
+          traffic: mergeTraffic(probe.traffic, checkInResult.traffic),
           probe,
           checkInResult,
         });
@@ -1595,6 +1664,7 @@ export class WeiboExecutor implements SocialExecutor {
             planType: input.planType,
             topicName: input.topicName,
             loginStatus: account.loginStatus,
+            traffic: mergeTraffic(probe.traffic, postResult.traffic),
             probe,
             postResult,
           });
@@ -1607,6 +1677,7 @@ export class WeiboExecutor implements SocialExecutor {
           planType: input.planType,
           topicName: input.topicName,
           loginStatus: account.loginStatus,
+          traffic: mergeTraffic(probe.traffic, postResult.traffic),
           probe,
           postResult,
         });
@@ -1626,6 +1697,7 @@ export class WeiboExecutor implements SocialExecutor {
             planType: input.planType,
             targetUrl: input.targetUrl,
             loginStatus: account.loginStatus,
+            traffic: mergeTraffic(probe.traffic, likeResult.traffic),
             probe,
             likeResult,
           });
@@ -1643,6 +1715,7 @@ export class WeiboExecutor implements SocialExecutor {
           planType: input.planType,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
+          traffic: mergeTraffic(probe.traffic, likeResult.traffic, verifyResult.traffic),
           probe,
           likeResult,
           verifyResult,
@@ -1714,6 +1787,7 @@ export class WeiboExecutor implements SocialExecutor {
             actionType: input.actionType,
             targetUrl: input.targetUrl,
             loginStatus: account.loginStatus,
+            traffic: mergeTraffic(probe.traffic, likeResult.traffic),
             probe,
             likeResult,
           });
@@ -1733,6 +1807,7 @@ export class WeiboExecutor implements SocialExecutor {
           actionType: input.actionType,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
+          traffic: mergeTraffic(probe.traffic, likeResult.traffic, verifyResult?.traffic),
           probe,
           likeResult,
           verifyResult,
@@ -1761,6 +1836,7 @@ export class WeiboExecutor implements SocialExecutor {
             actionType: input.actionType,
             targetUrl: input.targetUrl,
             loginStatus: account.loginStatus,
+            traffic: mergeTraffic(probe.traffic, repostResult.traffic),
             probe,
             repostResult,
           });
@@ -1773,6 +1849,7 @@ export class WeiboExecutor implements SocialExecutor {
           actionType: input.actionType,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
+          traffic: mergeTraffic(probe.traffic, repostResult.traffic),
           probe,
           repostResult,
         });

@@ -20,6 +20,9 @@ export type HttpClientResult = {
   headers: Record<string, string>;
   text: string;
   json?: unknown;
+  requestBytes: number;
+  responseBytes: number;
+  totalBytes: number;
 };
 
 type RetryOptions = {
@@ -43,6 +46,17 @@ function toHeaderRecord(headers: Record<string, string | string[] | undefined>) 
   return Object.fromEntries(entries);
 }
 
+function estimateRequestBytes(method: string, url: URL, headers: Record<string, string>, body?: string) {
+  const requestLine = `${method} ${url.pathname || "/"}${url.search} HTTP/1.1\r\n`;
+  const hostHeader = `Host: ${url.host}\r\n`;
+  const headerLines = Object.entries(headers)
+    .map(([key, value]) => `${key}: ${value}\r\n`)
+    .join("");
+  const bodyBytes = body ? Buffer.byteLength(body) : 0;
+
+  return Buffer.byteLength(requestLine + hostHeader + headerLines + "\r\n") + bodyBytes;
+}
+
 async function performRequest(options: RequestOptions, redirectCount = 0): Promise<HttpClientResult> {
   if (redirectCount > 5) {
     throw new Error("请求重定向次数过多");
@@ -51,19 +65,22 @@ async function performRequest(options: RequestOptions, redirectCount = 0): Promi
   const requestUrl = new URL(options.url);
   const requestFn = requestUrl.protocol === "https:" ? httpsRequest : httpRequest;
   const agent = createProxyAgent(options.url, options.proxyConfig);
+  const requestMethod = options.method ?? "GET";
+  const requestHeaders = {
+    "User-Agent": DEFAULT_USER_AGENT,
+    Accept: "application/json, text/plain, */*",
+    ...options.headers,
+  };
+  const requestBytes = estimateRequestBytes(requestMethod, requestUrl, requestHeaders, options.body);
 
   return new Promise<HttpClientResult>((resolve, reject) => {
     const request = requestFn(
       requestUrl,
-      {
-        method: options.method ?? "GET",
-        headers: {
-          "User-Agent": DEFAULT_USER_AGENT,
-          Accept: "application/json, text/plain, */*",
-          ...options.headers,
+        {
+          method: requestMethod,
+          headers: requestHeaders,
+          agent,
         },
-        agent,
-      },
       (response) => {
         const status = response.statusCode ?? 0;
         const location = response.headers.location;
@@ -94,7 +111,8 @@ async function performRequest(options: RequestOptions, redirectCount = 0): Promi
           buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         });
         response.on("end", () => {
-          const text = Buffer.concat(buffers).toString("utf8");
+          const responseBody = Buffer.concat(buffers);
+          const text = responseBody.toString("utf8");
           let json: unknown;
 
           try {
@@ -110,6 +128,9 @@ async function performRequest(options: RequestOptions, redirectCount = 0): Promi
             headers: toHeaderRecord(response.headers),
             text,
             json,
+            requestBytes,
+            responseBytes: responseBody.length,
+            totalBytes: requestBytes + responseBody.length,
           });
         });
       },
