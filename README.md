@@ -108,18 +108,29 @@ npm run seed
 `.env.example` 中已提供模板：
 
 ```env
-DATABASE_URL="postgresql://postgres:password@db:5432/weibo_ops?schema=public"
-JWT_SECRET="replace_me_with_a_strong_secret"
+POSTGRES_DB="weibo_ops"
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="replace_with_a_strong_db_password"
+DATABASE_URL="postgresql://postgres:replace_with_a_strong_db_password@db:5432/weibo_ops?schema=public"
+JWT_SECRET="replace_with_a_long_random_secret"
 AUTH_COOKIE_SECURE="false"
-ACCOUNT_SECRET_KEY="replace_me_with_a_32_char_secret"
+ACCOUNT_SECRET_KEY="replace_with_a_32_plus_char_secret"
 EXECUTOR_MODE="weibo"
+APP_PORT="3007"
 ```
 
 说明：
 
+- `docker compose` 会从 `.env` 注入数据库、鉴权密钥与端口配置，生产环境请务必修改所有 `replace_with_...` 占位值
 - 如果你当前通过 `http://NASIP:3007` 访问，`AUTH_COOKIE_SECURE` 请保持为 `false`
 - 只有在你已经配置 `HTTPS` 时，才改成 `true`
 - `EXECUTOR_MODE` 建议固定为 `weibo`，执行链路将走真实执行器
+
+可使用下面命令生成高强度密钥：
+
+```bash
+openssl rand -base64 48
+```
 
 ## 当前状态
 
