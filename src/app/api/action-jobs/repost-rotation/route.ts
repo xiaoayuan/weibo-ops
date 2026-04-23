@@ -49,6 +49,7 @@ export async function POST(request: Request) {
           intervalSec: parsed.data.intervalSec,
           copywritingTexts: parsed.data.copywritingTexts || [],
           urgency: parsed.data.urgency || "A",
+          forecast: parsed.data.forecast,
         },
         createdBy: auth.session.id,
       },

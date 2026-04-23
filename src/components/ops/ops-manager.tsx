@@ -31,6 +31,11 @@ type JobForecast = {
   notes: string[];
 };
 
+type JobConfig = {
+  urgency?: "S" | "A" | "B";
+  forecast?: JobForecast;
+};
+
 function estimateJobForecast(input: {
   urgency: "S" | "A" | "B";
   accountIds: string[];
@@ -234,8 +239,13 @@ export function OpsManager({
   }
 
   function getJobUrgency(job: ActionJobWithRuns): "S" | "A" | "B" {
-    const config = (job.config || {}) as { urgency?: "S" | "A" | "B" };
+    const config = (job.config || {}) as JobConfig;
     return config.urgency || (job.jobType === "COMMENT_LIKE_BATCH" ? "S" : "A");
+  }
+
+  function getJobForecast(job: ActionJobWithRuns) {
+    const config = (job.config || {}) as JobConfig;
+    return config.forecast || null;
   }
 
   function getUrgencyText(urgency: "S" | "A" | "B") {
@@ -267,6 +277,26 @@ export function OpsManager({
     }
 
     return `目标${sla.targetMinutes || 0}分钟内 ${sla.withinTargetAccounts || 0}/${sla.measuredAccounts}，上限${sla.limitMinutes || 0}分钟内 ${sla.withinLimitAccounts || 0}/${sla.measuredAccounts}`;
+  }
+
+  function getForecastCompareText(job: ActionJobWithRuns) {
+    const forecast = getJobForecast(job);
+    const summary = (job.summary || {}) as {
+      sla?: {
+        targetMinutes?: number;
+        limitMinutes?: number;
+      };
+    };
+
+    if (!forecast) {
+      return "创建时未保存预估";
+    }
+
+    if (!summary.sla) {
+      return `预估 ${forecast.targetMinutes}-${forecast.limitMinutes} 分钟，实际统计待生成`;
+    }
+
+    return `预估 ${forecast.targetMinutes}-${forecast.limitMinutes} 分钟，实际目标 ${summary.sla.targetMinutes || 0} 分钟 / 上限 ${summary.sla.limitMinutes || 0} 分钟`;
   }
 
   function toggleJobExpanded(id: string) {
@@ -526,6 +556,7 @@ export function OpsManager({
           accountIds: selectedPoolAccountIds,
           poolItemIds: selectedPoolIds,
           urgency: commentLikeUrgency,
+          forecast: commentLikeForecast,
         }),
       });
       const result = await response.json();
@@ -574,6 +605,7 @@ export function OpsManager({
           intervalSec: rotationIntervalSec,
           copywritingTexts,
           urgency: rotationUrgency,
+          forecast: rotationForecast,
         }),
       });
       const result = await response.json();
@@ -1034,6 +1066,7 @@ export function OpsManager({
                     {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
                   </div>
                   <p className="mt-2 text-xs text-slate-500">{getJobSlaText(job)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{getForecastCompareText(job)}</p>
 
                   <button
                     type="button"
@@ -1074,6 +1107,7 @@ export function OpsManager({
                 <th className="px-3 py-2 font-medium">状态</th>
                 <th className="px-3 py-2 font-medium">账号执行</th>
                 <th className="px-3 py-2 font-medium">时效策略</th>
+                <th className="px-3 py-2 font-medium">预估对比</th>
                 <th className="px-3 py-2 font-medium">明细</th>
                 <th className="px-3 py-2 font-medium">操作</th>
               </tr>
@@ -1081,7 +1115,7 @@ export function OpsManager({
             <tbody>
               {filteredJobs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-slate-500">
+                  <td colSpan={8} className="px-3 py-6 text-slate-500">
                     当前筛选下暂无任务记录。
                   </td>
                 </tr>
@@ -1101,6 +1135,7 @@ export function OpsManager({
                         <p>{getUrgencyText(getJobUrgency(job))}</p>
                         <p className="mt-1 text-xs text-slate-500">{getJobSlaText(job)}</p>
                       </td>
+                      <td className="px-3 py-3 text-xs text-slate-500">{getForecastCompareText(job)}</td>
                       <td className="px-3 py-3">
                         <button onClick={() => toggleJobExpanded(job.id)} className="text-sky-700 hover:text-sky-800">
                           {expanded ? "收起" : "展开"}
@@ -1118,7 +1153,7 @@ export function OpsManager({
                     </tr>,
                     expanded ? (
                       <tr key={`${job.id}-details`} className="border-t border-slate-100 bg-slate-50">
-                        <td colSpan={7} className="px-3 py-3">
+                        <td colSpan={8} className="px-3 py-3">
                           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                             {job.accountRuns.map((run) => (
                               <div key={run.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">

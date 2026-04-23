@@ -61,6 +61,7 @@ export async function POST(request: Request) {
           accountIds: parsed.data.accountIds,
           poolItemIds: poolItems.map((item) => item.id),
           urgency: parsed.data.urgency || "S",
+          forecast: parsed.data.forecast,
         },
         createdBy: auth.session.id,
       },
