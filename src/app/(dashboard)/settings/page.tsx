@@ -7,10 +7,12 @@ import { ProxyPoolForm } from "@/components/settings/proxy-pool-form";
 import { RiskRulesForm } from "@/components/settings/risk-rules-form";
 import { ExecutionStrategyForm } from "@/components/settings/execution-strategy-form";
 import { ExecutorHealthCard } from "@/components/settings/executor-health-card";
+import { RateLimitStatusCard } from "@/components/settings/rate-limit-status-card";
 import { getExecutorHealthStatus } from "@/server/executors";
 import { sanitizeProxySettings } from "@/server/proxy-config";
 import { getRiskRules } from "@/server/risk/rules";
 import { getExecutionStrategy } from "@/server/strategy/config";
+import { getRateLimitSnapshot } from "@/server/task-scheduler/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +93,7 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, proxyNodes, executorStatus] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, proxyNodes, executorStatus, rateLimitSnapshot] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -152,6 +154,7 @@ export default async function SettingsPage() {
       orderBy: [{ enabled: "desc" }, { createdAt: "asc" }],
     }),
     Promise.resolve(getExecutorHealthStatus()),
+    getRateLimitSnapshot(),
   ]);
 
   const authCookieSecure = process.env.AUTH_COOKIE_SECURE === "true";
@@ -289,6 +292,7 @@ export default async function SettingsPage() {
       <ExecutionStrategyForm initialConfig={executionStrategy} />
       <RiskRulesForm initialRules={riskRules} />
       <ExecutorHealthCard initialStatus={executorStatus} />
+      <RateLimitStatusCard initialSnapshot={rateLimitSnapshot} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item) => (

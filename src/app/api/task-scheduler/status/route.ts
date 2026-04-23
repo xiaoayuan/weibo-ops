@@ -1,4 +1,5 @@
 import { requireApiRole } from "@/lib/permissions";
+import { getRateLimitSnapshot } from "@/server/task-scheduler/rate-limit";
 import { getTaskSchedulerSnapshot } from "@/server/task-scheduler";
 
 export async function GET() {
@@ -9,6 +10,7 @@ export async function GET() {
   }
 
   const snapshot = await getTaskSchedulerSnapshot();
+  const rateLimit = await getRateLimitSnapshot(auth.session.role === "ADMIN" ? undefined : auth.session.id);
   const visibleSnapshot =
     auth.session.role === "ADMIN"
       ? snapshot
@@ -22,6 +24,7 @@ export async function GET() {
     data: {
       workerCount: snapshot.length,
       workers: visibleSnapshot,
+      rateLimit,
       updatedAt: new Date().toISOString(),
     },
   });
