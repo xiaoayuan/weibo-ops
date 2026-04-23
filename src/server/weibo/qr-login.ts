@@ -1,3 +1,10 @@
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { randomUUID } from "node:crypto";
+
+import { createProxyAgent } from "@/server/proxy-agent";
+import type { ProxyConfig } from "@/server/proxy-config";
+
 type QrLoginState = "WAITING" | "SCANNED" | "CONFIRMED" | "EXPIRED" | "FAILED";
 
 type QrLoginSession = {
@@ -14,6 +21,7 @@ type QrLoginSession = {
   uid?: string;
   expiresAt: number;
   persisted: boolean;
+  proxyConfig?: ProxyConfig | null;
 };
 
 type QrStartResult = {
@@ -50,18 +58,6 @@ function parseJsonpPayload(text: string) {
   return JSON.parse(text.slice(start + 1, end)) as Record<string, unknown>;
 }
 
-function extractSetCookieArray(headers: Headers) {
-  const typedHeaders = headers as Headers & { getSetCookie?: () => string[] };
-  const fromApi = typedHeaders.getSetCookie?.();
-
-  if (fromApi && fromApi.length > 0) {
-    return fromApi;
-  }
-
-  const single = headers.get("set-cookie");
-  return single ? [single] : [];
-}
-
 function mergeCookies(cookieJar: Map<string, string>, setCookieHeaders: string[]) {
   for (const rawSetCookie of setCookieHeaders) {
     const firstPart = rawSetCookie.split(";")[0]?.trim();
@@ -93,22 +89,69 @@ function serializeCookieJar(cookieJar: Map<string, string>) {
     .join("; ");
 }
 
-async function requestWithCookieJar(url: string, cookieJar: Map<string, string>, extraHeaders?: Record<string, string>) {
-  const cookieHeader = serializeCookieJar(cookieJar);
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "User-Agent": USER_AGENT,
-      Referer: "https://weibo.com/",
-      Accept: "application/json, text/plain, */*",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      ...(extraHeaders || {}),
-    },
-    cache: "no-store",
-  });
+type RequestWithCookieJarResult = {
+  status: number;
+  text: string;
+  body: Buffer;
+  headers: Record<string, string | string[] | undefined>;
+};
 
-  mergeCookies(cookieJar, extractSetCookieArray(response.headers));
-  return response;
+async function requestWithCookieJar(
+  url: string,
+  cookieJar: Map<string, string>,
+  extraHeaders?: Record<string, string>,
+  proxyConfig?: ProxyConfig | null,
+): Promise<RequestWithCookieJarResult> {
+  const cookieHeader = serializeCookieJar(cookieJar);
+
+  const requestUrl = new URL(url);
+  const requestFn = requestUrl.protocol === "https:" ? httpsRequest : httpRequest;
+  const headers = {
+    "User-Agent": USER_AGENT,
+    Referer: "https://weibo.com/",
+    Accept: "application/json, text/plain, */*",
+    ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+    ...(extraHeaders || {}),
+  };
+  const agent = createProxyAgent(url, proxyConfig);
+
+  return new Promise<RequestWithCookieJarResult>((resolve, reject) => {
+    const request = requestFn(
+      requestUrl,
+      {
+        method: "GET",
+        headers,
+        agent,
+      },
+      (response) => {
+        const setCookie = response.headers["set-cookie"];
+        const setCookieHeaders =
+          typeof setCookie === "string" ? [setCookie] : Array.isArray(setCookie) ? setCookie : [];
+        mergeCookies(cookieJar, setCookieHeaders);
+
+        const buffers: Buffer[] = [];
+        response.on("data", (chunk) => {
+          buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        response.on("end", () => {
+          const body = Buffer.concat(buffers);
+
+          resolve({
+            status: response.statusCode ?? 0,
+            text: body.toString("utf8"),
+            body,
+            headers: response.headers,
+          });
+        });
+      },
+    );
+
+    request.on("error", reject);
+    request.setTimeout(15_000, () => {
+      request.destroy(new Error("微博扫码请求超时"));
+    });
+    request.end();
+  });
 }
 
 async function finalizeQrLogin(session: QrLoginSession, alt: string) {
@@ -116,8 +159,8 @@ async function finalizeQrLogin(session: QrLoginSession, alt: string) {
   const loginUrl =
     `https://login.sina.com.cn/sso/login.php?entry=miniblog&returntype=TEXT&crossdomain=1&cdult=3&domain=weibo.com&savestate=30` +
     `&callback=${encodeURIComponent(callback)}&alt=${encodeURIComponent(alt)}`;
-  const loginResponse = await requestWithCookieJar(loginUrl, session.cookieJar);
-  const loginPayload = parseJsonpPayload(await loginResponse.text());
+  const loginResponse = await requestWithCookieJar(loginUrl, session.cookieJar, undefined, session.proxyConfig);
+  const loginPayload = parseJsonpPayload(loginResponse.text);
   const loginRetcode = String(loginPayload.retcode || "");
 
   if (loginRetcode !== "0") {
@@ -138,14 +181,19 @@ async function finalizeQrLogin(session: QrLoginSession, alt: string) {
     }
 
     try {
-      await requestWithCookieJar(crossDomainUrl, session.cookieJar);
+      await requestWithCookieJar(crossDomainUrl, session.cookieJar, undefined, session.proxyConfig);
     } catch {
       // 单个跨域回写失败不阻断后续流程
     }
   }
 
   try {
-    await requestWithCookieJar("https://weibo.com/", session.cookieJar, { Accept: "text/html,application/xhtml+xml" });
+    await requestWithCookieJar(
+      "https://weibo.com/",
+      session.cookieJar,
+      { Accept: "text/html,application/xhtml+xml" },
+      session.proxyConfig,
+    );
   } catch {
     // 首页探测失败不阻断，最终由 cookie 校验兜底
   }
@@ -180,12 +228,12 @@ function getSessionOrThrow(sessionId: string, ownerUserId: string, accountId: st
   return session;
 }
 
-export async function startWeiboQrLogin(ownerUserId: string, accountId: string): Promise<QrStartResult> {
+export async function startWeiboQrLogin(ownerUserId: string, accountId: string, proxyConfig?: ProxyConfig | null): Promise<QrStartResult> {
   const callback = `STK_${Date.now()}`;
   const initUrl = `https://login.sina.com.cn/sso/qrcode/image?entry=miniblog&size=180&callback=${encodeURIComponent(callback)}`;
   const cookieJar = new Map<string, string>();
-  const initResponse = await requestWithCookieJar(initUrl, cookieJar);
-  const payload = parseJsonpPayload(await initResponse.text());
+  const initResponse = await requestWithCookieJar(initUrl, cookieJar, undefined, proxyConfig);
+  const payload = parseJsonpPayload(initResponse.text);
 
   if (String(payload.retcode || "") !== "20000000") {
     throw new Error(String(payload.msg || "微博扫码初始化失败"));
@@ -199,14 +247,19 @@ export async function startWeiboQrLogin(ownerUserId: string, accountId: string):
     throw new Error("微博扫码二维码数据缺失");
   }
 
-  const imageResponse = await requestWithCookieJar(imageUrl, cookieJar, { Accept: "image/avif,image/webp,image/png,image/*,*/*;q=0.8" });
-  const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+  const imageResponse = await requestWithCookieJar(
+    imageUrl,
+    cookieJar,
+    { Accept: "image/avif,image/webp,image/png,image/*,*/*;q=0.8" },
+    proxyConfig,
+  );
+  const imageBuffer = imageResponse.body;
 
   if (imageBuffer.length === 0) {
     throw new Error("微博扫码二维码生成失败");
   }
 
-  const sessionId = crypto.randomUUID();
+  const sessionId = randomUUID();
   const expiresAt = Date.now() + SESSION_TTL_MS;
   const qrImageDataUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
 
@@ -220,6 +273,7 @@ export async function startWeiboQrLogin(ownerUserId: string, accountId: string):
     cookieJar,
     expiresAt,
     persisted: false,
+    proxyConfig,
   });
 
   return {
@@ -251,8 +305,8 @@ export async function pollWeiboQrLogin(sessionId: string, ownerUserId: string, a
     `https://login.sina.com.cn/sso/qrcode/check?entry=miniblog&qrid=${encodeURIComponent(session.qrid)}` +
     `&callback=${encodeURIComponent(callback)}`;
 
-  const checkResponse = await requestWithCookieJar(checkUrl, session.cookieJar);
-  const payload = parseJsonpPayload(await checkResponse.text());
+  const checkResponse = await requestWithCookieJar(checkUrl, session.cookieJar, undefined, session.proxyConfig);
+  const payload = parseJsonpPayload(checkResponse.text);
   const retcode = String(payload.retcode || "");
   const payloadMsg = String(payload.msg || "");
 

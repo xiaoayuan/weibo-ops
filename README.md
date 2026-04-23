@@ -112,14 +112,14 @@ DATABASE_URL="postgresql://postgres:password@db:5432/weibo_ops?schema=public"
 JWT_SECRET="replace_me_with_a_strong_secret"
 AUTH_COOKIE_SECURE="false"
 ACCOUNT_SECRET_KEY="replace_me_with_a_32_char_secret"
-EXECUTOR_MODE="mock"
+EXECUTOR_MODE="weibo"
 ```
 
 说明：
 
 - 如果你当前通过 `http://NASIP:3007` 访问，`AUTH_COOKIE_SECURE` 请保持为 `false`
 - 只有在你已经配置 `HTTPS` 时，才改成 `true`
-- `EXECUTOR_MODE` 默认使用 `mock`，切到 `weibo` 时会启用真实执行器骨架与连通性探测
+- `EXECUTOR_MODE` 建议固定为 `weibo`，执行链路将走真实执行器
 
 ## 当前状态
 
@@ -133,3 +133,10 @@ EXECUTOR_MODE="mock"
 - 如果后续要扩展真实执行器，建议在 `src/server/executors/` 下新增实现，并保持统一接口
 - `src/server/executors/http-client.ts` 提供统一请求封装
 - `src/server/executors/weibo-executor.ts` 提供真实执行器骨架，当前仅做基础连通性探测与结构化返回
+
+## 代理池与自动分配
+
+- `系统设置` 新增了代理池管理，支持在前端维护多个代理节点
+- 新建微博账号时会自动分配代理，按当前负载选择可用节点
+- 默认单 IP 上限为 `100` 账号（可调但最大仍为 100）
+- 扫码登录与执行请求都会优先使用账号绑定的代理节点

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/permissions";
+import { getAutoAssignableProxyNode } from "@/server/proxy-pool";
 import { createAccountSchema } from "@/server/validators/account";
 
 export async function GET() {
@@ -42,9 +43,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const proxyNode = await getAutoAssignableProxyNode(auth.session.id);
+
     const account = await prisma.weiboAccount.create({
       data: {
         ownerUserId: auth.session.id,
+        proxyNodeId: proxyNode.id,
         nickname: parsed.data.nickname,
         remark: parsed.data.remark || null,
         groupName: parsed.data.groupName || null,
@@ -60,13 +64,16 @@ export async function POST(request: Request) {
       success: true,
       data: account,
     });
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "创建账号失败";
+    const isUserError = message.includes("代理");
+
     return Response.json(
       {
         success: false,
-        message: "创建账号失败",
+        message,
       },
-      { status: 500 },
+      { status: isUserError ? 400 : 500 },
     );
   }
 }

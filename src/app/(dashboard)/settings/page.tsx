@@ -2,6 +2,7 @@ import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ProfileSecurityForm } from "@/components/settings/profile-security-form";
+import { ProxyPoolForm } from "@/components/settings/proxy-pool-form";
 import { RiskRulesForm } from "@/components/settings/risk-rules-form";
 import { sanitizeProxySettings } from "@/server/proxy-config";
 import { getRiskRules } from "@/server/risk/rules";
@@ -81,7 +82,7 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, proxyNodes] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -131,9 +132,17 @@ export default async function SettingsPage() {
     }),
     prisma.$queryRaw`SELECT 1`,
     getRiskRules(),
+    prisma.proxyNode.findMany({
+      where: { ownerUserId: session.id },
+      include: {
+        _count: {
+          select: { accounts: true },
+        },
+      },
+      orderBy: [{ enabled: "desc" }, { createdAt: "asc" }],
+    }),
   ]);
 
-  const executorMode = process.env.EXECUTOR_MODE === "weibo" ? "weibo" : "mock";
   const authCookieSecure = process.env.AUTH_COOKIE_SECURE === "true";
   const jwtSecretStatus = getSecretStatus(process.env.JWT_SECRET, 16);
   const accountSecretStatus = getSecretStatus(process.env.ACCOUNT_SECRET_KEY, 32);
@@ -171,9 +180,9 @@ export default async function SettingsPage() {
   const configItems = [
     {
       label: "执行器模式",
-      value: executorMode,
-      detail: executorMode === "weibo" ? "已启用真实执行器骨架" : "当前仍为 mock 执行模式",
-      tone: executorMode === "weibo" ? "emerald" : "amber",
+      value: "weibo",
+      detail: "已启用真实执行器",
+      tone: "emerald",
     },
     {
       label: "Cookie 安全策略",
@@ -208,9 +217,6 @@ export default async function SettingsPage() {
   ] as const;
 
   const risks = [
-    executorMode === "mock"
-      ? { title: "执行器仍为 mock", description: "当前执行预检不会触发真实签到、转发或互动动作。", tone: "amber" as const }
-      : null,
     !authCookieSecure
       ? { title: "Cookie 未启用 Secure", description: "如果系统已迁移到 HTTPS，建议将 AUTH_COOKIE_SECURE 调整为 true。", tone: "amber" as const }
       : null,
@@ -233,6 +239,20 @@ export default async function SettingsPage() {
       </div>
 
       <ProfileSecurityForm initialUsername={session.username} initialProxySettings={sanitizeProxySettings(currentUser || {})} initialTaskConcurrency={currentUser?.taskConcurrency || 1} />
+      <ProxyPoolForm
+        initialNodes={proxyNodes.map((node) => ({
+          id: node.id,
+          name: node.name,
+          protocol: node.protocol,
+          host: node.host,
+          port: node.port,
+          username: node.username,
+          enabled: node.enabled,
+          maxAccounts: node.maxAccounts,
+          assignedAccounts: node._count.accounts,
+          hasPassword: Boolean(node.passwordEncrypted),
+        }))}
+      />
       <RiskRulesForm initialRules={riskRules} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">

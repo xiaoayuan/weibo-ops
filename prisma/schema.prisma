@@ -97,6 +97,28 @@ model User {
   logs         ExecutionLog[]
   actionJobs   ActionJob[]
   ownedAccounts WeiboAccount[] @relation("AccountOwner")
+  proxyNodes   ProxyNode[]
+}
+
+model ProxyNode {
+  id                String        @id @default(cuid())
+  ownerUserId       String
+  name              String
+  protocol          ProxyProtocol @default(HTTP)
+  host              String
+  port              Int
+  username          String?
+  passwordEncrypted String?
+  enabled           Boolean       @default(true)
+  maxAccounts       Int           @default(100)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  owner             User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  accounts          WeiboAccount[]
+
+  @@index([ownerUserId, enabled])
+  @@unique([ownerUserId, host, port])
 }
 
 model InviteCode {
@@ -120,6 +142,7 @@ model InviteCode {
 model WeiboAccount {
   id                  String             @id @default(cuid())
   ownerUserId         String?
+  proxyNodeId         String?
   nickname            String
   remark              String?
   groupName           String?
@@ -148,8 +171,10 @@ model WeiboAccount {
   actionJobRuns    ActionJobAccountRun[]
   actionJobSteps   ActionJobStep[]
   owner            User?              @relation("AccountOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  proxyNode        ProxyNode?         @relation(fields: [proxyNodeId], references: [id], onDelete: SetNull)
 
   @@index([ownerUserId])
+  @@index([proxyNodeId])
 }
 
 model SuperTopic {

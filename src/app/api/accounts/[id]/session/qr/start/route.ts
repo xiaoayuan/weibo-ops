@@ -1,5 +1,6 @@
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getProxyConfigForAccount } from "@/server/proxy-config";
 import { startWeiboQrLogin } from "@/server/weibo/qr-login";
 
 export async function POST(_request: Request, context: RouteContext<"/api/accounts/[id]/session/qr/start">) {
@@ -24,7 +25,8 @@ export async function POST(_request: Request, context: RouteContext<"/api/accoun
       return Response.json({ success: false, message: "账号不存在" }, { status: 404 });
     }
 
-    const result = await startWeiboQrLogin(auth.session.id, id);
+    const proxyConfig = await getProxyConfigForAccount(id);
+    const result = await startWeiboQrLogin(auth.session.id, id, proxyConfig);
     return Response.json({ success: true, data: result });
   } catch (error) {
     return Response.json(

@@ -1,5 +1,6 @@
 import { decryptText } from "@/lib/encrypt";
 import { prisma } from "@/lib/prisma";
+import { getProxyConfigForBoundNode } from "@/server/proxy-pool";
 
 export type ProxyProtocol = "HTTP" | "HTTPS" | "SOCKS5";
 
@@ -53,6 +54,12 @@ export function buildProxyConfig(input: ProxyConfigInput & { proxyPasswordEncryp
 }
 
 export async function getProxyConfigForAccount(accountId: string) {
+  const boundNodeConfig = await getProxyConfigForBoundNode(accountId);
+
+  if (boundNodeConfig) {
+    return boundNodeConfig;
+  }
+
   const account = await prisma.weiboAccount.findUnique({
     where: { id: accountId },
     select: {
