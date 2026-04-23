@@ -198,20 +198,21 @@ export default async function TrafficPage() {
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-semibold">流量监控</h2>
-        <p className="mt-1 text-sm text-slate-500">统计代理执行产生的流量消耗，用于采购流量包预算。</p>
+        <p className="mt-1 text-sm text-slate-500">按执行链路统计流量消耗，并按“未来全部走代理”口径计入代理流量预算。</p>
+        <p className="mt-2 text-xs text-sky-700">说明：当前展示的是“预估代理流量”。即使你暂时未启用代理，也按未来走代理的方式进行预算统计。</p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">近24小时</p>
+          <p className="text-sm text-slate-500">近24小时预估代理流量</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{formatBytes(oneDayBytes)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">近7天</p>
+          <p className="text-sm text-slate-500">近7天预估代理流量</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{formatBytes(sevenDayBytes)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">近30天</p>
+          <p className="text-sm text-slate-500">近30天预估代理流量</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{formatBytes(thirtyDayBytes)}</p>
         </div>
       </section>
