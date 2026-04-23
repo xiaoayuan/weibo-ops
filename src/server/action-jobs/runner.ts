@@ -189,6 +189,28 @@ function shouldRetryBusy(result: { success: boolean; message: string; responsePa
   return payloadCode === "100001" || result.message.includes("系统繁忙") || payloadMsg.includes("系统繁忙");
 }
 
+function shouldRetryTransient(result: { success: boolean; message: string; responsePayload?: unknown }) {
+  if (result.success) {
+    return false;
+  }
+
+  if (shouldRetryBusy(result)) {
+    return true;
+  }
+
+  const text = String(result.message || "").toLowerCase();
+
+  return (
+    text.includes("timeout") ||
+    text.includes("timed out") ||
+    text.includes("network") ||
+    text.includes("econn") ||
+    text.includes("socket") ||
+    text.includes("连接") ||
+    text.includes("超时")
+  );
+}
+
 function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -197,6 +219,35 @@ function computeStepDelayMs(intervalSec: number) {
   const base = intervalSec > 0 ? intervalSec * 1000 : 0;
   const jitter = randomBetween(400, 1400);
   return base + jitter;
+}
+
+function getCooldownRangeMs(urgency: "S" | "A" | "B") {
+  if (urgency === "S") {
+    return { minMs: 8_000, maxMs: 25_000 };
+  }
+
+  if (urgency === "A") {
+    return { minMs: 20_000, maxMs: 60_000 };
+  }
+
+  return { minMs: 60_000, maxMs: 180_000 };
+}
+
+function computeAccountCooldownMs(urgency: "S" | "A" | "B") {
+  const range = getCooldownRangeMs(urgency);
+  return randomBetween(range.minMs, range.maxMs);
+}
+
+function computeRetryDelayMs(urgency: "S" | "A" | "B") {
+  if (urgency === "S") {
+    return randomBetween(2000, 5000);
+  }
+
+  if (urgency === "A") {
+    return randomBetween(4000, 8000);
+  }
+
+  return randomBetween(8000, 15000);
 }
 
 function computeJobStatus(total: number, success: number, failed: number) {
@@ -334,7 +385,8 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
-  const delayMap = buildWaveDelayMap(input.accountIds, input.urgency || "S");
+  const urgency = input.urgency || "S";
+  const delayMap = buildWaveDelayMap(input.accountIds, urgency);
 
   for (const accountId of input.accountIds) {
     if (await isActionJobCancelled(input.jobId)) {
@@ -384,7 +436,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         return;
       }
 
-      const result = await executor.executeInteraction({
+      let result = await executor.executeInteraction({
         interactionTaskId: step.id,
         accountId,
         accountNickname: account.nickname,
@@ -392,6 +444,26 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         actionType: "LIKE",
         targetUrl: step.targetUrl,
       });
+
+      let retryCount = 0;
+
+      if (shouldRetryTransient(result)) {
+        retryCount = 1;
+        await sleep(computeRetryDelayMs(urgency));
+
+        if (await isActionJobCancelled(input.jobId)) {
+          return;
+        }
+
+        result = await executor.executeInteraction({
+          interactionTaskId: step.id,
+          accountId,
+          accountNickname: account.nickname,
+          accountLoginStatus: account.loginStatus,
+          actionType: "LIKE",
+          targetUrl: step.targetUrl,
+        });
+      }
 
       if (await isActionJobCancelled(input.jobId)) {
         return;
@@ -433,6 +505,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
           stepActionType: "LIKE",
           targetUrl: step.targetUrl,
           sequenceNo: step.sequenceNo,
+          retryCount,
           timing,
           riskClass: riskMeta.errorClass,
         },
@@ -449,6 +522,14 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
           errorMessage: latestError || null,
         },
       });
+
+      if (step.sequenceNo < accountSteps.length) {
+        await sleep(computeAccountCooldownMs(urgency));
+
+        if (await isActionJobCancelled(input.jobId)) {
+          return;
+        }
+      }
     }
 
     const accountStatus = computeJobStatus(accountSteps.length, successCount, failedCount);
@@ -472,7 +553,6 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
   const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
   const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
-  const urgency = input.urgency || "S";
   const sla = await computeJobSlaSummary(input.jobId, urgency);
 
   await prisma.actionJob.update({
@@ -519,7 +599,8 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
-  const delayMap = buildWaveDelayMap(input.accountIds, input.urgency || "A");
+  const urgency = input.urgency || "A";
+  const delayMap = buildWaveDelayMap(input.accountIds, urgency);
 
   for (const accountId of input.accountIds) {
     if (await isActionJobCancelled(input.jobId)) {
@@ -582,32 +663,9 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
       let retryCount = 0;
 
-      if (shouldRetryBusy(result)) {
+      if (shouldRetryTransient(result)) {
         retryCount = 1;
-        await sleep(2000);
-
-        if (await isActionJobCancelled(input.jobId)) {
-          return;
-        }
-
-        result = await executor.executeInteraction({
-          interactionTaskId: step.id,
-          accountId,
-          accountNickname: account.nickname,
-          accountLoginStatus: account.loginStatus,
-          actionType: "POST",
-          targetUrl: step.targetUrl,
-          repostContent: payload.repostContent || null,
-        });
-
-        if (await isActionJobCancelled(input.jobId)) {
-          return;
-        }
-      }
-
-      if (!result.success && shouldRetryBusy(result)) {
-        retryCount = 2;
-        await sleep(5000);
+        await sleep(computeRetryDelayMs(urgency));
 
         if (await isActionJobCancelled(input.jobId)) {
           return;
@@ -670,7 +728,9 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
       await recomputeRepostRunStatus(input.jobId, accountId);
 
       if (step.sequenceNo < input.times) {
-        await sleep(computeStepDelayMs(input.intervalSec));
+        const intervalDelayMs = computeStepDelayMs(input.intervalSec);
+        const cooldownDelayMs = computeAccountCooldownMs(urgency);
+        await sleep(Math.max(intervalDelayMs, cooldownDelayMs));
 
         if (await isActionJobCancelled(input.jobId)) {
           return;
