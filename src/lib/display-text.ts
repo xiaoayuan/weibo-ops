@@ -61,7 +61,34 @@ function readStepType(payload: unknown) {
   return undefined;
 }
 
+function readStepActionType(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const stepActionType = record.stepActionType;
+
+  if (typeof stepActionType === "string") {
+    return stepActionType;
+  }
+
+  return undefined;
+}
+
 function getStepActionText(stepType: string | undefined) {
+  if (stepType === "LIKE") {
+    return "点赞";
+  }
+
+  if (stepType === "POST") {
+    return "转发";
+  }
+
+  if (stepType === "COMMENT") {
+    return "评论";
+  }
+
   if (stepType === "COMMENT_LIKE") {
     return "评论点赞";
   }
@@ -75,7 +102,7 @@ function getStepActionText(stepType: string | undefined) {
 
 export function getActionTypeText(actionType: string, requestPayload?: unknown) {
   if (actionType.startsWith("ACTION_JOB_STEP_")) {
-    const actionText = getStepActionText(readStepType(requestPayload));
+    const actionText = getStepActionText(readStepActionType(requestPayload) || readStepType(requestPayload));
 
     if (actionType.endsWith("SUCCESS")) {
       return `${actionText}成功`;
