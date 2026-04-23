@@ -24,6 +24,8 @@ const actionTypeTextMap: Record<string, string> = {
   INTERACTION_STOPPED: "互动已停止",
   ACTION_JOB_SCHEDULED: "编排任务入队",
   ACTION_JOB_STOPPED: "编排任务停止",
+  ACTION_JOB_STEP_SUCCESS: "编排步骤成功",
+  ACTION_JOB_STEP_FAILED: "编排步骤失败",
   AUTO_CHECKIN_DAILY_RUN: "自动签到调度",
   AUTO_FIRST_COMMENT_DAILY_RUN: "自动首评调度",
   ACCOUNT_SESSION_SAVED: "登录态保存",
@@ -45,6 +47,18 @@ const taskStatusTextMap: Record<string, string> = {
 };
 
 export function getActionTypeText(actionType: string) {
+  if (actionType.startsWith("ACTION_JOB_STEP_")) {
+    if (actionType.endsWith("SUCCESS")) {
+      return "编排步骤成功";
+    }
+
+    if (actionType.endsWith("FAILED")) {
+      return "编排步骤失败";
+    }
+
+    return "编排步骤日志";
+  }
+
   return actionTypeTextMap[actionType] || actionType;
 }
 
