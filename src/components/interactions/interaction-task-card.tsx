@@ -6,6 +6,7 @@ import { getActionTypeText } from "@/lib/display-text";
 type InteractionStatus = "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
 type InteractionTaskWithRelations = InteractionTask & {
+  scheduleNote?: string | null;
   account: {
     id: string;
     nickname: string;
@@ -62,6 +63,11 @@ export function InteractionTaskCard({
       <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
         <p className="mb-1 text-xs font-medium text-slate-500">执行结果</p>
         <InteractionResultPreview result={task.resultMessage} />
+      </div>
+
+      <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-slate-700">
+        <p className="mb-1 text-xs font-medium text-amber-700">调度说明</p>
+        <p>{task.scheduleNote || "-"}</p>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3 text-sm">

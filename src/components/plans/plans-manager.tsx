@@ -7,6 +7,7 @@ import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useMemo, useState } from "react";
 
 type PlanWithRelations = DailyPlan & {
+  scheduleNote?: string | null;
   account: WeiboAccount;
   content: CopywritingTemplate | null;
   task: {
@@ -68,6 +69,14 @@ function toLocalDateTimeValue(value: string | Date) {
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60_000);
   return local.toISOString().slice(0, 16);
+}
+
+function renderScheduleNote(note?: string | null) {
+  if (!note) {
+    return <span className="text-slate-400">-</span>;
+  }
+
+  return <span className="text-amber-700">{note}</span>;
 }
 
 export function PlansManager({
@@ -821,6 +830,7 @@ export function PlansManager({
                               <th className="px-3 py-2 font-medium">超话</th>
                               <th className="px-3 py-2 font-medium">类型</th>
                               <th className="px-3 py-2 font-medium">状态</th>
+                              <th className="px-3 py-2 font-medium">调度说明</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -838,6 +848,7 @@ export function PlansManager({
                                 <td className="px-3 py-2">{plan.task?.superTopic.name || "-"}</td>
                                 <td className="px-3 py-2">{getPlanTypeText(plan.planType)}</td>
                                 <td className="px-3 py-2">{statusText[plan.status]}</td>
+                                <td className="px-3 py-2 text-slate-600">{renderScheduleNote(plan.scheduleNote)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -883,7 +894,7 @@ export function PlansManager({
                     <div className="text-right text-xs text-slate-500">{new Date(plan.scheduledTime).toLocaleString("zh-CN")}</div>
                   </div>
 
-                  <div className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">
+                      <div className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">
                     {plan.planType === "FIRST_COMMENT" ? (
                       <span className="text-slate-500">自动使用任务配置中的首评文案池</span>
                     ) : isEditing && canManage ? (
@@ -910,6 +921,11 @@ export function PlansManager({
                     ) : (
                       plan.content?.content || "-"
                     )}
+                  </div>
+
+                  <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-slate-700">
+                    <p className="mb-1 text-xs font-medium text-amber-700">调度说明</p>
+                    {renderScheduleNote(plan.scheduleNote)}
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-3 text-sm">
@@ -965,13 +981,14 @@ export function PlansManager({
               <th className="px-6 py-3 font-medium">类型</th>
               <th className="px-6 py-3 font-medium">文案</th>
               <th className="px-6 py-3 font-medium">状态</th>
+              <th className="px-6 py-3 font-medium">调度说明</th>
               <th className="px-6 py-3 font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
             {filteredPlans.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-8 text-slate-500">
+                <td colSpan={9} className="px-6 py-8 text-slate-500">
                   当前日期暂无计划，请先生成。
                 </td>
               </tr>
@@ -1024,6 +1041,7 @@ export function PlansManager({
                       )}
                     </td>
                     <td className="px-6 py-4">{statusText[plan.status]}</td>
+                    <td className="max-w-md px-6 py-4 text-slate-600">{renderScheduleNote(plan.scheduleNote)}</td>
                     <td className="px-6 py-4">
                        {isEditing && canManage ? (
                          <div className="flex flex-wrap gap-2">

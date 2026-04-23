@@ -9,6 +9,7 @@ import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 
 type InteractionTaskWithRelations = InteractionTask & {
+  scheduleNote?: string | null;
   account: {
     id: string;
     nickname: string;
@@ -19,6 +20,7 @@ type InteractionTaskWithRelations = InteractionTask & {
 };
 
 type RawInteractionTask = InteractionTask & {
+  scheduleNote?: string | null;
   account: {
     id: string;
     nickname: string;
@@ -174,6 +176,7 @@ export function InteractionsManager({
     return {
       ...task,
       isOwned,
+      scheduleNote: task.scheduleNote || null,
       account: {
         id: task.account.id,
         nickname: isOwned ? task.account.nickname : "其他用户账号",
@@ -820,6 +823,7 @@ export function InteractionsManager({
                                 <th className="px-3 py-2 font-medium">账号</th>
                                 <th className="px-3 py-2 font-medium">状态</th>
                                 <th className="px-3 py-2 font-medium">文案</th>
+                                <th className="px-3 py-2 font-medium">调度说明</th>
                                 <th className="px-3 py-2 font-medium">操作</th>
                               </tr>
                             </thead>
@@ -834,6 +838,7 @@ export function InteractionsManager({
                                   <td className="px-3 py-2">{task.account.nickname}</td>
                                   <td className="px-3 py-2">{statusText[task.status]}</td>
                                   <td className="px-3 py-2 text-slate-600">{task.content?.title || "-"}</td>
+                                  <td className="px-3 py-2 text-slate-600">{task.scheduleNote || "-"}</td>
                                   <td className="px-3 py-2">
                                     <div className="flex flex-wrap gap-2">
                                       {canExecute ? (
@@ -895,6 +900,7 @@ export function InteractionsManager({
               <th className="px-6 py-3 font-medium">动作</th>
               <th className="px-6 py-3 font-medium">文案</th>
               <th className="px-6 py-3 font-medium">状态</th>
+              <th className="px-6 py-3 font-medium">调度说明</th>
               <th className="px-6 py-3 font-medium">结果</th>
               <th className="px-6 py-3 font-medium">创建时间</th>
               <th className="px-6 py-3 font-medium">操作</th>
@@ -903,9 +909,9 @@ export function InteractionsManager({
           <tbody>
             {filteredTasks.length === 0 ? (
               <tr>
-                 <td colSpan={canExecute ? 9 : 8} className="px-6 py-8 text-slate-500">
-                   暂无互动任务。
-                 </td>
+                 <td colSpan={canExecute ? 10 : 9} className="px-6 py-8 text-slate-500">
+                    暂无互动任务。
+                  </td>
               </tr>
             ) : (
               filteredTasks.map((task) => (
@@ -929,6 +935,7 @@ export function InteractionsManager({
                     )}
                   </td>
                   <td className="px-6 py-4">{statusText[task.status]}</td>
+                  <td className="max-w-md px-6 py-4 text-slate-600">{task.scheduleNote || "-"}</td>
                   <td className="px-6 py-4 text-slate-600"><InteractionResultPreview result={task.resultMessage} /></td>
                   <td className="px-6 py-4">{new Date(task.createdAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">

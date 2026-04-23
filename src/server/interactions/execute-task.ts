@@ -205,6 +205,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     accountId: executionAccount.id,
     actionType,
     requestPayload: {
+      interactionTaskId: task.id,
       actionType: updated.actionType,
       targetUrl: updated.target.targetUrl,
       contentId: updated.contentId,
