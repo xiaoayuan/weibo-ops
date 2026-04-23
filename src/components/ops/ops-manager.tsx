@@ -3,6 +3,7 @@
 import type { ActionJob, ActionJobAccountRun, CommentLinkPoolItem, WeiboAccount } from "@/generated/prisma/client";
 import { canManageBusinessData } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
+import type { ExecutionStrategy } from "@/server/strategy/config";
 import { FormEvent, useMemo, useState } from "react";
 
 type ActionJobWithRuns = ActionJob & {
@@ -22,6 +23,61 @@ type RepostTargetPreview = {
   statusId?: string;
   message: string;
 };
+
+type JobForecast = {
+  targetMinutes: number;
+  limitMinutes: number;
+  riskLevel: "low" | "medium" | "high";
+  notes: string[];
+};
+
+function estimateJobForecast(input: {
+  urgency: "S" | "A" | "B";
+  accountIds: string[];
+  multiplier?: number;
+  accounts: WeiboAccount[];
+  strategy: ExecutionStrategy;
+}): JobForecast {
+  const urgencyConfig = input.strategy.actionJob.urgency[input.urgency];
+  const selectedAccounts = input.accounts.filter((account) => input.accountIds.includes(account.id));
+  const proxyBuckets = new Set(selectedAccounts.map((account) => account.proxyNodeId || `account:${account.id}`));
+  const multiplier = Math.max(1, input.multiplier || 1);
+  const actionCount = Math.max(1, input.accountIds.length * multiplier);
+  const targetMinutes = Math.max(1, Math.ceil((urgencyConfig.targetSlaSec * multiplier) / 60));
+  const limitMinutes = Math.max(targetMinutes, Math.ceil((urgencyConfig.limitSlaSec * multiplier) / 60));
+  const notes: string[] = [];
+  let riskScore = input.urgency === "S" ? 2 : input.urgency === "A" ? 1 : 0;
+
+  if (input.accountIds.length >= 8) {
+    riskScore += 1;
+    notes.push(`当前选择 ${input.accountIds.length} 个账号，同一时段集中执行风险会升高。`);
+  }
+
+  if (actionCount >= 20) {
+    riskScore += 1;
+    notes.push(`本次预计触发 ${actionCount} 次动作，建议只在确有时效需求时使用高时效档。`);
+  }
+
+  if (proxyBuckets.size <= 1 && input.accountIds.length >= 4) {
+    riskScore += 1;
+    notes.push("当前账号基本共享同一出口环境，系统会自动放慢一部分节奏。");
+  }
+
+  if (input.urgency === "B") {
+    notes.push("B 级更适合全天分散完成，优先降低账号风险。");
+  }
+
+  if (input.urgency === "S") {
+    notes.push("S 级会优先抢占调度资源，适合控评等强时效任务。");
+  }
+
+  return {
+    targetMinutes,
+    limitMinutes,
+    riskLevel: riskScore >= 3 ? "high" : riskScore >= 1 ? "medium" : "low",
+    notes,
+  };
+}
 
 function parseRepostTargetPreview(targetUrl: string): RepostTargetPreview {
   const raw = targetUrl.trim();
@@ -97,11 +153,13 @@ export function OpsManager({
   currentUserRole,
   initialJobs,
   initialPoolItems,
+  initialStrategy,
 }: {
   accounts: WeiboAccount[];
   currentUserRole: AppRole;
   initialJobs: ActionJobWithRuns[];
   initialPoolItems: CommentLinkPoolItem[];
+  initialStrategy: ExecutionStrategy;
 }) {
   const canManage = canManageBusinessData(currentUserRole);
   const [mobileView, setMobileView] = useState<"CREATE" | "TASKS">("CREATE");
@@ -133,6 +191,35 @@ export function OpsManager({
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   const repostTargetPreview = useMemo(() => parseRepostTargetPreview(rotationTargetUrl), [rotationTargetUrl]);
+
+  const commentLikeForecast = useMemo(
+    () => estimateJobForecast({ urgency: commentLikeUrgency, accountIds: selectedPoolAccountIds, accounts, strategy: initialStrategy }),
+    [commentLikeUrgency, selectedPoolAccountIds, accounts, initialStrategy],
+  );
+
+  const rotationForecast = useMemo(
+    () =>
+      estimateJobForecast({
+        urgency: rotationUrgency,
+        accountIds: selectedRotationAccountIds,
+        multiplier: rotationTimes,
+        accounts,
+        strategy: initialStrategy,
+      }),
+    [rotationUrgency, selectedRotationAccountIds, rotationTimes, accounts, initialStrategy],
+  );
+
+  function riskToneClass(riskLevel: JobForecast["riskLevel"]) {
+    if (riskLevel === "high") {
+      return "bg-rose-50 text-rose-700 border border-rose-200";
+    }
+
+    if (riskLevel === "medium") {
+      return "bg-amber-50 text-amber-700 border border-amber-200";
+    }
+
+    return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+  }
 
   const filteredJobs = useMemo(() => {
     if (jobStatusFilter === "ALL") {
@@ -767,6 +854,21 @@ export function OpsManager({
                   <option value="A">A级时效（10-30分钟）</option>
                   <option value="B">B级慢增（30分钟以上）</option>
                 </select>
+                <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${riskToneClass(commentLikeForecast.riskLevel)}`}>
+                      风险 {commentLikeForecast.riskLevel === "high" ? "偏高" : commentLikeForecast.riskLevel === "medium" ? "中等" : "较低"}
+                    </span>
+                    <span>预计 {commentLikeForecast.targetMinutes} 分钟内完成，最慢不超过 {commentLikeForecast.limitMinutes} 分钟。</span>
+                  </div>
+                  {commentLikeForecast.notes.length > 0 ? (
+                    <div className="mt-2 space-y-1 text-xs text-slate-500">
+                      {commentLikeForecast.notes.map((note) => (
+                        <p key={note}>{note}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <button
                   disabled={submitting}
                   onClick={handleStartCommentLikeJob}
@@ -847,6 +949,20 @@ export function OpsManager({
               <option value={5}>5 秒间隔</option>
               <option value={10}>10 秒间隔</option>
             </select>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${riskToneClass(rotationForecast.riskLevel)}`}>
+                  风险 {rotationForecast.riskLevel === "high" ? "偏高" : rotationForecast.riskLevel === "medium" ? "中等" : "较低"}
+                </span>
+                <span>预计 {rotationForecast.targetMinutes} 分钟内完成，最慢不超过 {rotationForecast.limitMinutes} 分钟。</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
+                <p>当前按 {selectedRotationAccountIds.length} 个账号、每号 {rotationTimes} 次轮转预估。</p>
+                {rotationForecast.notes.map((note) => (
+                  <p key={note}>{note}</p>
+                ))}
+              </div>
+            </div>
             <div>
               <p className="mb-2 text-sm font-medium text-slate-700">转发文案（每行一条，按顺序轮转）</p>
               <textarea

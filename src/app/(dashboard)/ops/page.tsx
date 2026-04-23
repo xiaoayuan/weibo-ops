@@ -1,13 +1,14 @@
 import { OpsManager } from "@/components/ops/ops-manager";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getExecutionStrategy } from "@/server/strategy/config";
 
 export const dynamic = "force-dynamic";
 
 export default async function OpsPage() {
   const session = await requirePageRole("VIEWER");
 
-  const [accounts, poolItems, rawJobs] = await Promise.all([
+  const [accounts, poolItems, rawJobs, executionStrategy] = await Promise.all([
     prisma.weiboAccount.findMany({
       where: {
         status: "ACTIVE",
@@ -33,6 +34,7 @@ export default async function OpsPage() {
       orderBy: { createdAt: "desc" },
       take: 40,
     }),
+    getExecutionStrategy(),
   ]);
 
   const jobs = rawJobs
@@ -51,5 +53,5 @@ export default async function OpsPage() {
     })),
     }));
 
-  return <OpsManager accounts={accounts} currentUserRole={session.role} initialJobs={jobs} initialPoolItems={poolItems} />;
+  return <OpsManager accounts={accounts} currentUserRole={session.role} initialJobs={jobs} initialPoolItems={poolItems} initialStrategy={executionStrategy} />;
 }
