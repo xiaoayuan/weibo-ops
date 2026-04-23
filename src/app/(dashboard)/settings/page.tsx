@@ -6,6 +6,8 @@ import { ProfileSecurityForm } from "@/components/settings/profile-security-form
 import { ProxyPoolForm } from "@/components/settings/proxy-pool-form";
 import { RiskRulesForm } from "@/components/settings/risk-rules-form";
 import { ExecutionStrategyForm } from "@/components/settings/execution-strategy-form";
+import { ExecutorHealthCard } from "@/components/settings/executor-health-card";
+import { getExecutorHealthStatus } from "@/server/executors";
 import { sanitizeProxySettings } from "@/server/proxy-config";
 import { getRiskRules } from "@/server/risk/rules";
 import { getExecutionStrategy } from "@/server/strategy/config";
@@ -89,7 +91,7 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, proxyNodes] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, proxyNodes, executorStatus] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -149,6 +151,7 @@ export default async function SettingsPage() {
       },
       orderBy: [{ enabled: "desc" }, { createdAt: "asc" }],
     }),
+    Promise.resolve(getExecutorHealthStatus()),
   ]);
 
   const authCookieSecure = process.env.AUTH_COOKIE_SECURE === "true";
@@ -196,9 +199,9 @@ export default async function SettingsPage() {
   const configItems = [
     {
       label: "执行器模式",
-      value: "weibo",
-      detail: "已启用真实执行器",
-      tone: "emerald",
+      value: executorStatus.mode,
+      detail: executorStatus.isRealExecutor ? "已启用真实执行器" : "当前不是真实执行器",
+      tone: executorStatus.isRealExecutor ? "emerald" : "rose",
     },
     {
       label: "Cookie 安全策略",
@@ -245,6 +248,12 @@ export default async function SettingsPage() {
     dbStatus !== "已连接"
       ? { title: "数据库连通性异常", description: "设置页未能完成基础数据库健康检查。", tone: "rose" as const }
       : null,
+    !executorStatus.isRealExecutor
+      ? { title: "执行器未走真实链路", description: "当前实例判定为非真实执行器，请立即核对部署环境。", tone: "rose" as const }
+      : null,
+    !executorStatus.modeMatchesExecutor
+      ? { title: "执行器模式与实现不一致", description: "EXECUTOR_MODE 与当前执行器实现不匹配，建议检查容器环境变量。", tone: "amber" as const }
+      : null,
   ].filter(Boolean) as Array<{ title: string; description: string; tone: "amber" | "rose" }>;
 
   return (
@@ -279,6 +288,7 @@ export default async function SettingsPage() {
       />
       <ExecutionStrategyForm initialConfig={executionStrategy} />
       <RiskRulesForm initialRules={riskRules} />
+      <ExecutorHealthCard initialStatus={executorStatus} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item) => (
