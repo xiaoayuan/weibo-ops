@@ -138,12 +138,11 @@ openssl rand -base64 48
 
 ## 执行器说明
 
-- 当前项目默认接入的是 `mock executor`
+- 当前项目默认走 `weibo executor` 真实执行链路
 - `执行预检` 会校验账号登录态并写入日志
-- 当前不会直接对外部平台发起真实发帖、签到或互动动作
-- 如果后续要扩展真实执行器，建议在 `src/server/executors/` 下新增实现，并保持统一接口
 - `src/server/executors/http-client.ts` 提供统一请求封装
-- `src/server/executors/weibo-executor.ts` 提供真实执行器骨架，当前仅做基础连通性探测与结构化返回
+- `src/server/executors/weibo-executor.ts` 负责真实平台请求与结构化返回
+- 若要扩展其他平台执行器，建议在 `src/server/executors/` 下新增实现，并保持统一接口
 
 ## 代理池与自动分配
 

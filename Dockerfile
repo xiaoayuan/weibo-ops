@@ -9,7 +9,7 @@ ARG DATABASE_URL=postgresql://postgres:password@db:5432/weibo_ops?schema=public
 ARG JWT_SECRET=replace_me_with_a_strong_secret
 ARG AUTH_COOKIE_SECURE=false
 ARG ACCOUNT_SECRET_KEY=replace_me_with_a_32_char_secret
-ARG EXECUTOR_MODE=mock
+ARG EXECUTOR_MODE=weibo
 ENV DATABASE_URL=$DATABASE_URL
 ENV JWT_SECRET=$JWT_SECRET
 ENV AUTH_COOKIE_SECURE=$AUTH_COOKIE_SECURE
@@ -27,7 +27,7 @@ ARG DATABASE_URL=postgresql://postgres:password@db:5432/weibo_ops?schema=public
 ARG JWT_SECRET=replace_me_with_a_strong_secret
 ARG AUTH_COOKIE_SECURE=false
 ARG ACCOUNT_SECRET_KEY=replace_me_with_a_32_char_secret
-ARG EXECUTOR_MODE=mock
+ARG EXECUTOR_MODE=weibo
 ENV DATABASE_URL=$DATABASE_URL
 ENV JWT_SECRET=$JWT_SECRET
 ENV AUTH_COOKIE_SECURE=$AUTH_COOKIE_SECURE
