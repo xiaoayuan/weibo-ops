@@ -4,6 +4,7 @@ import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
 import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
+import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 import { checkStatusIsZeroComments, extractStatusIdFromUrl, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
@@ -70,6 +71,36 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
   if (plan.status === "CANCELLED") {
     return toCancelledResult(plan);
+  }
+
+  if (await isAccountCircuitOpen(plan.accountId)) {
+    const updated = await prisma.dailyPlan.update({
+      where: { id },
+      data: { status: "FAILED", resultMessage: "账号熔断中，计划已自动暂停" },
+      include: planInclude,
+    });
+
+    return {
+      ok: true as const,
+      success: false,
+      message: updated.resultMessage || "计划已暂停",
+      data: updated,
+    };
+  }
+
+  if (await isProxyCircuitOpen(plan.account.proxyNodeId)) {
+    const updated = await prisma.dailyPlan.update({
+      where: { id },
+      data: { status: "FAILED", resultMessage: "代理熔断中，计划已自动暂停" },
+      include: planInclude,
+    });
+
+    return {
+      ok: true as const,
+      success: false,
+      message: updated.resultMessage || "计划已暂停",
+      data: updated,
+    };
   }
 
   await prisma.dailyPlan.update({
@@ -263,6 +294,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
       const commentText = pickRandomTemplate(templates);
       const commentResult = await sendFirstComment(candidate.id, candidate.targetUrl || topicUrl, commentText, cookie, proxyConfig);
+      await recordExecutionOutcome({ accountId: plan.accountId, proxyNodeId: plan.account.proxyNodeId, success: commentResult.success });
       payload = {
         ...(commentResult.payload && typeof commentResult.payload === "object" ? (commentResult.payload as Record<string, unknown>) : { raw: commentResult.payload }),
         traffic: commentResult.traffic,
@@ -400,6 +432,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "PLAN_EXECUTE_BLOCKED" : "PLAN_EXECUTE_PRECHECKED";
+  await recordExecutionOutcome({ accountId: updated.accountId, proxyNodeId: updated.account.proxyNodeId, success: executionResult.success });
   const riskMeta = await classifyAndApplyAccountRisk({
     accountId: updated.accountId,
     success: executionResult.success,

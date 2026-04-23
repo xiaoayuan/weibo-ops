@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
+import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 
 type StartCommentLikeJobInput = {
@@ -371,6 +372,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         id: true,
         nickname: true,
         loginStatus: true,
+        proxyNodeId: true,
         scheduleWindowEnabled: true,
         executionWindowStart: true,
         executionWindowEnd: true,
@@ -406,6 +408,38 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       continue;
     }
 
+    if (await isAccountCircuitOpen(accountId)) {
+      await prisma.actionJobAccountRun.updateMany({
+        where: { jobId: input.jobId, accountId },
+        data: { status: "FAILED", errorMessage: "账号熔断中，已自动暂停执行" },
+      });
+      continue;
+    }
+
+    if (await isProxyCircuitOpen(account.proxyNodeId)) {
+      await prisma.actionJobAccountRun.updateMany({
+        where: { jobId: input.jobId, accountId },
+        data: { status: "FAILED", errorMessage: "代理熔断中，已自动暂停执行" },
+      });
+      continue;
+    }
+
+    if (await isAccountCircuitOpen(accountId)) {
+      await prisma.actionJobAccountRun.updateMany({
+        where: { jobId: input.jobId, accountId },
+        data: { status: "FAILED", errorMessage: "账号熔断中，已自动暂停执行" },
+      });
+      continue;
+    }
+
+    if (await isProxyCircuitOpen(account.proxyNodeId)) {
+      await prisma.actionJobAccountRun.updateMany({
+        where: { jobId: input.jobId, accountId },
+        data: { status: "FAILED", errorMessage: "代理熔断中，已自动暂停执行" },
+      });
+      continue;
+    }
+
     let successCount = 0;
     let failedCount = 0;
     let latestError = "";
@@ -418,6 +452,58 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     for (const step of accountSteps) {
       if (await isActionJobCancelled(input.jobId)) {
         return;
+      }
+
+      if (await isAccountCircuitOpen(accountId)) {
+        await prisma.actionJobStep.update({
+          where: { id: step.id },
+          data: {
+            status: "FAILED",
+            errorMessage: "账号熔断中，跳过执行",
+            finishedAt: new Date(),
+          },
+        });
+        await recomputeRepostRunStatus(input.jobId, accountId);
+        continue;
+      }
+
+      if (await isProxyCircuitOpen(account.proxyNodeId)) {
+        await prisma.actionJobStep.update({
+          where: { id: step.id },
+          data: {
+            status: "FAILED",
+            errorMessage: "代理熔断中，跳过执行",
+            finishedAt: new Date(),
+          },
+        });
+        await recomputeRepostRunStatus(input.jobId, accountId);
+        continue;
+      }
+
+      if (await isAccountCircuitOpen(accountId)) {
+        await prisma.actionJobStep.update({
+          where: { id: step.id },
+          data: {
+            status: "FAILED",
+            errorMessage: "账号熔断中，跳过执行",
+            finishedAt: new Date(),
+          },
+        });
+        failedCount += 1;
+        continue;
+      }
+
+      if (await isProxyCircuitOpen(account.proxyNodeId)) {
+        await prisma.actionJobStep.update({
+          where: { id: step.id },
+          data: {
+            status: "FAILED",
+            errorMessage: "代理熔断中，跳过执行",
+            finishedAt: new Date(),
+          },
+        });
+        failedCount += 1;
+        continue;
       }
 
       await prisma.actionJobStep.update({
@@ -470,6 +556,8 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       }
 
       const success = result.success && result.status === "SUCCESS";
+      await recordExecutionOutcome({ accountId, proxyNodeId: account.proxyNodeId, success });
+      await recordExecutionOutcome({ accountId, proxyNodeId: account.proxyNodeId, success });
 
       if (success) {
         successCount += 1;
@@ -585,6 +673,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
         id: true,
         nickname: true,
         loginStatus: true,
+        proxyNodeId: true,
         scheduleWindowEnabled: true,
         executionWindowStart: true,
         executionWindowEnd: true,

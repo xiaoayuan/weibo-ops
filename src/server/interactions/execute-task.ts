@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
+import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 
 const interactionInclude = {
@@ -87,6 +88,27 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
   }
 
   const executor = getExecutor();
+
+  if (await isAccountCircuitOpen(executionAccount.id)) {
+    const updated = await prisma.interactionTask.update({
+      where: { id },
+      data: { status: "FAILED", resultMessage: "账号熔断中，互动任务已自动暂停" },
+      include: interactionInclude,
+    });
+
+    return { ok: true as const, success: false, data: updated, message: updated.resultMessage || "互动任务已暂停" };
+  }
+
+  if (await isProxyCircuitOpen(executionAccount.proxyNodeId)) {
+    const updated = await prisma.interactionTask.update({
+      where: { id },
+      data: { status: "FAILED", resultMessage: "代理熔断中，互动任务已自动暂停" },
+      include: interactionInclude,
+    });
+
+    return { ok: true as const, success: false, data: updated, message: updated.resultMessage || "互动任务已暂停" };
+  }
+
   const timing = await waitForAccountExecutionWindow(executionAccount.id, `interaction:${task.id}`, {
     scheduleWindowEnabled: executionAccount.scheduleWindowEnabled,
     executionWindowStart: executionAccount.executionWindowStart,
@@ -149,6 +171,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "INTERACTION_EXECUTE_BLOCKED" : "INTERACTION_EXECUTE_PRECHECKED";
+  await recordExecutionOutcome({ accountId: executionAccount.id, proxyNodeId: executionAccount.proxyNodeId, success: executionResult.success });
   const riskMeta = await classifyAndApplyAccountRisk({
     accountId: executionAccount.id,
     success: executionResult.success,
