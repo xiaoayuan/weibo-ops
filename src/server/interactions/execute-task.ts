@@ -171,12 +171,17 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "INTERACTION_EXECUTE_BLOCKED" : "INTERACTION_EXECUTE_PRECHECKED";
-  await recordExecutionOutcome({ accountId: executionAccount.id, proxyNodeId: executionAccount.proxyNodeId, success: executionResult.success });
   const riskMeta = await classifyAndApplyAccountRisk({
     accountId: executionAccount.id,
     success: executionResult.success,
     message: executionResult.message,
     responsePayload: executionResult.responsePayload,
+  });
+  await recordExecutionOutcome({
+    accountId: executionAccount.id,
+    proxyNodeId: executionAccount.proxyNodeId,
+    success: executionResult.success,
+    errorClass: riskMeta.errorClass,
   });
 
   await writeExecutionLog({

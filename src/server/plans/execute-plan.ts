@@ -4,6 +4,8 @@ import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
 import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/risk/account-risk";
+import { classifyExecutionOutcome } from "@/server/risk/error-classifier";
+import { getRiskRules } from "@/server/risk/rules";
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 import { checkStatusIsZeroComments, extractStatusIdFromUrl, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
@@ -238,6 +240,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     const cookie = decryptText(plan.account.cookieEncrypted);
     const proxyConfig = await getProxyConfigForAccount(plan.accountId);
     const latestPosts = await fetchLatestPosts(topicUrl, cookie, 200, proxyConfig);
+    const riskRules = await getRiskRules();
 
     const locks = await prisma.firstCommentPostLock.findMany({
       where: {
@@ -294,7 +297,20 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
       const commentText = pickRandomTemplate(templates);
       const commentResult = await sendFirstComment(candidate.id, candidate.targetUrl || topicUrl, commentText, cookie, proxyConfig);
-      await recordExecutionOutcome({ accountId: plan.accountId, proxyNodeId: plan.account.proxyNodeId, success: commentResult.success });
+      const commentErrorClass = classifyExecutionOutcome(
+        {
+          success: commentResult.success,
+          message: commentResult.success ? undefined : `首评请求失败，HTTP ${commentResult.status}`,
+          responsePayload: commentResult.payload,
+        },
+        riskRules,
+      );
+      await recordExecutionOutcome({
+        accountId: plan.accountId,
+        proxyNodeId: plan.account.proxyNodeId,
+        success: commentResult.success,
+        errorClass: commentErrorClass,
+      });
       payload = {
         ...(commentResult.payload && typeof commentResult.payload === "object" ? (commentResult.payload as Record<string, unknown>) : { raw: commentResult.payload }),
         traffic: commentResult.traffic,
@@ -432,12 +448,17 @@ export async function executePlanById(id: string, ownerUserId?: string) {
   });
 
   const actionType = executionResult.stage === "PRECHECK_BLOCKED" ? "PLAN_EXECUTE_BLOCKED" : "PLAN_EXECUTE_PRECHECKED";
-  await recordExecutionOutcome({ accountId: updated.accountId, proxyNodeId: updated.account.proxyNodeId, success: executionResult.success });
   const riskMeta = await classifyAndApplyAccountRisk({
     accountId: updated.accountId,
     success: executionResult.success,
     message: executionResult.message,
     responsePayload: executionResult.responsePayload,
+  });
+  await recordExecutionOutcome({
+    accountId: updated.accountId,
+    proxyNodeId: updated.account.proxyNodeId,
+    success: executionResult.success,
+    errorClass: riskMeta.errorClass,
   });
 
   await writeExecutionLog({

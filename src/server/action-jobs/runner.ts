@@ -523,7 +523,6 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       }
 
       const success = result.success && result.status === "SUCCESS";
-      await recordExecutionOutcome({ accountId, proxyNodeId: account.proxyNodeId, success });
 
       if (success) {
         successCount += 1;
@@ -547,6 +546,13 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         success,
         message: success ? undefined : result.message,
         responsePayload: result.responsePayload,
+      });
+
+      await recordExecutionOutcome({
+        accountId,
+        proxyNodeId: account.proxyNodeId,
+        success,
+        errorClass: riskMeta.errorClass,
       });
 
       await writeExecutionLog({

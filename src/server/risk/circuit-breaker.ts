@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { ExecutionErrorClass } from "@/server/risk/error-classifier";
 import { getExecutionStrategy } from "@/server/strategy/config";
 
 type AccountCircuitState = {
@@ -78,6 +79,7 @@ export async function recordExecutionOutcome(input: {
   accountId?: string | null;
   proxyNodeId?: string | null;
   success: boolean;
+  errorClass?: ExecutionErrorClass;
 }) {
   const strategy = await getExecutionStrategy();
   const accountFailureThreshold = strategy.circuitBreaker.accountFailureThreshold;
@@ -87,6 +89,9 @@ export async function recordExecutionOutcome(input: {
   const proxyFailureRatio = strategy.circuitBreaker.proxyFailureRatio;
   const proxyPauseMs = strategy.circuitBreaker.proxyPauseMinutes * 60 * 1000;
   const now = Date.now();
+  const failureClass = input.success ? undefined : input.errorClass ?? "UNKNOWN_FAILURE";
+  const accountFailureRelevant = failureClass === "ACCOUNT_RISK" || failureClass === "UNKNOWN_FAILURE";
+  const proxyFailureRelevant = failureClass === "TRANSIENT_NETWORK" || failureClass === "PLATFORM_BUSY";
 
   if (input.accountId) {
     const key = accountKey(input.accountId);
@@ -94,12 +99,12 @@ export async function recordExecutionOutcome(input: {
     const pausedUntil = parseDate(current.pausedUntil);
     const pausedActive = Boolean(pausedUntil && pausedUntil.getTime() > now);
 
-    if (input.success) {
+    if (input.success || accountFailureRelevant) {
       await upsertSettingValue(key, {
         consecutiveFailures: 0,
         pausedUntil: pausedActive ? pausedUntil?.toISOString() : undefined,
       });
-    } else {
+    } else if (failureClass) {
       const consecutiveFailures = (current.consecutiveFailures || 0) + 1;
       const nextPausedUntil =
         consecutiveFailures >= accountFailureThreshold
@@ -123,22 +128,24 @@ export async function recordExecutionOutcome(input: {
     const windowStartedAt = parseDate(current.windowStartedAt);
     const shouldResetWindow = !windowStartedAt || now - windowStartedAt.getTime() > proxyWindowMs;
 
-    const total = (shouldResetWindow ? 0 : current.total || 0) + 1;
-    const failed = (shouldResetWindow ? 0 : current.failed || 0) + (input.success ? 0 : 1);
-    const failureRatio = total > 0 ? failed / total : 0;
+    if (input.success || proxyFailureRelevant) {
+      const total = (shouldResetWindow ? 0 : current.total || 0) + 1;
+      const failed = (shouldResetWindow ? 0 : current.failed || 0) + (input.success ? 0 : 1);
+      const failureRatio = total > 0 ? failed / total : 0;
 
-    const nextPausedUntil =
-      total >= proxyMinSamples && failureRatio > proxyFailureRatio
-        ? new Date(now + proxyPauseMs).toISOString()
-        : pausedActive
-          ? pausedUntil?.toISOString()
-          : undefined;
+      const nextPausedUntil =
+        total >= proxyMinSamples && failureRatio > proxyFailureRatio
+          ? new Date(now + proxyPauseMs).toISOString()
+          : pausedActive
+            ? pausedUntil?.toISOString()
+            : undefined;
 
-    await upsertSettingValue(key, {
-      windowStartedAt: shouldResetWindow ? new Date(now).toISOString() : windowStartedAt?.toISOString(),
-      total,
-      failed,
-      pausedUntil: nextPausedUntil,
-    });
+      await upsertSettingValue(key, {
+        windowStartedAt: shouldResetWindow ? new Date(now).toISOString() : windowStartedAt?.toISOString(),
+        total,
+        failed,
+        pausedUntil: nextPausedUntil,
+      });
+    }
   }
 }
