@@ -31,6 +31,141 @@ type ExecutionStrategy = {
   };
 };
 
+type StrategyMode = "preset" | "advanced";
+type StrategyPresetKey = "SAFE" | "BALANCED" | "AGGRESSIVE";
+
+const strategyPresets: Record<StrategyPresetKey, { label: string; description: string; config: ExecutionStrategy }> = {
+  SAFE: {
+    label: "保守",
+    description: "优先稳定，执行更慢，熔断更严格。",
+    config: {
+      actionJob: {
+        maxRetry: 0,
+        urgency: {
+          S: {
+            waveRatios: [0.2, 0.3, 0.5],
+            waveWindowsSec: [300, 900, 2400],
+            cooldownSecRange: [20, 45],
+            retryDelaySecRange: [4, 8],
+            targetSlaSec: 420,
+            limitSlaSec: 900,
+          },
+          A: {
+            waveRatios: [0.15, 0.25, 0.6],
+            waveWindowsSec: [900, 2700, 9000],
+            cooldownSecRange: [45, 90],
+            retryDelaySecRange: [8, 15],
+            targetSlaSec: 900,
+            limitSlaSec: 2400,
+          },
+          B: {
+            waveRatios: [0.1, 0.2, 0.7],
+            waveWindowsSec: [2700, 9000, 43200],
+            cooldownSecRange: [90, 240],
+            retryDelaySecRange: [12, 20],
+            targetSlaSec: 2400,
+            limitSlaSec: 9000,
+          },
+        },
+      },
+      circuitBreaker: {
+        accountFailureThreshold: 2,
+        accountPauseMinutes: 480,
+        proxyWindowMinutes: 10,
+        proxyMinSamples: 8,
+        proxyFailureRatio: 0.3,
+        proxyPauseMinutes: 45,
+      },
+    },
+  },
+  BALANCED: {
+    label: "标准",
+    description: "默认推荐，稳定与效率均衡。",
+    config: {
+      actionJob: {
+        maxRetry: 1,
+        urgency: {
+          S: {
+            waveRatios: [0.3, 0.4, 0.3],
+            waveWindowsSec: [180, 600, 1800],
+            cooldownSecRange: [8, 25],
+            retryDelaySecRange: [2, 5],
+            targetSlaSec: 300,
+            limitSlaSec: 600,
+          },
+          A: {
+            waveRatios: [0.2, 0.3, 0.5],
+            waveWindowsSec: [600, 1800, 7200],
+            cooldownSecRange: [20, 60],
+            retryDelaySecRange: [4, 8],
+            targetSlaSec: 600,
+            limitSlaSec: 1800,
+          },
+          B: {
+            waveRatios: [0.1, 0.2, 0.7],
+            waveWindowsSec: [1800, 7200, 43200],
+            cooldownSecRange: [60, 180],
+            retryDelaySecRange: [8, 15],
+            targetSlaSec: 1800,
+            limitSlaSec: 7200,
+          },
+        },
+      },
+      circuitBreaker: {
+        accountFailureThreshold: 3,
+        accountPauseMinutes: 360,
+        proxyWindowMinutes: 10,
+        proxyMinSamples: 10,
+        proxyFailureRatio: 0.4,
+        proxyPauseMinutes: 30,
+      },
+    },
+  },
+  AGGRESSIVE: {
+    label: "激进",
+    description: "优先速度，容忍更多波动，建议谨慎使用。",
+    config: {
+      actionJob: {
+        maxRetry: 2,
+        urgency: {
+          S: {
+            waveRatios: [0.4, 0.35, 0.25],
+            waveWindowsSec: [120, 360, 1200],
+            cooldownSecRange: [3, 15],
+            retryDelaySecRange: [1, 4],
+            targetSlaSec: 180,
+            limitSlaSec: 480,
+          },
+          A: {
+            waveRatios: [0.3, 0.35, 0.35],
+            waveWindowsSec: [420, 1200, 4800],
+            cooldownSecRange: [12, 40],
+            retryDelaySecRange: [2, 6],
+            targetSlaSec: 420,
+            limitSlaSec: 1200,
+          },
+          B: {
+            waveRatios: [0.15, 0.3, 0.55],
+            waveWindowsSec: [1200, 5400, 28800],
+            cooldownSecRange: [40, 120],
+            retryDelaySecRange: [6, 12],
+            targetSlaSec: 1200,
+            limitSlaSec: 5400,
+          },
+        },
+      },
+      circuitBreaker: {
+        accountFailureThreshold: 4,
+        accountPauseMinutes: 240,
+        proxyWindowMinutes: 8,
+        proxyMinSamples: 12,
+        proxyFailureRatio: 0.5,
+        proxyPauseMinutes: 20,
+      },
+    },
+  },
+};
+
 function toCsv(values: number[]) {
   return values.join(",");
 }
@@ -50,6 +185,8 @@ function parseCsv(text: string, count: number) {
 
 export function ExecutionStrategyForm({ initialConfig }: { initialConfig: ExecutionStrategy }) {
   const router = useRouter();
+  const [mode, setMode] = useState<StrategyMode>("preset");
+  const [preset, setPreset] = useState<StrategyPresetKey>("BALANCED");
   const [maxRetry, setMaxRetry] = useState(String(initialConfig.actionJob.maxRetry));
 
   const [sRatios, setSRatios] = useState(toCsv(initialConfig.actionJob.urgency.S.waveRatios));
@@ -109,22 +246,26 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
       setMessage(null);
 
       const payload: ExecutionStrategy = {
-        actionJob: {
-          maxRetry: Number(maxRetry),
-          urgency: {
-            S: parseUrgencyConfig(sRatios, sWindows, sCooldown, sRetryDelay, sSla),
-            A: parseUrgencyConfig(aRatios, aWindows, aCooldown, aRetryDelay, aSla),
-            B: parseUrgencyConfig(bRatios, bWindows, bCooldown, bRetryDelay, bSla),
-          },
-        },
-        circuitBreaker: {
-          accountFailureThreshold: Number(accountFailureThreshold),
-          accountPauseMinutes: Number(accountPauseMinutes),
-          proxyWindowMinutes: Number(proxyWindowMinutes),
-          proxyMinSamples: Number(proxyMinSamples),
-          proxyFailureRatio: Number(proxyFailureRatio),
-          proxyPauseMinutes: Number(proxyPauseMinutes),
-        },
+        ...(mode === "preset"
+          ? strategyPresets[preset].config
+          : {
+              actionJob: {
+                maxRetry: Number(maxRetry),
+                urgency: {
+                  S: parseUrgencyConfig(sRatios, sWindows, sCooldown, sRetryDelay, sSla),
+                  A: parseUrgencyConfig(aRatios, aWindows, aCooldown, aRetryDelay, aSla),
+                  B: parseUrgencyConfig(bRatios, bWindows, bCooldown, bRetryDelay, bSla),
+                },
+              },
+              circuitBreaker: {
+                accountFailureThreshold: Number(accountFailureThreshold),
+                accountPauseMinutes: Number(accountPauseMinutes),
+                proxyWindowMinutes: Number(proxyWindowMinutes),
+                proxyMinSamples: Number(proxyMinSamples),
+                proxyFailureRatio: Number(proxyFailureRatio),
+                proxyPauseMinutes: Number(proxyPauseMinutes),
+              },
+            }),
       };
 
       const response = await fetch("/api/strategy-config", {
@@ -156,6 +297,48 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="font-medium text-slate-700">配置模式</p>
+          <p className="mt-1 text-xs text-slate-500">普通用户建议使用简化模式；高级模式适合熟悉参数的管理员。</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("preset")}
+              className={`rounded-lg px-3 py-1.5 text-sm transition ${mode === "preset" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
+            >
+              简化模式
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("advanced")}
+              className={`rounded-lg px-3 py-1.5 text-sm transition ${mode === "advanced" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
+            >
+              高级模式
+            </button>
+          </div>
+        </div>
+
+        {mode === "preset" ? (
+          <div className="rounded-lg border border-slate-200 p-4">
+            <p className="font-medium text-slate-700">推荐策略</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              {(Object.entries(strategyPresets) as Array<[StrategyPresetKey, (typeof strategyPresets)[StrategyPresetKey]]>).map(([key, item]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setPreset(key)}
+                  className={`rounded-lg border p-3 text-left transition ${preset === key ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"}`}
+                >
+                  <p className="text-sm font-medium">{item.label}</p>
+                  <p className={`mt-1 text-xs ${preset === key ? "text-slate-200" : "text-slate-500"}`}>{item.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {mode === "advanced" ? (
+          <>
         <div className="grid gap-4 md:grid-cols-3">
           <label className="block">
             <span className="mb-1 block text-sm text-slate-700">最大重试次数</span>
@@ -191,6 +374,8 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
             <label className="block"><span className="mb-1 block text-xs text-slate-500">代理暂停分钟</span><input value={proxyPauseMinutes} onChange={(event) => setProxyPauseMinutes(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label>
           </div>
         </div>
+          </>
+        ) : null}
 
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
         {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
