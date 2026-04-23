@@ -9,7 +9,7 @@ type BytesRow = {
 };
 
 type ActionBytesRow = {
-  actionType: string;
+  actionKey: string;
   logCount: number;
   bytes: bigint | number | string;
 };
@@ -22,7 +22,7 @@ type DailyBytesRow = {
 type RecentRow = {
   id: string;
   accountNickname: string;
-  actionType: string;
+  actionKey: string;
   executedAt: Date;
   bytes: bigint | number | string;
 };
@@ -91,6 +91,17 @@ function trafficBytesSql() {
   `;
 }
 
+function actionKeySql() {
+  return `
+    COALESCE(
+      NULLIF(l."requestPayload"::jsonb->>'stepActionType', ''),
+      NULLIF(l."requestPayload"::jsonb->>'actionType', ''),
+      NULLIF(l."requestPayload"::jsonb->>'planType', ''),
+      l."actionType"
+    )
+  `;
+}
+
 export default async function TrafficPage() {
   const session = await requirePageRole("VIEWER");
   const now = new Date();
@@ -99,6 +110,7 @@ export default async function TrafficPage() {
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const bytesExpr = trafficBytesSql();
+  const actionExpr = actionKeySql();
 
   const [oneDayRows, sevenDayRows, thirtyDayRows, actionRows, dailyRows, recentRows] = await Promise.all([
     prisma.$queryRawUnsafe<BytesRow[]>(
@@ -137,14 +149,14 @@ export default async function TrafficPage() {
     prisma.$queryRawUnsafe<ActionBytesRow[]>(
       `
         SELECT
-          l."actionType" AS "actionType",
+          ${actionExpr} AS "actionKey",
           COUNT(*)::int AS "logCount",
           COALESCE(SUM(${bytesExpr}), 0)::bigint AS bytes
         FROM "ExecutionLog" l
         INNER JOIN "WeiboAccount" a ON a."id" = l."accountId"
         WHERE a."ownerUserId" = $1
           AND l."executedAt" >= $2
-        GROUP BY l."actionType"
+        GROUP BY ${actionExpr}
         HAVING COALESCE(SUM(${bytesExpr}), 0) > 0
         ORDER BY bytes DESC
         LIMIT 12
@@ -173,7 +185,7 @@ export default async function TrafficPage() {
         SELECT
           l."id" AS id,
           a."nickname" AS "accountNickname",
-          l."actionType" AS "actionType",
+          ${actionExpr} AS "actionKey",
           l."executedAt" AS "executedAt",
           ${bytesExpr} AS bytes
         FROM "ExecutionLog" l
@@ -198,21 +210,20 @@ export default async function TrafficPage() {
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-semibold">流量监控</h2>
-        <p className="mt-1 text-sm text-slate-500">按执行链路统计流量消耗，并按“未来全部走代理”口径计入代理流量预算。</p>
-        <p className="mt-2 text-xs text-sky-700">说明：当前展示的是“预估代理流量”。即使你暂时未启用代理，也按未来走代理的方式进行预算统计。</p>
+        <p className="mt-1 text-sm text-slate-500">按真实执行日志统计流量消耗，并按动作类型拆分来源。</p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">近24小时预估代理流量</p>
+          <p className="text-sm text-slate-500">近24小时实际流量</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{formatBytes(oneDayBytes)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">近7天预估代理流量</p>
+          <p className="text-sm text-slate-500">近7天实际流量</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{formatBytes(sevenDayBytes)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">近30天预估代理流量</p>
+          <p className="text-sm text-slate-500">近30天实际流量</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{formatBytes(thirtyDayBytes)}</p>
         </div>
       </section>
@@ -225,8 +236,8 @@ export default async function TrafficPage() {
               <p className="text-sm text-slate-500">暂无流量数据</p>
             ) : (
               actionRows.map((item) => (
-                <div key={item.actionType} className="flex items-center justify-between text-sm">
-                  <div className="text-slate-700">{getActionTypeText(item.actionType)}（{item.logCount} 次）</div>
+                <div key={item.actionKey} className="flex items-center justify-between text-sm">
+                  <div className="text-slate-700">{getActionTypeText(item.actionKey)}（{item.logCount} 次）</div>
                   <div className="font-medium text-slate-900">{formatBytes(toNumber(item.bytes))}</div>
                 </div>
               ))
@@ -274,7 +285,7 @@ export default async function TrafficPage() {
                 <tr key={item.id} className="border-t border-slate-200">
                   <td className="px-6 py-4">{new Date(item.executedAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">{item.accountNickname}</td>
-                  <td className="px-6 py-4">{getActionTypeText(item.actionType)}</td>
+                  <td className="px-6 py-4">{getActionTypeText(item.actionKey)}</td>
                   <td className="px-6 py-4">{formatBytes(toNumber(item.bytes))}</td>
                 </tr>
               ))
