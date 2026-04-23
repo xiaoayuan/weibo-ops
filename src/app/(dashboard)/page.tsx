@@ -108,7 +108,8 @@ export default async function DashboardPage() {
 
   const recentAlerts = [
     ...recentLogs.map(
-      (log) => `${log.account?.nickname || "系统"} 在 ${new Date(log.executedAt).toLocaleString("zh-CN")} 执行 ${getActionTypeText(log.actionType)} 失败。`,
+      (log) =>
+        `${log.account?.nickname || "系统"} 在 ${new Date(log.executedAt).toLocaleString("zh-CN")} 执行 ${getActionTypeText(log.actionType, log.requestPayload)} 失败。`,
     ),
     copywritingCount < 5 ? `当前启用文案仅剩 ${copywritingCount} 条，建议尽快补充文案池。` : null,
     pendingPlans > 0 ? `当前有 ${pendingPlans} 条计划处于待审核状态。` : null,

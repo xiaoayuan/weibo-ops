@@ -46,17 +46,46 @@ const taskStatusTextMap: Record<string, string> = {
   PARTIAL_FAILED: "部分失败",
 };
 
-export function getActionTypeText(actionType: string) {
+function readStepType(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const stepType = record.stepType;
+
+  if (typeof stepType === "string") {
+    return stepType;
+  }
+
+  return undefined;
+}
+
+function getStepActionText(stepType: string | undefined) {
+  if (stepType === "COMMENT_LIKE") {
+    return "评论点赞";
+  }
+
+  if (stepType === "REPOST") {
+    return "转发";
+  }
+
+  return "任务步骤";
+}
+
+export function getActionTypeText(actionType: string, requestPayload?: unknown) {
   if (actionType.startsWith("ACTION_JOB_STEP_")) {
+    const actionText = getStepActionText(readStepType(requestPayload));
+
     if (actionType.endsWith("SUCCESS")) {
-      return "编排步骤成功";
+      return `${actionText}成功`;
     }
 
     if (actionType.endsWith("FAILED")) {
-      return "编排步骤失败";
+      return `${actionText}失败`;
     }
 
-    return "编排步骤日志";
+    return `${actionText}日志`;
   }
 
   return actionTypeTextMap[actionType] || actionType;

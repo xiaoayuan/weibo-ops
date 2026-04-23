@@ -97,7 +97,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
     const matchesKeyword =
       keyword.trim() === "" ||
       log.actionType.toLowerCase().includes(keyword.trim().toLowerCase()) ||
-      getActionTypeText(log.actionType).toLowerCase().includes(keyword.trim().toLowerCase()) ||
+      getActionTypeText(log.actionType, log.requestPayload).toLowerCase().includes(keyword.trim().toLowerCase()) ||
       (log.account?.nickname || "").toLowerCase().includes(keyword.trim().toLowerCase()) ||
       (log.errorMessage || "").toLowerCase().includes(keyword.trim().toLowerCase());
     const matchesResult =
@@ -213,7 +213,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
               filteredLogs.map((log) => (
                 <tr key={log.id} className="border-t border-slate-200">
                   {isAdmin ? <td className="px-6 py-4">{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
-                  <td className="px-6 py-4">{getActionTypeText(log.actionType)}</td>
+                  <td className="px-6 py-4">{getActionTypeText(log.actionType, log.requestPayload)}</td>
                   <td className="px-6 py-4">{log.account?.nickname || "-"}</td>
                   <td className="px-6 py-4">{log.success ? "成功" : "失败"}</td>
                   <td className="px-6 py-4">{stageText[getLogStage(log)]}</td>
