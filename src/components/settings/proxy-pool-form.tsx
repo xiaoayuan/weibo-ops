@@ -44,6 +44,8 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
   const [form, setForm] = useState<FormState>(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [testingNodeId, setTestingNodeId] = useState<string | null>(null);
+  const [nodeTestResults, setNodeTestResults] = useState<Record<string, { success: boolean; message: string; ip?: string }>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -166,6 +168,44 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
       setError(err instanceof Error ? err.message : "自动分配失败");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleTestNode(node: ProxyNodeItem) {
+    try {
+      setTestingNodeId(node.id);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/proxy-nodes/${node.id}/test`, { method: "POST" });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "代理测试失败");
+      }
+
+      setNodeTestResults((current) => ({
+        ...current,
+        [node.id]: {
+          success: true,
+          message: result.message || "代理连通性测试通过",
+          ip: result.data?.ip,
+        },
+      }));
+      setNotice(`${node.name} 测试通过${result.data?.ip ? `，出口IP: ${result.data.ip}` : ""}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "代理测试失败";
+
+      setNodeTestResults((current) => ({
+        ...current,
+        [node.id]: {
+          success: false,
+          message,
+        },
+      }));
+      setError(message);
+    } finally {
+      setTestingNodeId(null);
     }
   }
 
@@ -325,6 +365,14 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
               <div className="mt-4 flex items-center gap-3">
                 <button
                   type="button"
+                  onClick={() => handleTestNode(node)}
+                  disabled={testingNodeId === node.id || submitting}
+                  className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs font-medium text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {testingNodeId === node.id ? "测试中..." : "测试连通"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => startEdit(node)}
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
                 >
@@ -338,6 +386,12 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
                   删除
                 </button>
               </div>
+              {nodeTestResults[node.id] ? (
+                <p className={`mt-3 text-xs ${nodeTestResults[node.id].success ? "text-emerald-700" : "text-rose-600"}`}>
+                  {nodeTestResults[node.id].message}
+                  {nodeTestResults[node.id].ip ? `（出口IP: ${nodeTestResults[node.id].ip}）` : ""}
+                </p>
+              ) : null}
             </div>
           ))
         )}

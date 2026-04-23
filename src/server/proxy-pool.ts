@@ -262,3 +262,37 @@ export async function getProxyConfigForBoundNode(accountId: string) {
     password: node.passwordEncrypted ? decryptText(node.passwordEncrypted) : undefined,
   };
 }
+
+export async function getProxyConfigForNode(ownerUserId: string, nodeId: string) {
+  const node = await prisma.proxyNode.findFirst({
+    where: { id: nodeId, ownerUserId },
+    select: {
+      id: true,
+      name: true,
+      enabled: true,
+      protocol: true,
+      host: true,
+      port: true,
+      username: true,
+      passwordEncrypted: true,
+    },
+  });
+
+  if (!node) {
+    throw new Error("代理节点不存在");
+  }
+
+  return {
+    id: node.id,
+    name: node.name,
+    enabled: node.enabled,
+    proxyConfig: {
+      enabled: true,
+      protocol: node.protocol,
+      host: node.host,
+      port: node.port,
+      username: node.username || undefined,
+      password: node.passwordEncrypted ? decryptText(node.passwordEncrypted) : undefined,
+    },
+  };
+}
