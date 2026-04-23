@@ -20,6 +20,21 @@ type StartRepostRotationJobInput = {
   urgency?: "S" | "A" | "B";
 };
 
+type SlaThreshold = {
+  targetSec: number;
+  limitSec: number;
+};
+
+type SlaSummary = {
+  urgency: "S" | "A" | "B";
+  targetMinutes: number;
+  limitMinutes: number;
+  withinTargetAccounts: number;
+  withinLimitAccounts: number;
+  overtimeAccounts: number;
+  measuredAccounts: number;
+};
+
 type WaveRule = {
   ratios: [number, number, number];
   windowsSec: [number, number, number];
@@ -43,6 +58,82 @@ function getWaveRule(urgency: "S" | "A" | "B"): WaveRule {
   return {
     ratios: [0.1, 0.2, 0.7],
     windowsSec: [1800, 7200, 43200],
+  };
+}
+
+function getSlaThreshold(urgency: "S" | "A" | "B"): SlaThreshold {
+  if (urgency === "S") {
+    return { targetSec: 300, limitSec: 600 };
+  }
+
+  if (urgency === "A") {
+    return { targetSec: 600, limitSec: 1800 };
+  }
+
+  return { targetSec: 1800, limitSec: 7200 };
+}
+
+async function computeJobSlaSummary(jobId: string, urgency: "S" | "A" | "B"): Promise<SlaSummary> {
+  const thresholds = getSlaThreshold(urgency);
+  const steps = await prisma.actionJobStep.findMany({
+    where: { jobId },
+    select: {
+      accountId: true,
+      startedAt: true,
+      finishedAt: true,
+    },
+  });
+
+  const accountRange = new Map<string, { start: number; end: number }>();
+
+  for (const step of steps) {
+    if (!step.startedAt || !step.finishedAt) {
+      continue;
+    }
+
+    const startTs = step.startedAt.getTime();
+    const endTs = step.finishedAt.getTime();
+    const current = accountRange.get(step.accountId);
+
+    if (!current) {
+      accountRange.set(step.accountId, { start: startTs, end: endTs });
+      continue;
+    }
+
+    current.start = Math.min(current.start, startTs);
+    current.end = Math.max(current.end, endTs);
+    accountRange.set(step.accountId, current);
+  }
+
+  let withinTargetAccounts = 0;
+  let withinLimitAccounts = 0;
+  let overtimeAccounts = 0;
+
+  for (const range of accountRange.values()) {
+    const costSec = Math.max(0, Math.floor((range.end - range.start) / 1000));
+
+    if (costSec <= thresholds.targetSec) {
+      withinTargetAccounts += 1;
+      withinLimitAccounts += 1;
+      continue;
+    }
+
+    if (costSec <= thresholds.limitSec) {
+      withinLimitAccounts += 1;
+      continue;
+    }
+
+    overtimeAccounts += 1;
+  }
+
+  return {
+    urgency,
+    targetMinutes: Math.floor(thresholds.targetSec / 60),
+    limitMinutes: Math.floor(thresholds.limitSec / 60),
+    withinTargetAccounts,
+    withinLimitAccounts,
+    overtimeAccounts,
+    measuredAccounts: accountRange.size,
   };
 }
 
@@ -179,7 +270,7 @@ export async function recomputeRepostRunStatus(jobId: string, accountId: string)
   };
 }
 
-export async function recomputeRepostJobSummary(jobId: string, targetUrl: string, times: number, intervalSec: 0 | 3 | 5 | 10) {
+export async function recomputeRepostJobSummary(jobId: string, targetUrl: string, times: number, intervalSec: 0 | 3 | 5 | 10, urgency: "S" | "A" | "B") {
   const existingJob = await prisma.actionJob.findUnique({
     where: { id: jobId },
     select: { status: true },
@@ -194,6 +285,7 @@ export async function recomputeRepostJobSummary(jobId: string, targetUrl: string
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
   const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
   const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
+  const sla = await computeJobSlaSummary(jobId, urgency);
 
   await prisma.actionJob.update({
     where: { id: jobId },
@@ -207,6 +299,8 @@ export async function recomputeRepostJobSummary(jobId: string, targetUrl: string
         targetUrl,
         times,
         intervalSec,
+        urgency,
+        sla,
       },
     },
   });
@@ -378,6 +472,8 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const failedAccounts = finalRuns.filter((item) => item.status === "FAILED").length;
   const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
   const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
+  const urgency = input.urgency || "S";
+  const sla = await computeJobSlaSummary(input.jobId, urgency);
 
   await prisma.actionJob.update({
     where: { id: input.jobId },
@@ -388,6 +484,8 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         successAccounts,
         failedAccounts,
         partialAccounts,
+        urgency,
+        sla,
       },
     },
   });
@@ -587,5 +685,5 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
     return;
   }
 
-  await recomputeRepostJobSummary(input.jobId, input.targetUrl, input.times, input.intervalSec);
+  await recomputeRepostJobSummary(input.jobId, input.targetUrl, input.times, input.intervalSec, input.urgency || "A");
 }

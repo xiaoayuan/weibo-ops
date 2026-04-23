@@ -123,6 +123,8 @@ export function OpsManager({
   const [rotationTargetUrl, setRotationTargetUrl] = useState("");
   const [rotationTimes, setRotationTimes] = useState(5);
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
+  const [commentLikeUrgency, setCommentLikeUrgency] = useState<"S" | "A" | "B">("S");
+  const [rotationUrgency, setRotationUrgency] = useState<"S" | "A" | "B">("A");
   const [rotationCopyTexts, setRotationCopyTexts] = useState("1\n2\n3\n4\n5");
   const [jobStatusFilter, setJobStatusFilter] = useState<"ALL" | ActionJob["status"]>("ALL");
   const [submitting, setSubmitting] = useState(false);
@@ -142,6 +144,42 @@ export function OpsManager({
 
   function getJobTypeText(jobType: ActionJob["jobType"]) {
     return jobType === "COMMENT_LIKE_BATCH" ? "控评点赞" : "轮转转发";
+  }
+
+  function getJobUrgency(job: ActionJobWithRuns): "S" | "A" | "B" {
+    const config = (job.config || {}) as { urgency?: "S" | "A" | "B" };
+    return config.urgency || (job.jobType === "COMMENT_LIKE_BATCH" ? "S" : "A");
+  }
+
+  function getUrgencyText(urgency: "S" | "A" | "B") {
+    if (urgency === "S") {
+      return "S级时效";
+    }
+
+    if (urgency === "A") {
+      return "A级时效";
+    }
+
+    return "B级慢增";
+  }
+
+  function getJobSlaText(job: ActionJobWithRuns) {
+    const summary = (job.summary || {}) as {
+      sla?: {
+        targetMinutes?: number;
+        limitMinutes?: number;
+        withinTargetAccounts?: number;
+        withinLimitAccounts?: number;
+        measuredAccounts?: number;
+      };
+    };
+    const sla = summary.sla;
+
+    if (!sla || !sla.measuredAccounts) {
+      return "SLA统计待生成";
+    }
+
+    return `目标${sla.targetMinutes || 0}分钟内 ${sla.withinTargetAccounts || 0}/${sla.measuredAccounts}，上限${sla.limitMinutes || 0}分钟内 ${sla.withinLimitAccounts || 0}/${sla.measuredAccounts}`;
   }
 
   function toggleJobExpanded(id: string) {
@@ -400,6 +438,7 @@ export function OpsManager({
         body: JSON.stringify({
           accountIds: selectedPoolAccountIds,
           poolItemIds: selectedPoolIds,
+          urgency: commentLikeUrgency,
         }),
       });
       const result = await response.json();
@@ -447,6 +486,7 @@ export function OpsManager({
           times: rotationTimes,
           intervalSec: rotationIntervalSec,
           copywritingTexts,
+          urgency: rotationUrgency,
         }),
       });
       const result = await response.json();
@@ -718,6 +758,15 @@ export function OpsManager({
                 ))}
               </div>
               <div className="mt-4">
+                <select
+                  value={commentLikeUrgency}
+                  onChange={(event) => setCommentLikeUrgency(event.target.value as "S" | "A" | "B")}
+                  className="mb-3 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="S">S级时效（5-10分钟）</option>
+                  <option value="A">A级时效（10-30分钟）</option>
+                  <option value="B">B级慢增（30分钟以上）</option>
+                </select>
                 <button
                   disabled={submitting}
                   onClick={handleStartCommentLikeJob}
@@ -765,6 +814,15 @@ export function OpsManager({
                 </label>
               ))}
             </div>
+            <select
+              value={rotationUrgency}
+              onChange={(event) => setRotationUrgency(event.target.value as "S" | "A" | "B")}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="S">S级时效（5-10分钟）</option>
+              <option value="A">A级时效（10-30分钟）</option>
+              <option value="B">B级慢增（30分钟以上）</option>
+            </select>
             <select
               value={rotationTimes}
               onChange={(event) => setRotationTimes(Number(event.target.value))}
@@ -845,6 +903,7 @@ export function OpsManager({
                       <p className="mt-1 text-xs text-slate-500">{new Date(job.createdAt).toLocaleString("zh-CN")}</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs">
                         <span className="rounded-full bg-white px-2.5 py-1 text-slate-700">{jobStatusText[job.status]}</span>
+                        <span className="rounded-full bg-white px-2.5 py-1 text-slate-700">{getUrgencyText(getJobUrgency(job))}</span>
                         <span className="rounded-full bg-white px-2.5 py-1 text-slate-700">{job.accountRuns.length} 个账号</span>
                       </div>
                     </div>
@@ -858,6 +917,7 @@ export function OpsManager({
                   <div className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">
                     {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
                   </div>
+                  <p className="mt-2 text-xs text-slate-500">{getJobSlaText(job)}</p>
 
                   <button
                     type="button"
@@ -897,6 +957,7 @@ export function OpsManager({
                 <th className="px-3 py-2 font-medium">类型</th>
                 <th className="px-3 py-2 font-medium">状态</th>
                 <th className="px-3 py-2 font-medium">账号执行</th>
+                <th className="px-3 py-2 font-medium">时效策略</th>
                 <th className="px-3 py-2 font-medium">明细</th>
                 <th className="px-3 py-2 font-medium">操作</th>
               </tr>
@@ -904,7 +965,7 @@ export function OpsManager({
             <tbody>
               {filteredJobs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-slate-500">
+                  <td colSpan={7} className="px-3 py-6 text-slate-500">
                     当前筛选下暂无任务记录。
                   </td>
                 </tr>
@@ -919,6 +980,10 @@ export function OpsManager({
                       <td className="px-3 py-3">{jobStatusText[job.status]}</td>
                       <td className="px-3 py-3">
                         {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
+                      </td>
+                      <td className="px-3 py-3">
+                        <p>{getUrgencyText(getJobUrgency(job))}</p>
+                        <p className="mt-1 text-xs text-slate-500">{getJobSlaText(job)}</p>
                       </td>
                       <td className="px-3 py-3">
                         <button onClick={() => toggleJobExpanded(job.id)} className="text-sky-700 hover:text-sky-800">
@@ -937,7 +1002,7 @@ export function OpsManager({
                     </tr>,
                     expanded ? (
                       <tr key={`${job.id}-details`} className="border-t border-slate-100 bg-slate-50">
-                        <td colSpan={6} className="px-3 py-3">
+                        <td colSpan={7} className="px-3 py-3">
                           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                             {job.accountRuns.map((run) => (
                               <div key={run.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
