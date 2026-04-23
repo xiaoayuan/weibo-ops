@@ -15,6 +15,14 @@ type UserOption = {
 
 type LogStage = "UNKNOWN" | "PRECHECK_BLOCKED" | "PRECHECK_PASSED" | "ACTION_PENDING";
 
+type ScheduleDecision = {
+  taskType?: string;
+  baseTier?: string;
+  effectiveTier?: string;
+  delayMs?: number;
+  reasons?: string[];
+};
+
 function readStageFromPayload(payload: unknown): LogStage {
   if (!payload || typeof payload !== "object") {
     return "UNKNOWN";
@@ -81,6 +89,50 @@ function getResponseSummary(payload: unknown) {
   }
 
   return "-";
+}
+
+function readScheduleDecision(payload: unknown): ScheduleDecision | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const scheduleDecision = record.scheduleDecision;
+
+  if (!scheduleDecision || typeof scheduleDecision !== "object" || Array.isArray(scheduleDecision)) {
+    return null;
+  }
+
+  return scheduleDecision as ScheduleDecision;
+}
+
+function getScheduleDecision(log: LogWithRelations) {
+  return readScheduleDecision(log.requestPayload) || readScheduleDecision(log.responsePayload);
+}
+
+function formatDelay(delayMs?: number) {
+  if (!delayMs || delayMs <= 0) {
+    return "无延后";
+  }
+
+  if (delayMs < 60_000) {
+    return `${Math.ceil(delayMs / 1000)} 秒`;
+  }
+
+  return `${Math.ceil(delayMs / 60_000)} 分钟`;
+}
+
+function getScheduleSummary(log: LogWithRelations) {
+  const decision = getScheduleDecision(log);
+
+  if (!decision) {
+    return "-";
+  }
+
+  const tierChanged = decision.baseTier && decision.effectiveTier && decision.baseTier !== decision.effectiveTier;
+  const reasonText = decision.reasons && decision.reasons.length > 0 ? decision.reasons.join(" / ") : "正常调度";
+
+  return `${decision.taskType || "任务"} | ${decision.baseTier || "-"} -> ${decision.effectiveTier || decision.baseTier || "-"} | ${formatDelay(decision.delayMs)} | ${tierChanged ? "已降级" : "未降级"} | ${reasonText}`;
 }
 
 export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogWithRelations[]; users: UserOption[]; isAdmin: boolean }) {
@@ -197,6 +249,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">结果</th>
               <th className="px-6 py-3 font-medium">阶段</th>
+              <th className="px-6 py-3 font-medium">调度说明</th>
               <th className="px-6 py-3 font-medium">响应摘要</th>
               <th className="px-6 py-3 font-medium">错误信息</th>
               <th className="px-6 py-3 font-medium">时间</th>
@@ -205,10 +258,10 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 8 : 7} className="px-6 py-8 text-slate-500">
-                  当前筛选条件下暂无日志数据。
-                </td>
-              </tr>
+                  <td colSpan={isAdmin ? 9 : 8} className="px-6 py-8 text-slate-500">
+                    当前筛选条件下暂无日志数据。
+                  </td>
+                </tr>
             ) : (
               filteredLogs.map((log) => (
                 <tr key={log.id} className="border-t border-slate-200">
@@ -217,6 +270,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
                   <td className="px-6 py-4">{log.account?.nickname || "-"}</td>
                   <td className="px-6 py-4">{log.success ? "成功" : "失败"}</td>
                   <td className="px-6 py-4">{stageText[getLogStage(log)]}</td>
+                  <td className="max-w-md px-6 py-4 text-slate-600">{getScheduleSummary(log)}</td>
                   <td className="max-w-sm px-6 py-4 text-slate-600">{getResponseSummary(log.responsePayload)}</td>
                   <td className="px-6 py-4 text-slate-600">{log.errorMessage || "-"}</td>
                   <td className="px-6 py-4">{new Date(log.executedAt).toLocaleString("zh-CN")}</td>
