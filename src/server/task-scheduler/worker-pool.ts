@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { UserQueue } from "@/server/task-scheduler/user-queue";
-import { ScheduledTaskCancelledError, type ScheduledTask, type ScheduledTaskResult } from "@/server/task-scheduler/types";
+import { ScheduledTaskCancelledError, type ScheduledTask, type ScheduledTaskLane, type ScheduledTaskResult } from "@/server/task-scheduler/types";
 
 type WorkerState = {
   id: string;
@@ -24,6 +24,18 @@ async function loadUserConcurrency(userId: string) {
   });
 
   return Math.max(1, user?.taskConcurrency || 1);
+}
+
+function resolveTaskLane(task: Pick<ScheduledTask<unknown>, "kind" | "lane">): ScheduledTaskLane {
+  if (task.lane) {
+    return task.lane;
+  }
+
+  if (task.kind === "PLAN") {
+    return "SLOW";
+  }
+
+  return "URGENT";
 }
 
 export class WorkerPool {
@@ -51,12 +63,14 @@ export class WorkerPool {
     }
 
     const queueDepth = queue.getPendingCount() + queue.getRunningCount() + 1;
+    const lane = resolveTaskLane(task);
 
     return new Promise<ScheduledTaskResult<T>>((resolve, reject) => {
       queue.enqueue({
         kind: task.kind,
         id: task.id,
         label: task.label,
+        lane,
         run: async () => ({
           workerId: worker.id,
           userConcurrency: concurrency,

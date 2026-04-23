@@ -1,4 +1,5 @@
 export type ScheduledTaskKind = "PLAN" | "INTERACTION" | "ACTION_JOB";
+export type ScheduledTaskLane = "SLOW" | "URGENT";
 
 export class ScheduledTaskCancelledError extends Error {
   constructor(message = "任务已停止") {
@@ -19,5 +20,6 @@ export type ScheduledTask<T> = {
   id: string;
   ownerUserId: string;
   label: string;
+  lane?: ScheduledTaskLane;
   run: () => Promise<T>;
 };
