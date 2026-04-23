@@ -378,6 +378,11 @@ export async function sendStatusComment(statusId: string, targetUrl: string, com
     success,
     status: response.status,
     payload,
+    traffic: {
+      requestBytes: response.requestBytes,
+      responseBytes: response.responseBytes,
+      totalBytes: response.totalBytes,
+    },
   };
 }
 

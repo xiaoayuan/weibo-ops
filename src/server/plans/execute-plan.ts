@@ -263,7 +263,10 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
       const commentText = pickRandomTemplate(templates);
       const commentResult = await sendFirstComment(candidate.id, candidate.targetUrl || topicUrl, commentText, cookie, proxyConfig);
-      payload = commentResult.payload;
+      payload = {
+        ...(commentResult.payload && typeof commentResult.payload === "object" ? (commentResult.payload as Record<string, unknown>) : { raw: commentResult.payload }),
+        traffic: commentResult.traffic,
+      };
 
       const cancelledAfterComment = await getCancelledPlan(id);
 

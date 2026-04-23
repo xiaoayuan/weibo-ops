@@ -64,13 +64,30 @@ function formatBytes(bytes: number) {
 
 function trafficBytesSql() {
   return `
-    CASE
-      WHEN jsonb_typeof(l."responsePayload"::jsonb) = 'object'
-        AND jsonb_typeof((l."responsePayload"::jsonb)->'traffic') = 'object'
-        AND ((l."responsePayload"::jsonb)->'traffic'->>'totalBytes') ~ '^[0-9]+$'
-      THEN ((l."responsePayload"::jsonb)->'traffic'->>'totalBytes')::bigint
-      ELSE 0
-    END
+    COALESCE(
+      CASE
+        WHEN jsonb_typeof(l."responsePayload"::jsonb) = 'object'
+          AND jsonb_typeof((l."responsePayload"::jsonb)->'traffic') = 'object'
+          AND ((l."responsePayload"::jsonb)->'traffic'->>'totalBytes') ~ '^[0-9]+$'
+        THEN ((l."responsePayload"::jsonb)->'traffic'->>'totalBytes')::bigint
+        ELSE NULL
+      END,
+      (
+        SELECT COALESCE(
+          SUM(
+            CASE
+              WHEN jsonb_typeof(value) = 'number' THEN (value::text)::bigint
+              WHEN jsonb_typeof(value) = 'string' AND trim(both '"' from value::text) ~ '^[0-9]+$'
+                THEN trim(both '"' from value::text)::bigint
+              ELSE 0
+            END
+          ),
+          0
+        )
+        FROM jsonb_path_query(l."responsePayload"::jsonb, '$.**.traffic.totalBytes') AS value
+      ),
+      0
+    )
   `;
 }
 
