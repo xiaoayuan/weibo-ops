@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, Menu, MessageCircleHeart, RefreshCw, Settings, Shield, Tags, Users, X } from "lucide-react";
+import { BarChart3, Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, Menu, MessageCircleHeart, RefreshCw, Settings, Shield, Tags, Users, X } from "lucide-react";
 import { useState } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -14,6 +14,7 @@ type NavItem = {
 
 const iconMap = {
   Bell,
+  BarChart3,
   CalendarRange,
   ClipboardList,
   FileText,
