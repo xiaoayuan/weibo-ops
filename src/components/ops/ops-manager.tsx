@@ -705,7 +705,7 @@ export function OpsManager({
           poolItemIds: selectedPoolIds,
           urgency: commentLikeUrgency,
           forecast: commentLikeForecast,
-          aiRisk: commentLikeAiRisk,
+          aiRisk: commentLikeAiRisk || undefined,
         }),
       });
       const result = await response.json();
@@ -755,7 +755,7 @@ export function OpsManager({
           copywritingTexts,
           urgency: rotationUrgency,
           forecast: rotationForecast,
-          aiRisk: rotationAiRisk,
+          aiRisk: rotationAiRisk || undefined,
         }),
       });
       const result = await response.json();

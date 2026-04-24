@@ -36,7 +36,7 @@ export const startCommentLikeJobSchema = z.object({
   poolItemIds: z.array(z.string().min(1)).min(1, "至少选择一条评论链接"),
   urgency: urgencySchema.default("S").optional(),
   forecast: forecastSchema.optional(),
-  aiRisk: aiRiskSchema.optional(),
+  aiRisk: aiRiskSchema.nullable().optional(),
 });
 
 export const startRepostRotationJobSchema = z.object({
@@ -47,5 +47,5 @@ export const startRepostRotationJobSchema = z.object({
   copywritingTexts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
   urgency: urgencySchema.default("A").optional(),
   forecast: forecastSchema.optional(),
-  aiRisk: aiRiskSchema.optional(),
+  aiRisk: aiRiskSchema.nullable().optional(),
 });
