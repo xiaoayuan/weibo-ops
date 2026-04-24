@@ -1,6 +1,9 @@
-import { toBusinessDate } from "@/lib/business-date";
+import { getBusinessDateText, toBusinessDate, toBusinessDateTime } from "@/lib/business-date";
 import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
+
+const DEFAULT_PLAN_START_TIME = "01:00";
+const DEFAULT_PLAN_END_TIME = "18:00";
 
 type DailyPlanWithRelations = Awaited<ReturnType<typeof loadDailyPlans>>;
 
@@ -34,10 +37,7 @@ function randomInt(min: number, max: number) {
 }
 
 function toDateAtTime(date: Date, time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const result = new Date(date);
-  result.setHours(hours, minutes, 0, 0);
-  return result;
+  return toBusinessDateTime(getBusinessDateText(date), time);
 }
 
 function randomTimes(date: Date, startTime: string, endTime: string, count: number) {
@@ -46,9 +46,8 @@ function randomTimes(date: Date, startTime: string, endTime: string, count: numb
 
   if (end <= start) {
     return Array.from({ length: count }, (_, index) => {
-      const fallback = new Date(date);
-      fallback.setHours(9 + index, 0, 0, 0);
-      return fallback;
+      const fallbackHour = Math.min(18, 1 + index);
+      return toDateAtTime(date, `${String(fallbackHour).padStart(2, "0")}:00`);
     });
   }
 
@@ -65,7 +64,7 @@ function randomTimesWithInterval(date: Date, startTime: string, endTime: string,
   const minGapMs = Math.max(0, minIntervalSec) * 1000;
 
   if (end <= start) {
-    return randomTimes(date, "09:00", "22:00", count);
+    return randomTimes(date, DEFAULT_PLAN_START_TIME, DEFAULT_PLAN_END_TIME, count);
   }
 
   const duration = end - start;
@@ -174,8 +173,8 @@ export async function generateDailyPlansWithSummary(
       targetUrl?: string;
     }> = [];
 
-    const startTime = task.startTime || "09:00";
-    const endTime = task.endTime || "22:00";
+    const startTime = task.startTime || DEFAULT_PLAN_START_TIME;
+    const endTime = task.endTime || DEFAULT_PLAN_END_TIME;
     const topicUrl = task.superTopic.topicUrl || "https://weibo.com/";
 
     if (task.signEnabled && checkInCount === 0) {

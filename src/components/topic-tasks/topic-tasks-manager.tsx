@@ -96,8 +96,8 @@ export function TopicTasksManager({
     postEnabled: false,
     minPostsPerDay: 0,
     maxPostsPerDay: 0,
-    startTime: "09:00",
-    endTime: "22:00",
+    startTime: "01:00",
+    endTime: "18:00",
     status: true,
   });
   const [submitting, setSubmitting] = useState(false);
@@ -204,8 +204,8 @@ export function TopicTasksManager({
       postEnabled: task.postEnabled,
       minPostsPerDay: task.minPostsPerDay,
       maxPostsPerDay: task.maxPostsPerDay,
-      startTime: task.startTime || "09:00",
-      endTime: task.endTime || "22:00",
+      startTime: task.startTime || "01:00",
+      endTime: task.endTime || "18:00",
       status: task.status,
     });
     setError(null);
@@ -230,8 +230,8 @@ export function TopicTasksManager({
       postEnabled: false,
       minPostsPerDay: 0,
       maxPostsPerDay: 0,
-      startTime: "09:00",
-      endTime: "22:00",
+      startTime: "01:00",
+      endTime: "18:00",
       status: true,
     });
     setError(null);
@@ -554,7 +554,7 @@ export function TopicTasksManager({
                   <td className="px-6 py-4">{task.signEnabled ? "已启用" : "未启用"}</td>
                   <td className="px-6 py-4">{task.firstCommentEnabled ? `已启用 / ${task.firstCommentPerDay} 条` : "未启用"}</td>
                    <td className="px-6 py-4">赞{task.likePerDay}/转{task.repostPerDay}/评{task.commentPerDay}</td>
-                   <td className="px-6 py-4">{task.startTime || "09:00"} - {task.endTime || "22:00"}</td>
+                   <td className="px-6 py-4">{task.startTime || "01:00"} - {task.endTime || "18:00"}</td>
                   <td className="px-6 py-4">{task.status ? "启用" : "停用"}</td>
                    {canManage ? (
                      <td className="px-6 py-4">

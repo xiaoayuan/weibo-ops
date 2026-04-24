@@ -42,6 +42,16 @@ export function formatBusinessDateTime(date: Date) {
   }).format(date);
 }
 
+export function toBusinessDateTime(dateText: string, timeText: string) {
+  const matched = timeText.match(/^(\d{2}):(\d{2})$/);
+
+  if (!matched) {
+    throw new Error("业务时间格式不正确");
+  }
+
+  return new Date(`${dateText}T${matched[1]}:${matched[2]}:00+08:00`);
+}
+
 export function toBusinessDate(dateText: string) {
   const matched = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
