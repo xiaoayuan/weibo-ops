@@ -24,6 +24,22 @@ type ScheduleDecision = {
 };
 
 type LogCategory = "PLAN" | "QUEUE" | "EXECUTION" | "RISK" | "SYSTEM";
+type LogsViewMode = "SUMMARY" | "DETAIL";
+
+type LogSummaryRow = {
+  id: string;
+  dateText: string;
+  userText: string;
+  category: LogCategory;
+  actionText: string;
+  total: number;
+  successCount: number;
+  failedCount: number;
+  blockedCount: number;
+  accountCount: number;
+  latestExecutedAt: string;
+  sampleDetails: string[];
+};
 
 function getLogCategory(log: LogWithRelations): LogCategory {
   if (log.actionType.includes("SCHEDULED") || log.actionType.includes("入队")) {
@@ -141,6 +157,70 @@ function getBusinessDetailText(log: LogWithRelations) {
   return getResponseSummary(log.responsePayload);
 }
 
+function getSummaryKey(log: LogWithRelations, users: UserOption[], isAdmin: boolean) {
+  const dateText = new Date(log.executedAt).toLocaleDateString("zh-CN");
+  const userText = isAdmin ? users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-" : "当前用户";
+  return {
+    key: [dateText, userText, getLogCategory(log), getBusinessActionText(log)].join("::"),
+    dateText,
+    userText,
+  };
+}
+
+function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmin: boolean) {
+  const map = new Map<string, LogSummaryRow & { accountIds: Set<string> }>();
+
+  for (const log of logs) {
+    const summaryKey = getSummaryKey(log, users, isAdmin);
+    const category = getLogCategory(log);
+    const actionText = getBusinessActionText(log);
+    const detailText = getBusinessDetailText(log);
+    const row = map.get(summaryKey.key);
+
+    if (!row) {
+      map.set(summaryKey.key, {
+        id: summaryKey.key,
+        dateText: summaryKey.dateText,
+        userText: summaryKey.userText,
+        category,
+        actionText,
+        total: 1,
+        successCount: log.success ? 1 : 0,
+        failedCount: log.success ? 0 : 1,
+        blockedCount: getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0,
+        accountCount: log.account?.id ? 1 : 0,
+        latestExecutedAt: log.executedAt.toISOString(),
+        sampleDetails: detailText && detailText !== "-" ? [detailText] : [],
+        accountIds: new Set(log.account?.id ? [log.account.id] : []),
+      });
+      continue;
+    }
+
+    row.total += 1;
+    row.successCount += log.success ? 1 : 0;
+    row.failedCount += log.success ? 0 : 1;
+    row.blockedCount += getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0;
+    if (log.account?.id) {
+      row.accountIds.add(log.account.id);
+      row.accountCount = row.accountIds.size;
+    }
+    if (detailText && detailText !== "-" && !row.sampleDetails.includes(detailText) && row.sampleDetails.length < 3) {
+      row.sampleDetails.push(detailText);
+    }
+    if (new Date(log.executedAt).getTime() > new Date(row.latestExecutedAt).getTime()) {
+      row.latestExecutedAt = log.executedAt.toISOString();
+    }
+  }
+
+  return Array.from(map.values())
+    .map((row) => {
+      const { accountIds, ...item } = row;
+      void accountIds;
+      return item;
+    })
+    .sort((a, b) => new Date(b.latestExecutedAt).getTime() - new Date(a.latestExecutedAt).getTime());
+}
+
 function readStageFromPayload(payload: unknown): LogStage {
   if (!payload || typeof payload !== "object") {
     return "UNKNOWN";
@@ -254,6 +334,7 @@ function getScheduleSummary(log: LogWithRelations) {
 }
 
 export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogWithRelations[]; users: UserOption[]; isAdmin: boolean }) {
+  const [viewMode, setViewMode] = useState<LogsViewMode>("SUMMARY");
   const [keyword, setKeyword] = useState("");
   const [resultFilter, setResultFilter] = useState<"ALL" | "SUCCESS" | "FAILED">("ALL");
   const [actionFilter, setActionFilter] = useState("ALL");
@@ -281,6 +362,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
 
     return matchesKeyword && matchesResult && matchesAction && matchesStage && matchesUser && matchesStartDate && matchesEndDate;
   });
+  const summaryRows = buildLogSummaries(filteredLogs, users, isAdmin);
 
   return (
     <div className="space-y-6">
@@ -290,6 +372,22 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode("SUMMARY")}
+            className={`rounded-lg px-3 py-2 text-sm font-medium ${viewMode === "SUMMARY" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+          >
+            汇总视图
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("DETAIL")}
+            className={`rounded-lg px-3 py-2 text-sm font-medium ${viewMode === "DETAIL" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+          >
+            明细视图
+          </button>
+        </div>
         <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-7" : "md:grid-cols-6"}`}>
           <input
             value={keyword}
@@ -359,6 +457,46 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
       </section>
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {viewMode === "SUMMARY" ? (
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-6 py-3 font-medium">日期</th>
+                {isAdmin ? <th className="px-6 py-3 font-medium">用户</th> : null}
+                <th className="px-6 py-3 font-medium">分类</th>
+                <th className="px-6 py-3 font-medium">动作</th>
+                <th className="px-6 py-3 font-medium">账号数</th>
+                <th className="px-6 py-3 font-medium">成功/失败</th>
+                <th className="px-6 py-3 font-medium">预检拦截</th>
+                <th className="px-6 py-3 font-medium">说明</th>
+                <th className="px-6 py-3 font-medium">最近时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summaryRows.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 9 : 8} className="px-6 py-8 text-slate-500">
+                    当前筛选条件下暂无汇总数据。
+                  </td>
+                </tr>
+              ) : (
+                summaryRows.map((row) => (
+                  <tr key={row.id} className="border-t border-slate-200 align-top">
+                    <td className="px-6 py-4">{row.dateText}</td>
+                    {isAdmin ? <td className="px-6 py-4">{row.userText}</td> : null}
+                    <td className="px-6 py-4">{categoryText[row.category]}</td>
+                    <td className="px-6 py-4">{row.actionText}</td>
+                    <td className="px-6 py-4">{row.accountCount || "-"}</td>
+                    <td className="px-6 py-4">{row.successCount}/{row.failedCount}</td>
+                    <td className="px-6 py-4">{row.blockedCount}</td>
+                    <td className="max-w-md px-6 py-4 text-slate-600">{row.sampleDetails.join(" / ") || "-"}</td>
+                    <td className="px-6 py-4">{new Date(row.latestExecutedAt).toLocaleString("zh-CN")}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        ) : (
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
@@ -397,6 +535,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
             )}
           </tbody>
         </table>
+        )}
       </section>
     </div>
   );
