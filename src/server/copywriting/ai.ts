@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
 
+import { resolveAiRuntimeConfig } from "@/server/copywriting/ai-config";
+
 export type AiCopywritingBusinessType = "DAILY_PLAN" | "QUICK_REPLY" | "COMMENT_CONTROL" | "REPOST_ROTATION";
 export type AiCopywritingTone = "NATURAL" | "PASSERBY" | "SUPPORTIVE" | "DISCUSSIVE" | "LIVELY";
 export type AiCopywritingLength = "SHORT" | "STANDARD" | "LONG";
@@ -131,9 +133,7 @@ export function readAiBusinessTypeFromTags(tags: string[]): AiCopywritingBusines
 }
 
 async function requestAiText(prompt: string) {
-  const apiKey = process.env.AI_API_KEY;
-  const model = process.env.AI_MODEL || "gpt-4.1-mini";
-  const baseUrl = process.env.AI_BASE_URL || "https://api.openai.com/v1/chat/completions";
+  const { apiKey, model, baseUrl } = await resolveAiRuntimeConfig();
 
   if (!apiKey) {
     throw new Error("AI_API_KEY 未配置");

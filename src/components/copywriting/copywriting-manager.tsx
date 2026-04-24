@@ -23,6 +23,14 @@ type AiCandidate = {
   content: string;
 };
 
+type AiConfigState = {
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+  hasApiKey: boolean;
+  apiKeySource: "system" | "env" | "none";
+};
+
 type FormState = {
   title: string;
   content: string;
@@ -82,7 +90,15 @@ function getCopywritingSourceText(item: CopywritingTemplate) {
   return isAiCopywriting(item) ? "AI" : "手动";
 }
 
-export function CopywritingManager({ currentUserRole, initialItems }: { currentUserRole: AppRole; initialItems: CopywritingTemplate[] }) {
+export function CopywritingManager({
+  currentUserRole,
+  initialItems,
+  initialAiConfig,
+}: {
+  currentUserRole: AppRole;
+  initialItems: CopywritingTemplate[];
+  initialAiConfig: Omit<AiConfigState, "apiKey">;
+}) {
   const [items, setItems] = useState(initialItems);
   const [form, setForm] = useState(initialForm);
   const [aiForm, setAiForm] = useState(initialAiForm);
@@ -92,11 +108,13 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
   const [rewriteSource, setRewriteSource] = useState<CopywritingTemplate | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"ALL" | "MANUAL" | "AI">("ALL");
   const [businessFilter, setBusinessFilter] = useState<"ALL" | AiBusinessType>("ALL");
+  const [aiConfig, setAiConfig] = useState<AiConfigState>({ ...initialAiConfig, apiKey: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSaving, setAiSaving] = useState(false);
   const [aiRewriting, setAiRewriting] = useState(false);
+  const [aiConfigSaving, setAiConfigSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
 
@@ -310,12 +328,81 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
     }
   }
 
+  async function handleSaveAiConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      setAiConfigSaving(true);
+      setError(null);
+      const response = await fetch("/api/copywriting/ai-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: aiConfig.baseUrl,
+          model: aiConfig.model,
+          apiKey: aiConfig.apiKey,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "保存 AI 接口配置失败");
+      }
+
+      setAiConfig({ ...result.data, apiKey: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存 AI 接口配置失败");
+    } finally {
+      setAiConfigSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">文案库</h2>
         <p className="mt-1 text-sm text-slate-500">维护互动文案、标签和启用状态。</p>
       </div>
+
+      {canManage ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">AI 接口配置</h3>
+          <p className="mt-1 text-sm text-slate-500">在文案库页面直接配置 AI 接口。API Key 只会加密保存，不会明文回显。</p>
+          <form className="mt-4 grid gap-4" onSubmit={handleSaveAiConfig}>
+            <input
+              value={aiConfig.baseUrl}
+              onChange={(event) => setAiConfig((current) => ({ ...current, baseUrl: event.target.value }))}
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder="AI Base URL"
+            />
+            <input
+              value={aiConfig.model}
+              onChange={(event) => setAiConfig((current) => ({ ...current, model: event.target.value }))}
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder="模型名称"
+            />
+            <input
+              type="password"
+              value={aiConfig.apiKey}
+              onChange={(event) => setAiConfig((current) => ({ ...current, apiKey: event.target.value }))}
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder={aiConfig.hasApiKey ? "已配置 API Key，如需更换请重新输入" : "输入 AI API Key"}
+            />
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+              <span>
+                当前 Key 来源：{aiConfig.apiKeySource === "system" ? "页面配置" : aiConfig.apiKeySource === "env" ? ".env 环境变量" : "未配置"}
+              </span>
+              <button
+                type="submit"
+                disabled={aiConfigSaving}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {aiConfigSaving ? "保存中..." : "保存 AI 配置"}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       {canManage ? (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -38,3 +38,9 @@ export const rewriteAiCopywritingSchema = z.object({
   length: aiLengthSchema,
   constraints: z.array(z.string().trim().min(1).max(50)).max(10).default([]),
 });
+
+export const saveAiConfigSchema = z.object({
+  baseUrl: z.string().url("请填写有效的 AI 接口地址"),
+  model: z.string().trim().min(1, "模型不能为空").max(100, "模型名称过长"),
+  apiKey: z.string().trim().max(500, "API Key 过长").optional().or(z.literal("")),
+});
