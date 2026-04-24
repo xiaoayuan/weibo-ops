@@ -28,7 +28,7 @@ function toNumber(value: unknown) {
   return undefined;
 }
 
-export async function fetchHotComments(targetUrl: string, limit: number) {
+export async function fetchHotComments(targetUrl: string, limit: number, keywords: string[] = []) {
   const statusId = extractStatusIdFromUrl(targetUrl);
 
   if (!statusId) {
@@ -74,6 +74,13 @@ export async function fetchHotComments(targetUrl: string, limit: number) {
     const user = record.user && typeof record.user === "object" ? (record.user as Record<string, unknown>) : null;
     const author = typeof user?.screen_name === "string" ? user.screen_name : "未知用户";
     const text = stripHtml(typeof record.text === "string" ? record.text : "");
+
+    const normalizedText = text.toLowerCase();
+    const matchedKeywords = keywords.filter((keyword) => normalizedText.includes(keyword.toLowerCase()));
+
+    if (keywords.length > 0 && matchedKeywords.length === 0) {
+      continue;
+    }
 
     items.push({
       commentId,

@@ -34,6 +34,7 @@ export const batchImportCommentPoolSchema = z.object({
 export const fetchHotCommentsSchema = z.object({
   targetUrl: z.string().url("请填写有效微博链接"),
   limit: z.number().int().min(1).max(50).default(20),
+  keywords: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
 });
 
 export const startCommentLikeJobSchema = z.object({

@@ -219,6 +219,7 @@ export function OpsManager({
   const [batchTags, setBatchTags] = useState("");
   const [hotCommentTargetUrl, setHotCommentTargetUrl] = useState("");
   const [hotCommentLimit, setHotCommentLimit] = useState(20);
+  const [hotCommentKeywords, setHotCommentKeywords] = useState("");
   const [hotCommentPreview, setHotCommentPreview] = useState<HotCommentPreviewItem[]>([]);
   const [selectedHotCommentIds, setSelectedHotCommentIds] = useState<string[]>([]);
   const [forceDuplicate, setForceDuplicate] = useState(false);
@@ -644,6 +645,10 @@ export function OpsManager({
         body: JSON.stringify({
           targetUrl: hotCommentTargetUrl,
           limit: hotCommentLimit,
+          keywords: hotCommentKeywords
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
         }),
       });
       const result = await response.json();
@@ -996,6 +1001,12 @@ export function OpsManager({
                     value={hotCommentTargetUrl}
                     onChange={(event) => setHotCommentTargetUrl(event.target.value)}
                     placeholder="微博详情链接"
+                    className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                  />
+                  <input
+                    value={hotCommentKeywords}
+                    onChange={(event) => setHotCommentKeywords(event.target.value)}
+                    placeholder="关键词过滤（可选，逗号分隔）"
                     className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
                   />
                   <select
