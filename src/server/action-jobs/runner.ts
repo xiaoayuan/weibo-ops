@@ -231,6 +231,10 @@ function getCommentLikeConcurrency(urgency: "S" | "A" | "B", strategy: Execution
   return strategy.actionJob.commentLikeConcurrency[urgency];
 }
 
+function getRepostConcurrency(urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
+  return strategy.actionJob.repostConcurrency[urgency];
+}
+
 async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
   let cursor = 0;
   const size = Math.max(1, Math.min(concurrency, items.length));
@@ -739,14 +743,21 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
   }
 
   const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
+  const accountStepsMap = new Map<string, typeof steps>();
 
-  for (const accountId of input.accountIds) {
+  for (const step of steps) {
+    const existing = accountStepsMap.get(step.accountId) || [];
+    existing.push(step);
+    accountStepsMap.set(step.accountId, existing);
+  }
+
+  await runWithConcurrency(input.accountIds, getRepostConcurrency(urgency, strategy), async (accountId) => {
     if (await isActionJobCancelled(input.jobId)) {
       return;
     }
 
     const account = accountMap.get(accountId);
-    const accountSteps = steps.filter((item) => item.accountId === accountId);
+    const accountSteps = accountStepsMap.get(accountId) || [];
 
     const waveDelayMs = delayMap.get(accountId) || 0;
 
@@ -755,7 +766,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
     }
 
     if (!account || accountSteps.length === 0) {
-      continue;
+      return;
     }
 
     await prisma.actionJobAccountRun.updateMany({
@@ -882,7 +893,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
     }
 
     await recomputeRepostRunStatus(input.jobId, accountId);
-  }
+  });
 
   if (await isActionJobCancelled(input.jobId)) {
     return;

@@ -21,6 +21,11 @@ export const executionStrategySchema = z.object({
       A: z.number().int().min(1).max(20),
       B: z.number().int().min(1).max(20),
     }),
+    repostConcurrency: z.object({
+      S: z.number().int().min(1).max(20),
+      A: z.number().int().min(1).max(20),
+      B: z.number().int().min(1).max(20),
+    }),
     urgency: z.object({
       S: urgencyRuleSchema,
       A: urgencyRuleSchema,
@@ -46,6 +51,11 @@ export const defaultExecutionStrategy: ExecutionStrategy = {
       S: 8,
       A: 5,
       B: 3,
+    },
+    repostConcurrency: {
+      S: 6,
+      A: 4,
+      B: 2,
     },
     urgency: {
       S: {
@@ -119,6 +129,11 @@ function normalizeStrategy(strategy: ExecutionStrategy): ExecutionStrategy {
         S: strategy.actionJob.commentLikeConcurrency.S,
         A: strategy.actionJob.commentLikeConcurrency.A,
         B: strategy.actionJob.commentLikeConcurrency.B,
+      },
+      repostConcurrency: {
+        S: strategy.actionJob.repostConcurrency.S,
+        A: strategy.actionJob.repostConcurrency.A,
+        B: strategy.actionJob.repostConcurrency.B,
       },
       urgency: {
         S: normalizeUrgency(strategy.actionJob.urgency.S),

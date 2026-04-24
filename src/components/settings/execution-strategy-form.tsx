@@ -20,6 +20,11 @@ type ExecutionStrategy = {
       A: number;
       B: number;
     };
+    repostConcurrency: {
+      S: number;
+      A: number;
+      B: number;
+    };
     urgency: {
       S: UrgencyConfig;
       A: UrgencyConfig;
@@ -50,6 +55,11 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
           S: 4,
           A: 3,
           B: 2,
+        },
+        repostConcurrency: {
+          S: 3,
+          A: 2,
+          B: 1,
         },
         urgency: {
           S: {
@@ -99,6 +109,11 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
           A: 5,
           B: 3,
         },
+        repostConcurrency: {
+          S: 6,
+          A: 4,
+          B: 2,
+        },
         urgency: {
           S: {
             waveRatios: [0.3, 0.4, 0.3],
@@ -146,6 +161,11 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
           S: 10,
           A: 7,
           B: 4,
+        },
+        repostConcurrency: {
+          S: 8,
+          A: 5,
+          B: 3,
         },
         urgency: {
           S: {
@@ -211,6 +231,9 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
   const [sConcurrency, setSConcurrency] = useState(String(initialConfig.actionJob.commentLikeConcurrency.S));
   const [aConcurrency, setAConcurrency] = useState(String(initialConfig.actionJob.commentLikeConcurrency.A));
   const [bConcurrency, setBConcurrency] = useState(String(initialConfig.actionJob.commentLikeConcurrency.B));
+  const [sRepostConcurrency, setSRepostConcurrency] = useState(String(initialConfig.actionJob.repostConcurrency.S));
+  const [aRepostConcurrency, setARepostConcurrency] = useState(String(initialConfig.actionJob.repostConcurrency.A));
+  const [bRepostConcurrency, setBRepostConcurrency] = useState(String(initialConfig.actionJob.repostConcurrency.B));
 
   const [sRatios, setSRatios] = useState(toCsv(initialConfig.actionJob.urgency.S.waveRatios));
   const [aRatios, setARatios] = useState(toCsv(initialConfig.actionJob.urgency.A.waveRatios));
@@ -278,6 +301,11 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
                   S: Number(sConcurrency),
                   A: Number(aConcurrency),
                   B: Number(bConcurrency),
+                },
+                repostConcurrency: {
+                  S: Number(sRepostConcurrency),
+                  A: Number(aRepostConcurrency),
+                  B: Number(bRepostConcurrency),
                 },
                 urgency: {
                   S: parseUrgencyConfig(sRatios, sWindows, sCooldown, sRetryDelay, sSla),
@@ -383,6 +411,18 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
           <label className="block">
             <span className="mb-1 block text-sm text-slate-700">控评并发 B</span>
             <input value={bConcurrency} onChange={(event) => setBConcurrency(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-slate-700">轮转并发 S</span>
+            <input value={sRepostConcurrency} onChange={(event) => setSRepostConcurrency(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-slate-700">轮转并发 A</span>
+            <input value={aRepostConcurrency} onChange={(event) => setARepostConcurrency(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-slate-700">轮转并发 B</span>
+            <input value={bRepostConcurrency} onChange={(event) => setBRepostConcurrency(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
         </div>
 
