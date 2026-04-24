@@ -1,4 +1,5 @@
 import { resolveAiRuntimeConfig } from "@/server/copywriting/ai-config";
+import { getAiRiskConfig } from "@/server/ai-risk-config";
 
 export type AiRiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
@@ -9,8 +10,6 @@ export type AiRiskAssessment = {
   suggestions: string[];
   canBlock: boolean;
 };
-
-const riskyKeywords = ["加微信", "私信我", "vx", "稳赚", "返现", "优惠", "下单", "冲冲冲", "速来", "置顶"];
 
 function stripCodeFences(text: string) {
   return text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
@@ -77,12 +76,13 @@ function normalizeAssessment(input: Partial<AiRiskAssessment>, canBlock: boolean
   };
 }
 
-function assessCopywritingFallback(content: string, peerContents: string[], canBlock = true): AiRiskAssessment {
+async function assessCopywritingFallback(content: string, peerContents: string[], canBlock = true): Promise<AiRiskAssessment> {
+  const config = await getAiRiskConfig();
   const reasons: string[] = [];
   const suggestions: string[] = [];
   let riskLevel: AiRiskLevel = "LOW";
   const normalized = content.replace(/\s+/g, "").trim();
-  const hasRiskKeyword = riskyKeywords.filter((keyword) => content.includes(keyword));
+  const hasRiskKeyword = config.riskyKeywords.filter((keyword) => content.includes(keyword));
   const duplicateLike = peerContents.some((item) => item !== content && item.replace(/\s+/g, "").trim() === normalized);
 
   if (hasRiskKeyword.length > 0) {
@@ -139,7 +139,7 @@ export async function assessCopywritingCandidates(input: {
     // fall back to local heuristics
   }
 
-  return input.candidates.map((content) => assessCopywritingFallback(content, input.candidates, true));
+  return Promise.all(input.candidates.map((content) => assessCopywritingFallback(content, input.candidates, true)));
 }
 
 export async function assessTaskRisk(input: {

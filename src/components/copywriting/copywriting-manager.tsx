@@ -90,8 +90,6 @@ const toneText: Record<AiTone, string> = {
   LIVELY: "活泼",
 };
 
-const riskKeywords = ["加微信", "私信我", "vx", "稳赚", "返现", "优惠", "下单", "冲冲冲", "绝绝子", "速来", "置顶"];
-
 function normalizeCandidateText(text: string) {
   return text.replace(/[\s，。！？!?,.;；:“”"'`~～【】\[\]()（）]/g, "").trim();
 }
@@ -114,7 +112,7 @@ function getSimilarityRatio(left: string, right: string) {
   return overlap / Math.max(source.size, target.size, 1);
 }
 
-function analyzeCandidate(content: string, allContents: string[]) {
+function analyzeCandidate(content: string, allContents: string[], riskKeywords: string[]) {
   const normalized = normalizeCandidateText(content);
   const duplicateLike = allContents.some((item) => item !== content && getSimilarityRatio(normalized, normalizeCandidateText(item)) >= 0.8);
   const matchedKeywords = riskKeywords.filter((keyword) => content.includes(keyword));
@@ -154,10 +152,12 @@ export function CopywritingManager({
   currentUserRole,
   initialItems,
   initialAiConfig,
+  initialAiRiskConfig,
 }: {
   currentUserRole: AppRole;
   initialItems: CopywritingTemplate[];
   initialAiConfig: Omit<AiConfigState, "apiKey">;
+  initialAiRiskConfig: { riskyKeywords: string[] };
 }) {
   const [items, setItems] = useState(initialItems);
   const [form, setForm] = useState(initialForm);
@@ -172,12 +172,14 @@ export function CopywritingManager({
   const [sourceFilter, setSourceFilter] = useState<"ALL" | "MANUAL" | "AI">("ALL");
   const [businessFilter, setBusinessFilter] = useState<"ALL" | AiBusinessType>("ALL");
   const [aiConfig, setAiConfig] = useState<AiConfigState>({ ...initialAiConfig, apiKey: "" });
+  const [aiRiskKeywordsText, setAiRiskKeywordsText] = useState(initialAiRiskConfig.riskyKeywords.join("\n"));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSaving, setAiSaving] = useState(false);
   const [aiRewriting, setAiRewriting] = useState(false);
   const [aiConfigSaving, setAiConfigSaving] = useState(false);
+  const [aiRiskConfigSaving, setAiRiskConfigSaving] = useState(false);
   const [linkPreviewLoading, setLinkPreviewLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
@@ -450,6 +452,36 @@ export function CopywritingManager({
     }
   }
 
+  async function handleSaveAiRiskConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      setAiRiskConfigSaving(true);
+      setError(null);
+      const response = await fetch("/api/ai-risk/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          riskyKeywords: aiRiskKeywordsText
+            .split(/\n+/)
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "保存风险词配置失败");
+      }
+
+      setAiRiskKeywordsText(result.data.riskyKeywords.join("\n"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存风险词配置失败");
+    } finally {
+      setAiRiskConfigSaving(false);
+    }
+  }
+
   async function handleFetchLinkPreview() {
     try {
       setLinkPreviewLoading(true);
@@ -604,6 +636,25 @@ export function CopywritingManager({
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-lg font-medium">AI 生成文案</h3>
           <p className="mt-1 text-sm text-slate-500">AI 只生成候选文案，先预览再入库，不会直接执行任务。</p>
+          <form className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4" onSubmit={handleSaveAiRiskConfig}>
+            <p className="text-sm font-medium text-slate-800">风险词词库</p>
+            <p className="mt-1 text-xs text-slate-500">用于 AI 文案候选提示和 AI 风控助手兜底规则，修改后全局生效。</p>
+            <textarea
+              value={aiRiskKeywordsText}
+              onChange={(event) => setAiRiskKeywordsText(event.target.value)}
+              className="mt-3 min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder="每行一个风险词"
+            />
+            <div className="mt-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={aiRiskConfigSaving}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {aiRiskConfigSaving ? "保存中..." : "保存风险词词库"}
+              </button>
+            </div>
+          </form>
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-medium text-slate-800">导入微博链接</p>
             <p className="mt-1 text-xs text-slate-500">先抓取微博标题和正文摘要，确认后再填入上下文生成文案。</p>
@@ -729,7 +780,14 @@ export function CopywritingManager({
               </div>
               <div className="space-y-3">
                 {aiCandidates.map((item, index) => {
-                  const analysis = analyzeCandidate(item.content, aiCandidates.map((candidate) => candidate.content));
+                  const analysis = analyzeCandidate(
+                    item.content,
+                    aiCandidates.map((candidate) => candidate.content),
+                    aiRiskKeywordsText
+                      .split(/\n+/)
+                      .map((keyword) => keyword.trim())
+                      .filter(Boolean),
+                  );
                   const risk = aiCandidateRisks[index];
 
                   return (
