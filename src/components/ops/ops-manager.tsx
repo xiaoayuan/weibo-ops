@@ -432,13 +432,20 @@ export function OpsManager({
     const summary = ((job.summary || {}) as JobSummary) || {};
     const lines: string[] = [];
 
+    const targetNodeId = typeof config.targetNodeId === "string" ? config.targetNodeId : null;
+    const claimedByNodeId = typeof (summary as Record<string, unknown>).claimedByNodeId === "string" ? ((summary as Record<string, unknown>).claimedByNodeId as string) : null;
+
+    if (targetNodeId) {
+      lines.push(`目标节点：${targetNodeId}`);
+    }
+
+    if (claimedByNodeId) {
+      lines.push(`执行节点：${claimedByNodeId}`);
+    }
+
     if (job.jobType === "COMMENT_LIKE_BATCH") {
       const poolItemIds = Array.isArray(config.poolItemIds) ? config.poolItemIds.length : 0;
       lines.push(`控评链接 ${poolItemIds} 条`);
-    }
-
-    if (typeof config.targetNodeId === "string") {
-      lines.push(`执行节点：${config.targetNodeId}`);
     }
 
     if (job.jobType === "REPOST_ROTATION") {
