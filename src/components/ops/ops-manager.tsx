@@ -375,6 +375,23 @@ export function OpsManager({
     return `预估 ${forecast.targetMinutes}-${forecast.limitMinutes} 分钟，实际目标 ${summary.sla.targetMinutes || 0} 分钟 / 上限 ${summary.sla.limitMinutes || 0} 分钟`;
   }
 
+  function getJobNodeSummaryText(job: ActionJobWithRuns) {
+    const config = ((job.config || {}) as Record<string, unknown>) || {};
+    const summary = ((job.summary || {}) as Record<string, unknown>) || {};
+    const targetNodeId = typeof config.targetNodeId === "string" ? config.targetNodeId : "自动分配";
+    const claimedByNodeId = typeof summary.claimedByNodeId === "string" ? summary.claimedByNodeId : null;
+
+    if (claimedByNodeId) {
+      return `目标 ${targetNodeId} / 已由 ${claimedByNodeId} 执行`;
+    }
+
+    if (job.status === "PENDING") {
+      return `目标 ${targetNodeId} / 等待节点领取`;
+    }
+
+    return `目标 ${targetNodeId}`;
+  }
+
   function getJobSummaryText(job: ActionJobWithRuns) {
     const summary = ((job.summary || {}) as JobSummary) || {};
     if (job.status === "CANCELLED") {
@@ -1477,6 +1494,7 @@ export function OpsManager({
                   <div className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">
                     {getJobAccountPreviewText(job)}
                   </div>
+                  <p className="mt-2 text-xs text-slate-500">{getJobNodeSummaryText(job)}</p>
                   <p className="mt-2 text-xs text-slate-500">{getJobSummaryText(job)}</p>
                   <p className="mt-1 text-xs text-rose-600">主要失败：{getJobTopFailureText(job)}</p>
                   <p className="mt-2 text-xs text-slate-500">{getJobSlaText(job)}</p>
@@ -1556,6 +1574,7 @@ export function OpsManager({
                       <td className="px-3 py-3">
                         <p>{getUrgencyText(getJobUrgency(job))}</p>
                         <p className="mt-1 text-xs text-slate-500">{getJobSlaText(job)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{getJobNodeSummaryText(job)}</p>
                       </td>
                       <td className="px-3 py-3 text-xs text-slate-500">{getForecastCompareText(job)}</td>
                       <td className="px-3 py-3">
