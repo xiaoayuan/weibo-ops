@@ -1,4 +1,4 @@
-import { decryptText } from "@/lib/encrypt";
+import { decryptText, getDecryptErrorMessage } from "@/lib/encrypt";
 import { prisma } from "@/lib/prisma";
 import { sendHttpRequestWithRetry } from "@/server/executors/http-client";
 import { validateInteractionPrecheck, validatePlanPrecheck } from "@/server/executors/precheck";
@@ -540,10 +540,14 @@ async function getAccountCookie(accountId: string) {
     throw new Error("账号尚未录入 Cookie");
   }
 
-  return {
-    ...account,
-    cookie: decryptText(account.cookieEncrypted),
-  };
+  try {
+    return {
+      ...account,
+      cookie: decryptText(account.cookieEncrypted),
+    };
+  } catch (error) {
+    throw new Error(getDecryptErrorMessage(error));
+  }
 }
 
 async function buildConnectivityProbe(cookie: string, proxyConfig?: ProxyConfig | null) {

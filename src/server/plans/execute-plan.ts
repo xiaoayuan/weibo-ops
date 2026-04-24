@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { decryptText } from "@/lib/encrypt";
+import { decryptText, getDecryptErrorMessage } from "@/lib/encrypt";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
@@ -258,7 +258,42 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     }
 
     const topicUrl = plan.task.superTopic.topicUrl || "https://weibo.com/";
-    const cookie = decryptText(plan.account.cookieEncrypted);
+    let cookie: string;
+
+    try {
+      cookie = decryptText(plan.account.cookieEncrypted);
+    } catch (error) {
+      const resultMessage = getDecryptErrorMessage(error);
+      const updated = await prisma.dailyPlan.update({
+        where: { id },
+        data: {
+          status: "FAILED",
+          resultMessage,
+        },
+        include: planInclude,
+      });
+
+      await writeExecutionLog({
+        accountId: updated.accountId,
+        planId: updated.id,
+        actionType: "FIRST_COMMENT_EXECUTE_FAILED",
+        requestPayload: {
+          planType: updated.planType,
+          trigger: "manual_or_auto",
+          timing,
+        },
+        success: false,
+        errorMessage: resultMessage,
+      });
+
+      return {
+        ok: true as const,
+        success: false,
+        message: updated.resultMessage || "首评执行失败",
+        data: updated,
+      };
+    }
+
     const proxyConfig = await getProxyConfigForAccount(plan.accountId);
     const latestPosts = await fetchLatestPosts(topicUrl, cookie, 200, proxyConfig);
     const riskRules = await getRiskRules();
