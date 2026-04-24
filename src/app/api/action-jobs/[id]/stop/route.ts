@@ -37,6 +37,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/action
       select: {
         id: true,
         createdBy: true,
+        summary: true,
       },
     });
 
@@ -50,6 +51,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/action
         data: {
           status: "CANCELLED",
           summary: {
+            ...(existing.summary && typeof existing.summary === "object" && !Array.isArray(existing.summary) ? (existing.summary as Record<string, unknown>) : {}),
             stoppedBy: auth.session.username,
             stoppedAt: new Date().toISOString(),
           },

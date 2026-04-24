@@ -45,6 +45,15 @@ type JobConfig = {
   aiRisk?: AiRiskAssessment | null;
 };
 
+type JobSummary = {
+  stoppedBy?: string;
+  stoppedAt?: string;
+  totalAccounts?: number;
+  successAccounts?: number;
+  failedAccounts?: number;
+  partialAccounts?: number;
+};
+
 function estimateJobForecast(input: {
   urgency: "S" | "A" | "B";
   accountIds: string[];
@@ -334,6 +343,15 @@ export function OpsManager({
   }
 
   function getJobSummaryText(job: ActionJobWithRuns) {
+    const summary = ((job.summary || {}) as JobSummary) || {};
+    if (job.status === "CANCELLED") {
+      return `已人工停止${summary.stoppedBy ? `：${summary.stoppedBy}` : ""}`;
+    }
+
+    if (typeof summary.successAccounts === "number" || typeof summary.failedAccounts === "number" || typeof summary.partialAccounts === "number") {
+      return `成功 ${summary.successAccounts || 0} / 失败 ${summary.failedAccounts || 0} / 部分失败 ${summary.partialAccounts || 0}`;
+    }
+
     const runs = job.accountRuns;
     const successCount = runs.filter((run) => run.status === "SUCCESS").length;
     const failedCount = runs.filter((run) => run.status === "FAILED").length;
@@ -344,6 +362,12 @@ export function OpsManager({
   }
 
   function getJobTopFailureText(job: ActionJobWithRuns) {
+    const summary = ((job.summary || {}) as JobSummary) || {};
+
+    if (job.status === "CANCELLED") {
+      return summary.stoppedAt ? `停止时间：${new Date(summary.stoppedAt).toLocaleString("zh-CN")}` : "任务已人工停止";
+    }
+
     const failedRuns = job.accountRuns.filter((run) => Boolean(run.errorMessage));
 
     if (failedRuns.length === 0) {
@@ -362,8 +386,16 @@ export function OpsManager({
     return `${reason}（${count} 个账号）`;
   }
 
+  function getRunStateText(job: ActionJobWithRuns, run: ActionJobWithRuns["accountRuns"][number]) {
+    if (job.status === "CANCELLED" && run.status === "CANCELLED") {
+      return "已停止";
+    }
+
+    return jobStatusText[run.status];
+  }
+
   function getJobAccountPreviewText(job: ActionJobWithRuns) {
-    const grouped = job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`);
+    const grouped = job.accountRuns.map((run) => `${run.account.nickname}:${getRunStateText(job, run)}`);
 
     if (grouped.length <= 4) {
       return grouped.join(" / ") || "-";
@@ -1211,7 +1243,7 @@ export function OpsManager({
                         <div key={run.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
                           <div className="flex items-center justify-between gap-3">
                             <span className="font-medium">{run.account.nickname}</span>
-                            <span>{jobStatusText[run.status]}</span>
+                            <span>{getRunStateText(job, run)}</span>
                           </div>
                           <p className="mt-2 text-xs text-slate-500">
                             进度 {run.currentStep}/{run.totalSteps}
@@ -1290,7 +1322,7 @@ export function OpsManager({
                               <div key={run.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
                                 <div className="flex items-center justify-between gap-3">
                                   <span className="font-medium">{run.account.nickname}</span>
-                                  <span>{jobStatusText[run.status]}</span>
+                                  <span>{getRunStateText(job, run)}</span>
                                 </div>
                                 <p className="mt-2 text-xs text-slate-500">
                                   进度 {run.currentStep}/{run.totalSteps}
