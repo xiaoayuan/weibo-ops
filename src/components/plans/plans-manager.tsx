@@ -8,6 +8,7 @@ import { FormEvent, useMemo, useState } from "react";
 
 type PlanWithRelations = DailyPlan & {
   scheduleNote?: string | null;
+  pendingReason?: string | null;
   account: WeiboAccount;
   content: CopywritingTemplate | null;
   task: {
@@ -77,6 +78,14 @@ function renderScheduleNote(note?: string | null) {
   }
 
   return <span className="text-amber-700">{note}</span>;
+}
+
+function renderPendingReason(note?: string | null) {
+  if (!note) {
+    return <span className="text-slate-400">-</span>;
+  }
+
+  return <span className="text-slate-600">{note}</span>;
 }
 
 export function PlansManager({
@@ -831,6 +840,7 @@ export function PlansManager({
                               <th className="px-3 py-2 font-medium">类型</th>
                               <th className="px-3 py-2 font-medium">状态</th>
                               <th className="px-3 py-2 font-medium">调度说明</th>
+                              <th className="px-3 py-2 font-medium">未执行原因</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -849,6 +859,7 @@ export function PlansManager({
                                 <td className="px-3 py-2">{getPlanTypeText(plan.planType)}</td>
                                 <td className="px-3 py-2">{statusText[plan.status]}</td>
                                 <td className="px-3 py-2 text-slate-600">{renderScheduleNote(plan.scheduleNote)}</td>
+                                <td className="px-3 py-2 text-slate-600">{renderPendingReason(plan.pendingReason)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -928,6 +939,11 @@ export function PlansManager({
                     {renderScheduleNote(plan.scheduleNote)}
                   </div>
 
+                  <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                    <p className="mb-1 text-xs font-medium text-slate-500">未执行原因</p>
+                    {renderPendingReason(plan.pendingReason)}
+                  </div>
+
                   <div className="mt-3 flex flex-wrap gap-3 text-sm">
                     {isEditing && canManage ? (
                       <>
@@ -982,13 +998,14 @@ export function PlansManager({
               <th className="px-6 py-3 font-medium">文案</th>
               <th className="px-6 py-3 font-medium">状态</th>
               <th className="px-6 py-3 font-medium">调度说明</th>
+              <th className="px-6 py-3 font-medium">未执行原因</th>
               <th className="px-6 py-3 font-medium">操作</th>
             </tr>
           </thead>
           <tbody>
             {filteredPlans.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-8 text-slate-500">
+                <td colSpan={10} className="px-6 py-8 text-slate-500">
                   当前日期暂无计划，请先生成。
                 </td>
               </tr>
@@ -1042,6 +1059,7 @@ export function PlansManager({
                     </td>
                     <td className="px-6 py-4">{statusText[plan.status]}</td>
                     <td className="max-w-md px-6 py-4 text-slate-600">{renderScheduleNote(plan.scheduleNote)}</td>
+                    <td className="max-w-md px-6 py-4 text-slate-600">{renderPendingReason(plan.pendingReason)}</td>
                     <td className="px-6 py-4">
                        {isEditing && canManage ? (
                          <div className="flex flex-wrap gap-2">

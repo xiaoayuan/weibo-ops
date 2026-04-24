@@ -3,6 +3,15 @@ import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
+function toBusinessHm(date: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 function readScheduleDecision(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return null;
@@ -37,13 +46,57 @@ function formatScheduleNote(payload: unknown) {
   return `${decision.baseTier || "-"} -> ${decision.effectiveTier || decision.baseTier || "-"}，${delayText}，${reasons}`;
 }
 
+function getPendingReason(input: {
+  planDateText: string;
+  todayText: string;
+  now: Date;
+  status: string;
+  scheduledTime: Date;
+  autoExecuteEnabled: boolean;
+  autoExecuteStartTime: string;
+  scheduleNote?: string | null;
+}) {
+  if (input.status !== "PENDING" && input.status !== "READY") {
+    return null;
+  }
+
+  if (input.scheduleNote) {
+    return input.scheduleNote;
+  }
+
+  if (input.planDateText > input.todayText) {
+    return "计划日期未到";
+  }
+
+  if (!input.autoExecuteEnabled) {
+    return "当前用户未开启自动执行";
+  }
+
+  const nowHm = toBusinessHm(input.now);
+  if (input.planDateText === input.todayText && nowHm < input.autoExecuteStartTime) {
+    return `未到自动执行开始时间（${input.autoExecuteStartTime}）`;
+  }
+
+  if (input.scheduledTime.getTime() > input.now.getTime()) {
+    return `尚未到计划时间（${new Date(input.scheduledTime).toLocaleString("zh-CN")})`;
+  }
+
+  if (input.status === "READY") {
+    return "已确认，等待调度执行";
+  }
+
+  return "待自动调度执行";
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function PlansPage() {
   const session = await requirePageRole("VIEWER");
+  const now = new Date();
   const todayText = getBusinessDateText();
   const planDate = toBusinessDate(todayText);
-  const plans = await prisma.dailyPlan.findMany({
+  const [plans, user] = await Promise.all([
+    prisma.dailyPlan.findMany({
       where: {
         planDate,
         account: {
@@ -60,7 +113,15 @@ export default async function PlansPage() {
         },
       },
       orderBy: { scheduledTime: "asc" },
-    });
+    }),
+    prisma.user.findUnique({
+      where: { id: session.id },
+      select: {
+        autoExecuteEnabled: true,
+        autoExecuteStartTime: true,
+      },
+    }),
+  ]);
   const [contents, logs] = await Promise.all([
     prisma.copywritingTemplate.findMany({
       where: { status: "ACTIVE" },
@@ -94,6 +155,16 @@ export default async function PlansPage() {
   const plansWithSchedule = plans.map((plan) => ({
     ...plan,
     scheduleNote: scheduleNoteMap.get(plan.id) || null,
+    pendingReason: getPendingReason({
+      planDateText: todayText,
+      todayText,
+      now,
+      status: plan.status,
+      scheduledTime: plan.scheduledTime,
+      autoExecuteEnabled: user?.autoExecuteEnabled ?? true,
+      autoExecuteStartTime: user?.autoExecuteStartTime || "09:00",
+      scheduleNote: scheduleNoteMap.get(plan.id) || null,
+    }),
   }));
 
   return <PlansManager currentUserRole={session.role} initialPlans={plansWithSchedule} initialDate={todayText} contents={contents} />;
