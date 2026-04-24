@@ -5,6 +5,23 @@ import { getActionTypeText, getTaskStatusText } from "@/lib/display-text";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
+function readNumberField(payload: unknown, keys: string[]) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return 0;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return 0;
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
@@ -34,7 +51,7 @@ export default async function DashboardPage() {
     },
   ];
 
-  const [todayPlans, activeAccounts, failedPlans, pendingPlans, recentLogs, copywritingCount, recentPlans] = await Promise.all([
+  const [todayPlans, activeAccounts, failedPlans, pendingPlans, recentLogs, copywritingCount, recentPlans, todayPlanLogs] = await Promise.all([
     prisma.dailyPlan.count({
       where: {
         planDate: today,
@@ -97,7 +114,51 @@ export default async function DashboardPage() {
       orderBy: { scheduledTime: "asc" },
       take: 6,
     }),
+    prisma.executionLog.findMany({
+      where: {
+        executedAt: {
+          gte: today,
+        },
+        OR: [
+          {
+            userId: session.id,
+          },
+          {
+            account: {
+              ownerUserId: session.id,
+            },
+          },
+        ],
+        actionType: {
+          in: ["PLAN_GENERATED", "PLAN_SCHEDULED", "PLAN_EXECUTE_PRECHECKED", "PLAN_EXECUTE_BLOCKED", "FIRST_COMMENT_EXECUTE_SUCCESS", "FIRST_COMMENT_EXECUTE_FAILED"],
+        },
+      },
+      select: {
+        actionType: true,
+        success: true,
+        responsePayload: true,
+      },
+    }),
   ]);
+
+  const planGeneratedBatches = todayPlanLogs.filter((log) => log.actionType === "PLAN_GENERATED" && log.success).length;
+  const generatedPlanCount = todayPlanLogs
+    .filter((log) => log.actionType === "PLAN_GENERATED" && log.success)
+    .reduce((sum, log) => sum + readNumberField(log.responsePayload, ["createdCount", "count"]), 0);
+  const queuedPlanCount = todayPlanLogs
+    .filter((log) => log.actionType === "PLAN_SCHEDULED" && log.success)
+    .reduce((sum, log) => sum + readNumberField(log.responsePayload, ["queuedCount"]), 0);
+  const executedSuccessCount = todayPlanLogs.filter(
+    (log) =>
+      (log.actionType === "PLAN_EXECUTE_PRECHECKED" || log.actionType === "FIRST_COMMENT_EXECUTE_SUCCESS") &&
+      log.success,
+  ).length;
+  const executedFailedCount = todayPlanLogs.filter(
+    (log) =>
+      log.actionType === "PLAN_EXECUTE_BLOCKED" ||
+      (log.actionType === "PLAN_EXECUTE_PRECHECKED" && !log.success) ||
+      log.actionType === "FIRST_COMMENT_EXECUTE_FAILED",
+  ).length;
 
   const stats = [
     { label: "今日计划", value: String(todayPlans) },
@@ -115,6 +176,13 @@ export default async function DashboardPage() {
     pendingPlans > 0 ? `当前有 ${pendingPlans} 条计划处于待审核状态。` : null,
   ].filter(Boolean) as string[];
 
+  const planExecutionStats = [
+    { label: "生成批次", value: String(planGeneratedBatches), detail: `共生成 ${generatedPlanCount} 条计划` },
+    { label: "入队计划", value: String(queuedPlanCount), detail: "今日进入执行队列的计划数" },
+    { label: "执行成功", value: String(executedSuccessCount), detail: "含普通计划和首评成功" },
+    { label: "执行失败", value: String(executedFailedCount), detail: "含拦截和执行失败" },
+  ];
+
   return (
     <div className="space-y-8">
       <div>
@@ -129,6 +197,28 @@ export default async function DashboardPage() {
             <p className="mt-3 text-3xl font-semibold">{item.value}</p>
           </div>
         ))}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium">计划生成与执行</h3>
+            <p className="mt-1 text-sm text-slate-500">按今天的计划日志汇总生成、入队和执行结果。</p>
+          </div>
+          <Link href="/logs" className="text-sm text-sky-600 hover:text-sky-700">
+            查看日志
+          </Link>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {planExecutionStats.map((item) => (
+            <div key={item.label} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">{item.label}</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{item.value}</p>
+              <p className="mt-2 text-xs text-slate-500">{item.detail}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
