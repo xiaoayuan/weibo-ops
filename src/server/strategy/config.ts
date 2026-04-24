@@ -17,14 +17,14 @@ export const executionStrategySchema = z.object({
   actionJob: z.object({
     maxRetry: z.number().int().min(0).max(3),
     commentLikeConcurrency: z.object({
-      S: z.number().int().min(1).max(20),
-      A: z.number().int().min(1).max(20),
-      B: z.number().int().min(1).max(20),
+      S: z.number().int().min(1).max(100),
+      A: z.number().int().min(1).max(100),
+      B: z.number().int().min(1).max(100),
     }),
     repostConcurrency: z.object({
-      S: z.number().int().min(1).max(20),
-      A: z.number().int().min(1).max(20),
-      B: z.number().int().min(1).max(20),
+      S: z.number().int().min(1).max(100),
+      A: z.number().int().min(1).max(100),
+      B: z.number().int().min(1).max(100),
     }),
     urgency: z.object({
       S: urgencyRuleSchema,
@@ -48,7 +48,7 @@ export const defaultExecutionStrategy: ExecutionStrategy = {
   actionJob: {
     maxRetry: 1,
     commentLikeConcurrency: {
-      S: 8,
+      S: 20,
       A: 5,
       B: 3,
     },
@@ -60,7 +60,7 @@ export const defaultExecutionStrategy: ExecutionStrategy = {
     urgency: {
       S: {
         waveRatios: [0.3, 0.4, 0.3],
-        waveWindowsSec: [15, 60, 180],
+        waveWindowsSec: [5, 20, 60],
         cooldownSecRange: [8, 25],
         retryDelaySecRange: [2, 5],
         targetSlaSec: 300,

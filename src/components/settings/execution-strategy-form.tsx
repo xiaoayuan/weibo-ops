@@ -105,7 +105,7 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
       actionJob: {
         maxRetry: 1,
         commentLikeConcurrency: {
-          S: 8,
+          S: 20,
           A: 5,
           B: 3,
         },
@@ -117,7 +117,7 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
         urgency: {
           S: {
             waveRatios: [0.3, 0.4, 0.3],
-            waveWindowsSec: [15, 60, 180],
+            waveWindowsSec: [5, 20, 60],
             cooldownSecRange: [8, 25],
             retryDelaySecRange: [2, 5],
             targetSlaSec: 300,
@@ -158,7 +158,7 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
       actionJob: {
         maxRetry: 2,
         commentLikeConcurrency: {
-          S: 10,
+          S: 30,
           A: 7,
           B: 4,
         },
@@ -170,7 +170,7 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
         urgency: {
           S: {
             waveRatios: [0.4, 0.35, 0.25],
-            waveWindowsSec: [10, 45, 120],
+            waveWindowsSec: [3, 15, 45],
             cooldownSecRange: [3, 15],
             retryDelaySecRange: [1, 4],
             targetSlaSec: 180,
