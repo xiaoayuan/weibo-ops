@@ -117,7 +117,7 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
         urgency: {
           S: {
             waveRatios: [0.3, 0.4, 0.3],
-            waveWindowsSec: [180, 600, 1800],
+            waveWindowsSec: [15, 60, 180],
             cooldownSecRange: [8, 25],
             retryDelaySecRange: [2, 5],
             targetSlaSec: 300,
@@ -170,7 +170,7 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
         urgency: {
           S: {
             waveRatios: [0.4, 0.35, 0.25],
-            waveWindowsSec: [120, 360, 1200],
+            waveWindowsSec: [10, 45, 120],
             cooldownSecRange: [3, 15],
             retryDelaySecRange: [1, 4],
             targetSlaSec: 180,

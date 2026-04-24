@@ -60,7 +60,7 @@ export const defaultExecutionStrategy: ExecutionStrategy = {
     urgency: {
       S: {
         waveRatios: [0.3, 0.4, 0.3],
-        waveWindowsSec: [180, 600, 1800],
+        waveWindowsSec: [15, 60, 180],
         cooldownSecRange: [8, 25],
         retryDelaySecRange: [2, 5],
         targetSlaSec: 300,
