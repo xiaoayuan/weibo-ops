@@ -70,6 +70,8 @@ const categoryText: Record<LogCategory, string> = {
 };
 
 function getBusinessActionText(log: LogWithRelations) {
+  const payload = log.requestPayload && typeof log.requestPayload === "object" && !Array.isArray(log.requestPayload) ? (log.requestPayload as Record<string, unknown>) : null;
+
   switch (log.actionType) {
     case "PLAN_GENERATED":
       return "生成今日计划";
@@ -97,7 +99,7 @@ function getBusinessActionText(log: LogWithRelations) {
     case "INTERACTION_EXECUTE_PRECHECKED":
       return "互动任务执行";
     case "ACTION_JOB_SCHEDULED":
-      return "批量任务进入执行队列";
+      return payload?.jobType === "REPOST_ROTATION" ? "轮转任务进入执行队列" : "控评任务进入执行队列";
     default:
       return getActionTypeText(log.actionType, log.requestPayload);
   }
@@ -105,6 +107,7 @@ function getBusinessActionText(log: LogWithRelations) {
 
 function getBusinessResultText(log: LogWithRelations) {
   const category = getLogCategory(log);
+  const payload = log.requestPayload && typeof log.requestPayload === "object" && !Array.isArray(log.requestPayload) ? (log.requestPayload as Record<string, unknown>) : null;
 
   if (category === "QUEUE") {
     return log.success ? "已入队" : "入队失败";
@@ -120,6 +123,23 @@ function getBusinessResultText(log: LogWithRelations) {
 
   if (log.actionType === "FIRST_COMMENT_EXECUTE_FAILED") {
     return "首评失败";
+  }
+
+  if (log.actionType === "INTERACTION_EXECUTE_BLOCKED") {
+    return "互动任务拦截";
+  }
+
+  if (log.actionType === "INTERACTION_EXECUTE_PRECHECKED") {
+    const actionType = typeof payload?.actionType === "string" ? payload.actionType : null;
+    if (actionType === "COMMENT") {
+      return log.success ? "回复成功" : "回复失败";
+    }
+    if (actionType === "LIKE") {
+      return log.success ? "点赞成功" : "点赞失败";
+    }
+    if (actionType === "POST") {
+      return log.success ? "转发成功" : "转发失败";
+    }
   }
 
   if (getLogStage(log) === "PRECHECK_BLOCKED") {
@@ -164,6 +184,21 @@ function getBusinessDetailText(log: LogWithRelations) {
   if (log.actionType === "AUTO_FIRST_COMMENT_DAILY_RUN") {
     const date = payload && typeof payload.date === "string" ? payload.date : "未知日期";
     return `日期 ${date}，自动首评调度已触发。`;
+  }
+
+  if (log.actionType === "ACTION_JOB_SCHEDULED") {
+    const jobType = payload && typeof payload.jobType === "string" ? payload.jobType : "COMMENT_LIKE_BATCH";
+    const queueDepth = payload && typeof payload.queueDepth === "number" ? payload.queueDepth : null;
+    const concurrency = payload && typeof payload.userConcurrency === "number" ? payload.userConcurrency : null;
+    const jobText = jobType === "REPOST_ROTATION" ? "轮转" : "控评";
+    return `${jobText}批量任务已进入队列${queueDepth !== null ? `，当前队列深度 ${queueDepth}` : ""}${concurrency !== null ? `，用户并发 ${concurrency}` : ""}。`;
+  }
+
+  if (log.actionType === "INTERACTION_EXECUTE_BLOCKED" || log.actionType === "INTERACTION_EXECUTE_PRECHECKED") {
+    const actionType = payload && typeof payload.actionType === "string" ? payload.actionType : "COMMENT";
+    const targetUrl = payload && typeof payload.targetUrl === "string" ? payload.targetUrl : null;
+    const actionText = actionType === "LIKE" ? "点赞" : actionType === "POST" ? "转发" : actionType === "CHECK_IN" ? "签到" : "回复";
+    return `${actionText}互动任务${targetUrl ? `，目标 ${targetUrl}` : ""}${getLogStage(log) === "PRECHECK_BLOCKED" ? "，执行前被拦截。" : "。"}`;
   }
 
   if (log.errorMessage) {
