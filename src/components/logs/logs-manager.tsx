@@ -23,6 +23,124 @@ type ScheduleDecision = {
   reasons?: string[];
 };
 
+type LogCategory = "PLAN" | "QUEUE" | "EXECUTION" | "RISK" | "SYSTEM";
+
+function getLogCategory(log: LogWithRelations): LogCategory {
+  if (log.actionType.includes("SCHEDULED") || log.actionType.includes("入队")) {
+    return "QUEUE";
+  }
+
+  if (log.actionType.includes("RISK") || log.actionType.includes("CIRCUIT")) {
+    return "RISK";
+  }
+
+  if (log.actionType.includes("PLAN") || log.actionType.includes("FIRST_COMMENT")) {
+    return "PLAN";
+  }
+
+  if (["CHECK_IN", "POST", "LIKE", "COMMENT"].includes(log.actionType)) {
+    return "EXECUTION";
+  }
+
+  return "SYSTEM";
+}
+
+const categoryText: Record<LogCategory, string> = {
+  PLAN: "计划",
+  QUEUE: "调度",
+  EXECUTION: "执行",
+  RISK: "风控",
+  SYSTEM: "系统",
+};
+
+function getBusinessActionText(log: LogWithRelations) {
+  switch (log.actionType) {
+    case "PLAN_GENERATED":
+      return "生成今日计划";
+    case "PLAN_SCHEDULED":
+      return "计划进入执行队列";
+    case "AUTO_CHECKIN_DAILY_RUN":
+      return "自动签到调度";
+    case "AUTO_FIRST_COMMENT_DAILY_RUN":
+      return "自动首评调度";
+    case "FIRST_COMMENT_EXECUTE_FAILED":
+      return "首评执行";
+    case "FIRST_COMMENT_EXECUTE_SUCCESS":
+      return "首评执行";
+    case "CHECK_IN":
+      return "签到执行";
+    case "POST":
+      return "转发执行";
+    case "LIKE":
+      return "点赞执行";
+    case "COMMENT":
+      return "回复执行";
+    case "INTERACTION_SCHEDULED":
+      return "互动任务进入执行队列";
+    case "INTERACTION_EXECUTE_BLOCKED":
+    case "INTERACTION_EXECUTE_PRECHECKED":
+      return "互动任务执行";
+    case "ACTION_JOB_SCHEDULED":
+      return "批量任务进入执行队列";
+    default:
+      return getActionTypeText(log.actionType, log.requestPayload);
+  }
+}
+
+function getBusinessResultText(log: LogWithRelations) {
+  const category = getLogCategory(log);
+
+  if (category === "QUEUE") {
+    return log.success ? "已入队" : "入队失败";
+  }
+
+  if (log.actionType === "PLAN_GENERATED") {
+    return log.success ? "已生成" : "生成失败";
+  }
+
+  if (log.actionType === "FIRST_COMMENT_EXECUTE_SUCCESS") {
+    return "首评成功";
+  }
+
+  if (log.actionType === "FIRST_COMMENT_EXECUTE_FAILED") {
+    return "首评失败";
+  }
+
+  if (getLogStage(log) === "PRECHECK_BLOCKED") {
+    return "预检拦截";
+  }
+
+  return log.success ? "执行成功" : "执行失败";
+}
+
+function getBusinessDetailText(log: LogWithRelations) {
+  const payload = log.requestPayload && typeof log.requestPayload === "object" && !Array.isArray(log.requestPayload) ? (log.requestPayload as Record<string, unknown>) : null;
+  const targetUrl = payload && typeof payload.targetUrl === "string" ? payload.targetUrl : null;
+  const stage = getLogStage(log);
+
+  if (log.errorMessage) {
+    return log.errorMessage;
+  }
+
+  if (stage === "PRECHECK_BLOCKED") {
+    return "执行前校验未通过，任务未真正发起。";
+  }
+
+  if (targetUrl) {
+    return targetUrl;
+  }
+
+  if (log.actionType === "PLAN_GENERATED") {
+    return "系统已为该账号生成计划。";
+  }
+
+  if (getLogCategory(log) === "QUEUE") {
+    return "任务已进入排队执行阶段，尚不代表已执行完成。";
+  }
+
+  return getResponseSummary(log.responsePayload);
+}
+
 function readStageFromPayload(payload: unknown): LogStage {
   if (!payload || typeof payload !== "object") {
     return "UNKNOWN";
@@ -245,13 +363,13 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               {isAdmin ? <th className="px-6 py-3 font-medium">用户</th> : null}
+              <th className="px-6 py-3 font-medium">分类</th>
               <th className="px-6 py-3 font-medium">动作</th>
               <th className="px-6 py-3 font-medium">账号</th>
               <th className="px-6 py-3 font-medium">结果</th>
               <th className="px-6 py-3 font-medium">阶段</th>
               <th className="px-6 py-3 font-medium">调度说明</th>
-              <th className="px-6 py-3 font-medium">响应摘要</th>
-              <th className="px-6 py-3 font-medium">错误信息</th>
+              <th className="px-6 py-3 font-medium">详情</th>
               <th className="px-6 py-3 font-medium">时间</th>
             </tr>
           </thead>
@@ -266,13 +384,13 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
               filteredLogs.map((log) => (
                 <tr key={log.id} className="border-t border-slate-200">
                   {isAdmin ? <td className="px-6 py-4">{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
-                  <td className="px-6 py-4">{getActionTypeText(log.actionType, log.requestPayload)}</td>
+                  <td className="px-6 py-4">{categoryText[getLogCategory(log)]}</td>
+                  <td className="px-6 py-4">{getBusinessActionText(log)}</td>
                   <td className="px-6 py-4">{log.account?.nickname || "-"}</td>
-                  <td className="px-6 py-4">{log.success ? "成功" : "失败"}</td>
+                  <td className="px-6 py-4">{getBusinessResultText(log)}</td>
                   <td className="px-6 py-4">{stageText[getLogStage(log)]}</td>
                   <td className="max-w-md px-6 py-4 text-slate-600">{getScheduleSummary(log)}</td>
-                  <td className="max-w-sm px-6 py-4 text-slate-600">{getResponseSummary(log.responsePayload)}</td>
-                  <td className="px-6 py-4 text-slate-600">{log.errorMessage || "-"}</td>
+                  <td className="max-w-sm px-6 py-4 text-slate-600">{getBusinessDetailText(log)}</td>
                   <td className="px-6 py-4">{new Date(log.executedAt).toLocaleString("zh-CN")}</td>
                 </tr>
               ))
