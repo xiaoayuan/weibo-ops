@@ -147,7 +147,7 @@ async function runAutoExecute(now: Date) {
         },
       },
       data: {
-        status: "RUNNING",
+        status: "PENDING",
         resultMessage: "自动调度已入队",
       },
     });

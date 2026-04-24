@@ -88,6 +88,14 @@ function renderPendingReason(note?: string | null) {
   return <span className="text-slate-600">{note}</span>;
 }
 
+function getPlanStatusText(plan: PlanWithRelations, statusText: Record<PlanStatus, string>) {
+  if ((plan.status === "PENDING" || plan.status === "READY") && plan.resultMessage === "自动调度已入队") {
+    return "已入队";
+  }
+
+  return statusText[plan.status];
+}
+
 export function PlansManager({
   initialPlans,
   initialDate,
@@ -857,7 +865,7 @@ export function PlansManager({
                                 <td className="px-3 py-2">{plan.account.nickname}</td>
                                 <td className="px-3 py-2">{plan.task?.superTopic.name || "-"}</td>
                                 <td className="px-3 py-2">{getPlanTypeText(plan.planType)}</td>
-                                <td className="px-3 py-2">{statusText[plan.status]}</td>
+                                <td className="px-3 py-2">{getPlanStatusText(plan, statusText)}</td>
                                 <td className="px-3 py-2 text-slate-600">{renderScheduleNote(plan.scheduleNote)}</td>
                                 <td className="px-3 py-2 text-slate-600">{renderPendingReason(plan.pendingReason)}</td>
                               </tr>
@@ -1057,7 +1065,7 @@ export function PlansManager({
                         plan.content?.content || "-"
                       )}
                     </td>
-                    <td className="px-6 py-4">{statusText[plan.status]}</td>
+                    <td className="px-6 py-4">{getPlanStatusText(plan, statusText)}</td>
                     <td className="max-w-md px-6 py-4 text-slate-600">{renderScheduleNote(plan.scheduleNote)}</td>
                     <td className="max-w-md px-6 py-4 text-slate-600">{renderPendingReason(plan.pendingReason)}</td>
                     <td className="px-6 py-4">
