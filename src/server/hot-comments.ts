@@ -42,15 +42,22 @@ export async function fetchHotComments(targetUrl: string, limit: number, keyword
       method: "GET",
       headers: {
         Accept: "application/json, text/plain, */*",
-        Referer: targetUrl,
+        "Accept-Language": "zh-CN,zh;q=0.9",
+        "X-Requested-With": "XMLHttpRequest",
+        Referer: "https://m.weibo.cn/",
       },
       timeoutMs: 12_000,
     },
     { retries: 1 },
   );
 
-  if (!response.ok || !response.json || typeof response.json !== "object") {
-    throw new Error("热门评论抓取失败");
+  if (!response.ok) {
+    throw new Error(`热门评论抓取失败：HTTP ${response.status}`);
+  }
+
+  if (!response.json || typeof response.json !== "object") {
+    const snippet = response.text.slice(0, 120).replace(/\s+/g, " ").trim();
+    throw new Error(`热门评论接口未返回 JSON：${snippet || "空响应"}`);
   }
 
   const root = response.json as Record<string, unknown>;
