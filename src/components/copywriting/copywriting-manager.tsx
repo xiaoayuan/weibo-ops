@@ -40,6 +40,14 @@ type LinkPreview = {
   recommendedContext: string;
 };
 
+type AiRiskAssessment = {
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  summary: string;
+  reasons: string[];
+  suggestions: string[];
+  canBlock: boolean;
+};
+
 type FormState = {
   title: string;
   content: string;
@@ -156,6 +164,7 @@ export function CopywritingManager({
   const [aiForm, setAiForm] = useState(initialAiForm);
   const [aiBatchId, setAiBatchId] = useState<string | null>(null);
   const [aiCandidates, setAiCandidates] = useState<AiCandidate[]>([]);
+  const [aiCandidateRisks, setAiCandidateRisks] = useState<AiRiskAssessment[]>([]);
   const [selectedAiIndexes, setSelectedAiIndexes] = useState<number[]>([]);
   const [rewriteSource, setRewriteSource] = useState<CopywritingTemplate | null>(null);
   const [importUrl, setImportUrl] = useState("");
@@ -295,6 +304,17 @@ export function CopywritingManager({
       setAiBatchId(result.data.batchId);
       setAiCandidates(result.data.candidates);
       setSelectedAiIndexes(result.data.candidates.map((_: AiCandidate, index: number) => index));
+      const riskResponse = await fetch("/api/ai-risk/copywriting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessType: aiForm.businessType,
+          context: aiForm.context,
+          candidates: result.data.candidates.map((item: AiCandidate) => item.content),
+        }),
+      });
+      const riskResult = await riskResponse.json();
+      setAiCandidateRisks(riskResponse.ok && riskResult.success ? riskResult.data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI 文案生成失败");
     } finally {
@@ -304,9 +324,15 @@ export function CopywritingManager({
 
   async function handleSaveAiCandidates() {
     const selectedItems = aiCandidates.filter((_, index) => selectedAiIndexes.includes(index));
+    const selectedHighRisk = selectedAiIndexes.some((index) => aiCandidateRisks[index]?.riskLevel === "HIGH" && aiCandidateRisks[index]?.canBlock);
 
     if (!aiBatchId || selectedItems.length === 0) {
       setError("请先选择至少一条 AI 文案");
+      return;
+    }
+
+    if (selectedHighRisk) {
+      setError("当前选中的文案里包含 AI 判定为高风险的内容，请先取消勾选或改写后再保存");
       return;
     }
 
@@ -339,6 +365,7 @@ export function CopywritingManager({
       setItems((current) => [...result.data, ...current]);
       setAiBatchId(null);
       setAiCandidates([]);
+      setAiCandidateRisks([]);
       setSelectedAiIndexes([]);
       setRewriteSource(null);
     } catch (err) {
@@ -376,6 +403,17 @@ export function CopywritingManager({
       setAiBatchId(result.data.batchId);
       setAiCandidates(result.data.candidates);
       setSelectedAiIndexes(result.data.candidates.map((_: AiCandidate, index: number) => index));
+      const riskResponse = await fetch("/api/ai-risk/copywriting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessType: businessType === "ALL" ? aiForm.businessType : businessType,
+          context: aiForm.context,
+          candidates: result.data.candidates.map((candidate: AiCandidate) => candidate.content),
+        }),
+      });
+      const riskResult = await riskResponse.json();
+      setAiCandidateRisks(riskResponse.ok && riskResult.success ? riskResult.data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI 文案改写失败");
     } finally {
@@ -692,6 +730,7 @@ export function CopywritingManager({
               <div className="space-y-3">
                 {aiCandidates.map((item, index) => {
                   const analysis = analyzeCandidate(item.content, aiCandidates.map((candidate) => candidate.content));
+                  const risk = aiCandidateRisks[index];
 
                   return (
                     <label key={`${aiBatchId}-${index}`} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -700,10 +739,12 @@ export function CopywritingManager({
                         <span className="block text-sm font-medium text-slate-900">{item.title}</span>
                         <span className="mt-2 block text-sm text-slate-600">{item.content}</span>
                         <span className="mt-3 flex flex-wrap gap-2 text-xs">
+                          {risk ? <span className={`rounded-full px-2.5 py-1 ${risk.riskLevel === "HIGH" ? "border border-rose-200 bg-rose-50 text-rose-700" : risk.riskLevel === "MEDIUM" ? "border border-amber-200 bg-amber-50 text-amber-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"}`}>AI预审：{risk.riskLevel === "HIGH" ? "高风险" : risk.riskLevel === "MEDIUM" ? "中风险" : "低风险"}</span> : null}
                           {analysis.duplicateLike ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700">重复度偏高</span> : null}
                           {analysis.matchedKeywords.length > 0 ? <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-700">风险词：{analysis.matchedKeywords.join(" / ")}</span> : null}
                           {!analysis.duplicateLike && analysis.matchedKeywords.length === 0 ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-700">未发现明显重复或风险词</span> : null}
                         </span>
+                        {risk ? <span className="mt-2 block text-xs text-slate-500">{risk.summary}；{risk.reasons.join(" / ")}</span> : null}
                       </span>
                     </label>
                   );

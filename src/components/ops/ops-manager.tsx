@@ -31,6 +31,14 @@ type JobForecast = {
   notes: string[];
 };
 
+type AiRiskAssessment = {
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  summary: string;
+  reasons: string[];
+  suggestions: string[];
+  canBlock: boolean;
+};
+
 type JobConfig = {
   urgency?: "S" | "A" | "B";
   forecast?: JobForecast;
@@ -194,6 +202,8 @@ export function OpsManager({
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [commentLikeAiRisk, setCommentLikeAiRisk] = useState<AiRiskAssessment | null>(null);
+  const [rotationAiRisk, setRotationAiRisk] = useState<AiRiskAssessment | null>(null);
 
   const repostTargetPreview = useMemo(() => parseRepostTargetPreview(rotationTargetUrl), [rotationTargetUrl]);
 
@@ -224,6 +234,29 @@ export function OpsManager({
     }
 
     return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+  }
+
+  async function refreshTaskRisk(input: { taskType: string; urgency: "S" | "A" | "B"; accountCount: number; context?: string }, target: "comment" | "rotation") {
+    try {
+      const response = await fetch("/api/ai-risk/task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        return;
+      }
+
+      if (target === "comment") {
+        setCommentLikeAiRisk(result.data);
+      } else {
+        setRotationAiRisk(result.data);
+      }
+    } catch {
+      // ignore AI risk failures in create form
+    }
   }
 
   const filteredJobs = useMemo(() => {
@@ -900,6 +933,32 @@ export function OpsManager({
                       ))}
                     </div>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      refreshTaskRisk(
+                        {
+                          taskType: "COMMENT_CONTROL",
+                          urgency: commentLikeUrgency,
+                          accountCount: selectedPoolAccountIds.length,
+                          context: `${selectedPoolIds.length} 条控评链接`,
+                        },
+                        "comment",
+                      )
+                    }
+                    disabled={selectedPoolAccountIds.length === 0}
+                    className="mt-3 text-xs text-sky-700 hover:text-sky-800 disabled:opacity-50"
+                  >
+                    AI 风险评估
+                  </button>
+                  {selectedPoolAccountIds.length > 0 && commentLikeAiRisk ? (
+                    <div className="mt-3 rounded-lg bg-white p-3 text-xs text-slate-600">
+                      <p className="font-medium text-slate-700">AI 风险提示：{commentLikeAiRisk.riskLevel === "HIGH" ? "高风险" : commentLikeAiRisk.riskLevel === "MEDIUM" ? "中风险" : "低风险"}</p>
+                      <p className="mt-1">{commentLikeAiRisk.summary}</p>
+                      <p className="mt-1">原因：{commentLikeAiRisk.reasons.join(" / ")}</p>
+                      <p className="mt-1">建议：{commentLikeAiRisk.suggestions.join(" / ")}</p>
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   disabled={submitting}
@@ -994,6 +1053,32 @@ export function OpsManager({
                   <p key={note}>{note}</p>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() =>
+                  refreshTaskRisk(
+                    {
+                      taskType: "REPOST_ROTATION",
+                      urgency: rotationUrgency,
+                      accountCount: selectedRotationAccountIds.length,
+                      context: `${rotationTimes} 次轮转；${rotationTargetUrl || "无目标链接"}`,
+                    },
+                    "rotation",
+                  )
+                }
+                disabled={selectedRotationAccountIds.length === 0}
+                className="mt-3 text-xs text-sky-700 hover:text-sky-800 disabled:opacity-50"
+              >
+                AI 风险评估
+              </button>
+              {selectedRotationAccountIds.length > 0 && rotationAiRisk ? (
+                <div className="mt-3 rounded-lg bg-white p-3 text-xs text-slate-600">
+                  <p className="font-medium text-slate-700">AI 风险提示：{rotationAiRisk.riskLevel === "HIGH" ? "高风险" : rotationAiRisk.riskLevel === "MEDIUM" ? "中风险" : "低风险"}</p>
+                  <p className="mt-1">{rotationAiRisk.summary}</p>
+                  <p className="mt-1">原因：{rotationAiRisk.reasons.join(" / ")}</p>
+                  <p className="mt-1">建议：{rotationAiRisk.suggestions.join(" / ")}</p>
+                </div>
+              ) : null}
             </div>
             <div>
               <p className="mb-2 text-sm font-medium text-slate-700">转发文案（每行一条，按顺序轮转）</p>

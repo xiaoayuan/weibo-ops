@@ -51,6 +51,14 @@ type LogSummaryRow = {
   }>;
 };
 
+type AiRiskAssessment = {
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  summary: string;
+  reasons: string[];
+  suggestions: string[];
+  canBlock: boolean;
+};
+
 function getFailureReasonText(log: LogWithRelations) {
   if (log.errorMessage) {
     return log.errorMessage;
@@ -505,6 +513,7 @@ function getScheduleSummary(log: LogWithRelations) {
 export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogWithRelations[]; users: UserOption[]; isAdmin: boolean }) {
   const [viewMode, setViewMode] = useState<LogsViewMode>("SUMMARY");
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
+  const [aiSummaryMap, setAiSummaryMap] = useState<Record<string, AiRiskAssessment>>({});
   const [keyword, setKeyword] = useState("");
   const [resultFilter, setResultFilter] = useState<"ALL" | "SUCCESS" | "FAILED">("ALL");
   const [actionFilter, setActionFilter] = useState("ALL");
@@ -533,6 +542,29 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
     return matchesKeyword && matchesResult && matchesAction && matchesStage && matchesUser && matchesStartDate && matchesEndDate;
   });
   const summaryRows = buildLogSummaries(filteredLogs, users, isAdmin);
+
+  async function fetchAiSummary(accountKey: string, actionText: string, detailText: string, topReason?: string | null) {
+    if (aiSummaryMap[accountKey]) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/ai-risk/log-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionText, detailText, topReason }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        return;
+      }
+
+      setAiSummaryMap((current) => ({ ...current, [accountKey]: result.data }));
+    } catch {
+      // ignore AI summary failures on the page
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -685,6 +717,22 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
                                 <p className="mt-2 text-xs text-slate-500">成功 {accountRow.successCount} / 失败 {accountRow.failedCount} / 拦截 {accountRow.blockedCount}</p>
                                 {accountRow.topReason ? <p className="mt-2 text-xs text-rose-600">主要原因：{accountRow.topReason}</p> : null}
                                 <p className="mt-2 text-xs text-slate-600">{accountRow.sampleDetails.join(" / ") || "暂无额外说明"}</p>
+                                <div className="mt-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => fetchAiSummary(`${row.id}:${accountRow.accountId}`, row.actionText, accountRow.sampleDetails.join(" / ") || row.sampleDetails.join(" / "), accountRow.topReason)}
+                                    className="text-xs text-sky-700 hover:text-sky-800"
+                                  >
+                                    AI 总结
+                                  </button>
+                                </div>
+                                {aiSummaryMap[`${row.id}:${accountRow.accountId}`] ? (
+                                  <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                                    <p className="font-medium text-slate-700">{aiSummaryMap[`${row.id}:${accountRow.accountId}`].summary}</p>
+                                    <p className="mt-1">原因：{aiSummaryMap[`${row.id}:${accountRow.accountId}`].reasons.join(" / ")}</p>
+                                    <p className="mt-1">建议：{aiSummaryMap[`${row.id}:${accountRow.accountId}`].suggestions.join(" / ")}</p>
+                                  </div>
+                                ) : null}
                               </div>
                             ))}
                           </div>
