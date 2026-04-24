@@ -42,6 +42,15 @@ export function formatBusinessDateTime(date: Date) {
   }).format(date);
 }
 
+export function formatBusinessHm(date: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: BUSINESS_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 export function toBusinessDateTime(dateText: string, timeText: string) {
   const matched = timeText.match(/^(\d{2}):(\d{2})$/);
 

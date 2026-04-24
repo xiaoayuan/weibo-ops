@@ -1,4 +1,4 @@
-import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
+import { formatBusinessHm, getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { generateDailyPlansWithSummary } from "@/server/plan-generator";
@@ -11,9 +11,7 @@ declare global {
 }
 
 function toHm(date: Date) {
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
+  return formatBusinessHm(date);
 }
 
 function isAfterOrEqualHm(left: string, right: string) {
@@ -27,15 +25,19 @@ async function runAutoGenerate(now: Date) {
   const users = await prisma.user.findMany({
     where: {
       autoGenerateEnabled: true,
-      autoGenerateTime: hm,
     },
     select: {
       id: true,
       username: true,
+      autoGenerateTime: true,
     },
   });
 
   for (const user of users) {
+    if (!isAfterOrEqualHm(hm, user.autoGenerateTime)) {
+      continue;
+    }
+
     const lockKey = `auto-generate:${user.id}:${dateText}`;
     const lockExists = await prisma.systemSetting.findUnique({ where: { key: lockKey }, select: { id: true } });
 
