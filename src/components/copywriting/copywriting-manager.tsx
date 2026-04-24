@@ -31,6 +31,12 @@ type AiConfigState = {
   apiKeySource: "system" | "env" | "none";
 };
 
+type LinkPreview = {
+  title: string;
+  content: string;
+  finalUrl: string;
+};
+
 type FormState = {
   title: string;
   content: string;
@@ -106,6 +112,8 @@ export function CopywritingManager({
   const [aiCandidates, setAiCandidates] = useState<AiCandidate[]>([]);
   const [selectedAiIndexes, setSelectedAiIndexes] = useState<number[]>([]);
   const [rewriteSource, setRewriteSource] = useState<CopywritingTemplate | null>(null);
+  const [importUrl, setImportUrl] = useState("");
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
   const [sourceFilter, setSourceFilter] = useState<"ALL" | "MANUAL" | "AI">("ALL");
   const [businessFilter, setBusinessFilter] = useState<"ALL" | AiBusinessType>("ALL");
   const [aiConfig, setAiConfig] = useState<AiConfigState>({ ...initialAiConfig, apiKey: "" });
@@ -115,6 +123,7 @@ export function CopywritingManager({
   const [aiSaving, setAiSaving] = useState(false);
   const [aiRewriting, setAiRewriting] = useState(false);
   const [aiConfigSaving, setAiConfigSaving] = useState(false);
+  const [linkPreviewLoading, setLinkPreviewLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
 
@@ -357,6 +366,41 @@ export function CopywritingManager({
     }
   }
 
+  async function handleFetchLinkPreview() {
+    try {
+      setLinkPreviewLoading(true);
+      setError(null);
+      const response = await fetch("/api/copywriting/link-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUrl: importUrl }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "链接内容预览失败");
+      }
+
+      setLinkPreview(result.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "链接内容预览失败");
+    } finally {
+      setLinkPreviewLoading(false);
+    }
+  }
+
+  function applyPreviewToContext() {
+    if (!linkPreview) {
+      return;
+    }
+
+    setAiForm((current) => ({
+      ...current,
+      context: `${linkPreview.title}
+${linkPreview.content}`.trim(),
+    }));
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -475,6 +519,38 @@ export function CopywritingManager({
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-lg font-medium">AI 生成文案</h3>
           <p className="mt-1 text-sm text-slate-500">AI 只生成候选文案，先预览再入库，不会直接执行任务。</p>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-medium text-slate-800">导入微博链接</p>
+            <p className="mt-1 text-xs text-slate-500">先抓取微博标题和正文摘要，确认后再填入上下文生成文案。</p>
+            <div className="mt-3 flex flex-col gap-3 md:flex-row">
+              <input
+                value={importUrl}
+                onChange={(event) => setImportUrl(event.target.value)}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                placeholder="粘贴微博链接，例如 https://weibo.com/..."
+              />
+              <button
+                type="button"
+                onClick={handleFetchLinkPreview}
+                disabled={linkPreviewLoading}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {linkPreviewLoading ? "抓取中..." : "预览内容"}
+              </button>
+            </div>
+            {linkPreview ? (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-medium text-slate-900">{linkPreview.title}</p>
+                <p className="mt-2 text-sm text-slate-600">{linkPreview.content}</p>
+                <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+                  <span className="truncate">来源：{linkPreview.finalUrl}</span>
+                  <button type="button" onClick={applyPreviewToContext} className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800">
+                    填入上下文
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <form className="mt-4 grid gap-4" onSubmit={handleGenerateAi}>
             <select
               value={aiForm.businessType}

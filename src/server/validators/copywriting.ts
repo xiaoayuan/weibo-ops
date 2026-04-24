@@ -44,3 +44,7 @@ export const saveAiConfigSchema = z.object({
   model: z.string().trim().min(1, "模型不能为空").max(100, "模型名称过长"),
   apiKey: z.string().trim().max(500, "API Key 过长").optional().or(z.literal("")),
 });
+
+export const fetchCopywritingLinkPreviewSchema = z.object({
+  targetUrl: z.string().url("请填写有效微博链接"),
+});
