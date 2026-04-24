@@ -1,5 +1,5 @@
 import { PlansManager } from "@/components/plans/plans-manager";
-import { getBusinessDateText, toBusinessDate } from "@/lib/business-date";
+import { formatBusinessDateTime, getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -78,7 +78,7 @@ function getPendingReason(input: {
   }
 
   if (input.scheduledTime.getTime() > input.now.getTime()) {
-    return `尚未到计划时间（${new Date(input.scheduledTime).toLocaleString("zh-CN")})`;
+    return `尚未到计划时间（${formatBusinessDateTime(input.scheduledTime)})`;
   }
 
   if (input.status === "READY") {
@@ -156,7 +156,7 @@ export default async function PlansPage() {
     ...plan,
     scheduleNote: scheduleNoteMap.get(plan.id) || null,
     pendingReason: getPendingReason({
-      planDateText: todayText,
+      planDateText: getBusinessDateText(plan.planDate),
       todayText,
       now,
       status: plan.status,

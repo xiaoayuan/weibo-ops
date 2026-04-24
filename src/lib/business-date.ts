@@ -29,6 +29,19 @@ export function getBusinessDateText(date = new Date()) {
   return formatBusinessDate(date);
 }
 
+export function formatBusinessDateTime(date: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 export function toBusinessDate(dateText: string) {
   const matched = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
