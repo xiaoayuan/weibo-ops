@@ -74,6 +74,49 @@ const businessTypeText: Record<AiBusinessType, string> = {
   REPOST_ROTATION: "轮转",
 };
 
+const toneText: Record<AiTone, string> = {
+  NATURAL: "自然",
+  PASSERBY: "路人",
+  SUPPORTIVE: "支持",
+  DISCUSSIVE: "讨论",
+  LIVELY: "活泼",
+};
+
+const riskKeywords = ["加微信", "私信我", "vx", "稳赚", "返现", "优惠", "下单", "冲冲冲", "绝绝子", "速来", "置顶"];
+
+function normalizeCandidateText(text: string) {
+  return text.replace(/[\s，。！？!?,.;；:“”"'`~～【】\[\]()（）]/g, "").trim();
+}
+
+function getSimilarityRatio(left: string, right: string) {
+  if (!left || !right) {
+    return 0;
+  }
+
+  const source = new Set(left.split(""));
+  const target = new Set(right.split(""));
+  let overlap = 0;
+
+  for (const char of source) {
+    if (target.has(char)) {
+      overlap += 1;
+    }
+  }
+
+  return overlap / Math.max(source.size, target.size, 1);
+}
+
+function analyzeCandidate(content: string, allContents: string[]) {
+  const normalized = normalizeCandidateText(content);
+  const duplicateLike = allContents.some((item) => item !== content && getSimilarityRatio(normalized, normalizeCandidateText(item)) >= 0.8);
+  const matchedKeywords = riskKeywords.filter((keyword) => content.includes(keyword));
+
+  return {
+    duplicateLike,
+    matchedKeywords,
+  };
+}
+
 function readBusinessTypeFromTags(item: CopywritingTemplate): AiBusinessType | "ALL" {
   if (item.tags.includes(`业务:${businessTypeText.DAILY_PLAN}`)) {
     return "DAILY_PLAN";
@@ -548,7 +591,7 @@ export function CopywritingManager({
                 <p className="mt-2 text-sm text-slate-600">{linkPreview.content}</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs">
                   <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-600">推荐业务：{businessTypeText[linkPreview.suggestedBusinessType]}</span>
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-600">推荐语气：{linkPreview.suggestedTone === "NATURAL" ? "自然" : linkPreview.suggestedTone === "PASSERBY" ? "路人" : linkPreview.suggestedTone === "SUPPORTIVE" ? "支持" : linkPreview.suggestedTone === "DISCUSSIVE" ? "讨论" : "活泼"}</span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-600">推荐语气：{toneText[linkPreview.suggestedTone]}</span>
                 </div>
                 <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
                   <p className="font-medium text-slate-700">推荐上下文</p>
@@ -647,15 +690,24 @@ export function CopywritingManager({
                 </button>
               </div>
               <div className="space-y-3">
-                {aiCandidates.map((item, index) => (
-                  <label key={`${aiBatchId}-${index}`} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <input type="checkbox" checked={selectedAiIndexes.includes(index)} onChange={() => toggleAiCandidate(index)} className="mt-1" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-slate-900">{item.title}</span>
-                      <span className="mt-2 block text-sm text-slate-600">{item.content}</span>
-                    </span>
-                  </label>
-                ))}
+                {aiCandidates.map((item, index) => {
+                  const analysis = analyzeCandidate(item.content, aiCandidates.map((candidate) => candidate.content));
+
+                  return (
+                    <label key={`${aiBatchId}-${index}`} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <input type="checkbox" checked={selectedAiIndexes.includes(index)} onChange={() => toggleAiCandidate(index)} className="mt-1" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-slate-900">{item.title}</span>
+                        <span className="mt-2 block text-sm text-slate-600">{item.content}</span>
+                        <span className="mt-3 flex flex-wrap gap-2 text-xs">
+                          {analysis.duplicateLike ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700">重复度偏高</span> : null}
+                          {analysis.matchedKeywords.length > 0 ? <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-700">风险词：{analysis.matchedKeywords.join(" / ")}</span> : null}
+                          {!analysis.duplicateLike && analysis.matchedKeywords.length === 0 ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-700">未发现明显重复或风险词</span> : null}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           ) : null}
