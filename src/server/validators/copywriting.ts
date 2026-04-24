@@ -28,3 +28,13 @@ export const saveAiCopywritingSchema = z.object({
   constraints: z.array(z.string().trim().min(1).max(50)).max(10).default([]),
   items: z.array(createCopywritingSchema).min(1, "至少选择一条文案").max(100),
 });
+
+export const rewriteAiCopywritingSchema = z.object({
+  sourceContent: z.string().trim().min(1, "原文案不能为空").max(500, "原文案过长"),
+  businessType: aiBusinessTypeSchema,
+  context: z.string().trim().max(1000, "上下文过长").default(""),
+  tone: aiToneSchema,
+  count: z.union([z.literal(10), z.literal(20), z.literal(50)]),
+  length: aiLengthSchema,
+  constraints: z.array(z.string().trim().min(1).max(50)).max(10).default([]),
+});

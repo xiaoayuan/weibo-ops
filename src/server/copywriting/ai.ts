@@ -18,14 +18,14 @@ export type AiCopywritingCandidate = {
   content: string;
 };
 
-const businessTypeText: Record<AiCopywritingBusinessType, string> = {
+export const businessTypeText: Record<AiCopywritingBusinessType, string> = {
   DAILY_PLAN: "每日计划",
   QUICK_REPLY: "一键回复",
   COMMENT_CONTROL: "控评",
   REPOST_ROTATION: "轮转",
 };
 
-const toneText: Record<AiCopywritingTone, string> = {
+export const toneText: Record<AiCopywritingTone, string> = {
   NATURAL: "自然",
   PASSERBY: "路人",
   SUPPORTIVE: "支持",
@@ -33,7 +33,7 @@ const toneText: Record<AiCopywritingTone, string> = {
   LIVELY: "活泼",
 };
 
-const lengthText: Record<AiCopywritingLength, string> = {
+export const lengthText: Record<AiCopywritingLength, string> = {
   SHORT: "短句",
   STANDARD: "标准",
   LONG: "略长",
@@ -55,6 +55,25 @@ function buildPrompt(input: AiCopywritingGenerateInput) {
     "3. 不要编号，不要解释，不要标题，只输出纯文案。",
     "4. 避免过度夸张、机械重复、空泛套话。",
     "5. 每行一条。",
+  ].join("\n");
+}
+
+function buildRewritePrompt(input: AiCopywritingGenerateInput & { sourceContent: string }) {
+  const constraints = input.constraints.length > 0 ? input.constraints.join("、") : "无额外限制";
+
+  return [
+    `请基于下面这条原文案，改写出 ${input.count} 条新的中文短文案。`,
+    `业务类型：${businessTypeText[input.businessType]}`,
+    `原文案：${input.sourceContent}`,
+    `补充上下文：${input.context || "无"}`,
+    `语气：${toneText[input.tone]}`,
+    `长度偏好：${lengthText[input.length]}`,
+    `额外限制：${constraints}`,
+    "要求：",
+    "1. 保留核心意思，但表达方式明显不同。",
+    "2. 更像真人说话，不要像客服和营销文案。",
+    "3. 不要编号，不要解释，不要标题，只输出纯文案。",
+    "4. 每行一条。",
   ].join("\n");
 }
 
@@ -94,11 +113,24 @@ export function buildAiCopywritingTags(input: AiCopywritingGenerateInput, batchI
   ];
 }
 
-export function isAiCopywriting(tags: string[]) {
-  return tags.includes("AI生成");
+export function readAiBusinessTypeFromTags(tags: string[]): AiCopywritingBusinessType | null {
+  if (tags.includes(`业务:${businessTypeText.DAILY_PLAN}`)) {
+    return "DAILY_PLAN";
+  }
+  if (tags.includes(`业务:${businessTypeText.QUICK_REPLY}`)) {
+    return "QUICK_REPLY";
+  }
+  if (tags.includes(`业务:${businessTypeText.COMMENT_CONTROL}`)) {
+    return "COMMENT_CONTROL";
+  }
+  if (tags.includes(`业务:${businessTypeText.REPOST_ROTATION}`)) {
+    return "REPOST_ROTATION";
+  }
+
+  return null;
 }
 
-export async function generateAiCopywriting(input: AiCopywritingGenerateInput) {
+async function requestAiText(prompt: string) {
   const apiKey = process.env.AI_API_KEY;
   const model = process.env.AI_MODEL || "gpt-4.1-mini";
   const baseUrl = process.env.AI_BASE_URL || "https://api.openai.com/v1/chat/completions";
@@ -123,7 +155,7 @@ export async function generateAiCopywriting(input: AiCopywritingGenerateInput) {
         },
         {
           role: "user",
-          content: buildPrompt(input),
+          content: prompt,
         },
       ],
     }),
@@ -142,6 +174,16 @@ export async function generateAiCopywriting(input: AiCopywritingGenerateInput) {
     throw new Error("AI 未返回可用文案");
   }
 
+  return content;
+}
+
+export function isAiCopywriting(tags: string[]) {
+  return tags.includes("AI生成");
+}
+
+export async function generateAiCopywriting(input: AiCopywritingGenerateInput) {
+  const content = await requestAiText(buildPrompt(input));
+
   const lines = normalizeContentLines(content, input.count);
 
   if (lines.length === 0) {
@@ -152,6 +194,23 @@ export async function generateAiCopywriting(input: AiCopywritingGenerateInput) {
     batchId: randomUUID(),
     candidates: lines.map((item, index) => ({
       title: buildTitle(input, index),
+      content: item,
+    })) satisfies AiCopywritingCandidate[],
+  };
+}
+
+export async function rewriteAiCopywriting(input: AiCopywritingGenerateInput & { sourceContent: string }) {
+  const content = await requestAiText(buildRewritePrompt(input));
+  const lines = normalizeContentLines(content, input.count);
+
+  if (lines.length === 0) {
+    throw new Error("AI 改写结果清洗后为空");
+  }
+
+  return {
+    batchId: randomUUID(),
+    candidates: lines.map((item, index) => ({
+      title: `${businessTypeText[input.businessType]}-改写-${index + 1}`,
       content: item,
     })) satisfies AiCopywritingCandidate[],
   };

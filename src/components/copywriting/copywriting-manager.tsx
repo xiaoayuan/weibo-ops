@@ -50,6 +50,30 @@ const initialAiForm: AiFormState = {
 
 const aiConstraintOptions = ["避免营销感", "避免重复开头", "不要表情", "更像真人评论"] as const;
 
+const businessTypeText: Record<AiBusinessType, string> = {
+  DAILY_PLAN: "每日计划",
+  QUICK_REPLY: "一键回复",
+  COMMENT_CONTROL: "控评",
+  REPOST_ROTATION: "轮转",
+};
+
+function readBusinessTypeFromTags(item: CopywritingTemplate): AiBusinessType | "ALL" {
+  if (item.tags.includes(`业务:${businessTypeText.DAILY_PLAN}`)) {
+    return "DAILY_PLAN";
+  }
+  if (item.tags.includes(`业务:${businessTypeText.QUICK_REPLY}`)) {
+    return "QUICK_REPLY";
+  }
+  if (item.tags.includes(`业务:${businessTypeText.COMMENT_CONTROL}`)) {
+    return "COMMENT_CONTROL";
+  }
+  if (item.tags.includes(`业务:${businessTypeText.REPOST_ROTATION}`)) {
+    return "REPOST_ROTATION";
+  }
+
+  return "ALL";
+}
+
 function isAiCopywriting(item: CopywritingTemplate) {
   return item.tags.includes("AI生成");
 }
@@ -65,12 +89,23 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
   const [aiBatchId, setAiBatchId] = useState<string | null>(null);
   const [aiCandidates, setAiCandidates] = useState<AiCandidate[]>([]);
   const [selectedAiIndexes, setSelectedAiIndexes] = useState<number[]>([]);
+  const [rewriteSource, setRewriteSource] = useState<CopywritingTemplate | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<"ALL" | "MANUAL" | "AI">("ALL");
+  const [businessFilter, setBusinessFilter] = useState<"ALL" | AiBusinessType>("ALL");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSaving, setAiSaving] = useState(false);
+  const [aiRewriting, setAiRewriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
+
+  const filteredItems = items.filter((item) => {
+    const matchesSource = sourceFilter === "ALL" || (sourceFilter === "AI" ? isAiCopywriting(item) : !isAiCopywriting(item));
+    const itemBusinessType = readBusinessTypeFromTags(item);
+    const matchesBusiness = businessFilter === "ALL" || itemBusinessType === businessFilter;
+    return matchesSource && matchesBusiness;
+  });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -232,10 +267,46 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
       setAiBatchId(null);
       setAiCandidates([]);
       setSelectedAiIndexes([]);
+      setRewriteSource(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存 AI 文案失败");
     } finally {
       setAiSaving(false);
+    }
+  }
+
+  async function handleRewriteAi(item: CopywritingTemplate) {
+    try {
+      setAiRewriting(true);
+      setError(null);
+      const businessType = readBusinessTypeFromTags(item);
+      const response = await fetch("/api/copywriting/ai-rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceContent: item.content,
+          businessType: businessType === "ALL" ? aiForm.businessType : businessType,
+          context: aiForm.context,
+          tone: aiForm.tone,
+          count: aiForm.count,
+          length: aiForm.length,
+          constraints: aiForm.constraints,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "AI 文案改写失败");
+      }
+
+      setRewriteSource(item);
+      setAiBatchId(result.data.batchId);
+      setAiCandidates(result.data.candidates);
+      setSelectedAiIndexes(result.data.candidates.map((_: AiCandidate, index: number) => index));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI 文案改写失败");
+    } finally {
+      setAiRewriting(false);
     }
   }
 
@@ -387,7 +458,10 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
           {aiCandidates.length > 0 ? (
             <div className="mt-6 space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <h4 className="text-base font-medium">生成预览</h4>
+                <div>
+                  <h4 className="text-base font-medium">生成预览</h4>
+                  {rewriteSource ? <p className="mt-1 text-xs text-slate-500">基于《{rewriteSource.title}》改写</p> : null}
+                </div>
                 <button
                   type="button"
                   onClick={handleSaveAiCandidates}
@@ -414,6 +488,20 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
       ) : null}
 
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap gap-3 border-b border-slate-200 bg-slate-50 px-6 py-4 text-sm">
+          <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as "ALL" | "MANUAL" | "AI")} className="rounded-lg border border-slate-200 px-3 py-2">
+            <option value="ALL">全部来源</option>
+            <option value="MANUAL">仅手动</option>
+            <option value="AI">仅 AI</option>
+          </select>
+          <select value={businessFilter} onChange={(event) => setBusinessFilter(event.target.value as "ALL" | AiBusinessType)} className="rounded-lg border border-slate-200 px-3 py-2">
+            <option value="ALL">全部业务类型</option>
+            <option value="DAILY_PLAN">每日计划</option>
+            <option value="QUICK_REPLY">一键回复</option>
+            <option value="COMMENT_CONTROL">控评</option>
+            <option value="REPOST_ROTATION">轮转</option>
+          </select>
+        </div>
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
@@ -426,28 +514,31 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 ? (
+              {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={canManage ? 6 : 5} className="px-6 py-8 text-slate-500">
                     暂无文案，先新增一条内容。
                   </td>
                 </tr>
-             ) : (
-               items.map((item) => (
-                 <tr key={item.id} className="border-t border-slate-200 align-top">
+              ) : (
+                filteredItems.map((item) => (
+                  <tr key={item.id} className="border-t border-slate-200 align-top">
                   <td className="px-6 py-4">{getCopywritingSourceText(item)}</td>
                   <td className="px-6 py-4">{item.title}</td>
                   <td className="max-w-xl px-6 py-4 text-slate-600">{item.content}</td>
                   <td className="px-6 py-4">{item.tags.join("、") || "-"}</td>
                   <td className="px-6 py-4">{item.status === "ACTIVE" ? "启用" : "停用"}</td>
                    {canManage ? (
-                     <td className="px-6 py-4">
-                       <button onClick={() => handleEdit(item)} className="mr-4 text-sky-600 hover:text-sky-700">
-                         编辑
-                       </button>
-                       <button onClick={() => handleDelete(item.id)} className="text-rose-600 hover:text-rose-700">
-                         删除
-                       </button>
+                      <td className="px-6 py-4">
+                        <button onClick={() => handleEdit(item)} className="mr-4 text-sky-600 hover:text-sky-700">
+                          编辑
+                        </button>
+                        <button onClick={() => handleRewriteAi(item)} disabled={aiRewriting} className="mr-4 text-violet-600 hover:text-violet-700 disabled:opacity-60">
+                          再改写
+                        </button>
+                        <button onClick={() => handleDelete(item.id)} className="text-rose-600 hover:text-rose-700">
+                          删除
+                        </button>
                      </td>
                    ) : null}
                 </tr>
