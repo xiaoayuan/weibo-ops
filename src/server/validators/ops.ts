@@ -31,6 +31,11 @@ export const batchImportCommentPoolSchema = z.object({
   forceDuplicate: z.boolean().default(false),
 });
 
+export const fetchHotCommentsSchema = z.object({
+  targetUrl: z.string().url("请填写有效微博链接"),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const startCommentLikeJobSchema = z.object({
   accountIds: z.array(z.string().min(1)).min(1, "至少选择一个账号"),
   poolItemIds: z.array(z.string().min(1)).min(1, "至少选择一条评论链接"),

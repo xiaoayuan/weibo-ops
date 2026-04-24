@@ -24,6 +24,14 @@ type RepostTargetPreview = {
   message: string;
 };
 
+type HotCommentPreviewItem = {
+  commentId: string;
+  sourceUrl: string;
+  text: string;
+  author: string;
+  likeCount?: number;
+};
+
 type JobForecast = {
   targetMinutes: number;
   limitMinutes: number;
@@ -209,6 +217,10 @@ export function OpsManager({
   const [batchText, setBatchText] = useState("");
   const [batchNote, setBatchNote] = useState("");
   const [batchTags, setBatchTags] = useState("");
+  const [hotCommentTargetUrl, setHotCommentTargetUrl] = useState("");
+  const [hotCommentLimit, setHotCommentLimit] = useState(20);
+  const [hotCommentPreview, setHotCommentPreview] = useState<HotCommentPreviewItem[]>([]);
+  const [selectedHotCommentIds, setSelectedHotCommentIds] = useState<string[]>([]);
   const [forceDuplicate, setForceDuplicate] = useState(false);
   const [rotationTargetUrl, setRotationTargetUrl] = useState("");
   const [rotationTimes, setRotationTimes] = useState(5);
@@ -219,6 +231,7 @@ export function OpsManager({
   const [jobStatusFilter, setJobStatusFilter] = useState<"ALL" | ActionJob["status"]>("ALL");
   const [submitting, setSubmitting] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [hotCommentLoading, setHotCommentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [commentLikeAiRisk, setCommentLikeAiRisk] = useState<AiRiskAssessment | null>(null);
@@ -616,6 +629,77 @@ export function OpsManager({
     }
   }
 
+  function toggleHotComment(id: string) {
+    setSelectedHotCommentIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  async function handleFetchHotComments() {
+    try {
+      setHotCommentLoading(true);
+      setError(null);
+
+      const response = await fetch("/api/comment-pool/hot-comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetUrl: hotCommentTargetUrl,
+          limit: hotCommentLimit,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "提取热门评论失败");
+      }
+
+      setHotCommentPreview(result.data.items);
+      setSelectedHotCommentIds(result.data.items.map((item: HotCommentPreviewItem) => item.commentId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "提取热门评论失败");
+    } finally {
+      setHotCommentLoading(false);
+    }
+  }
+
+  async function handleImportHotComments() {
+    const selectedItems = hotCommentPreview.filter((item) => selectedHotCommentIds.includes(item.commentId));
+
+    if (selectedItems.length === 0) {
+      setError("请先选择至少一条热门评论");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      const response = await fetch("/api/comment-pool/batch-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceUrls: selectedItems.map((item) => item.sourceUrl),
+          note: batchNote,
+          tags: parseTags(batchTags),
+          forceDuplicate,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "导入热门评论失败");
+      }
+
+      await refreshPool();
+      setHotCommentPreview([]);
+      setSelectedHotCommentIds([]);
+      setHotCommentTargetUrl("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "导入热门评论失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleDeletePoolItem(id: string) {
     if (!window.confirm("确认删除这条控评链接吗？")) {
       return;
@@ -904,6 +988,65 @@ export function OpsManager({
                   批量导入
                 </button>
               </form>
+
+              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+                <h3 className="text-base font-medium">从微博链接提取热门评论</h3>
+                <div className="flex flex-col gap-3 md:flex-row">
+                  <input
+                    value={hotCommentTargetUrl}
+                    onChange={(event) => setHotCommentTargetUrl(event.target.value)}
+                    placeholder="微博详情链接"
+                    className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                  />
+                  <select
+                    value={hotCommentLimit}
+                    onChange={(event) => setHotCommentLimit(Number(event.target.value))}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                  >
+                    <option value={10}>前 10 条</option>
+                    <option value={20}>前 20 条</option>
+                    <option value={30}>前 30 条</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleFetchHotComments}
+                    disabled={hotCommentLoading}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {hotCommentLoading ? "提取中..." : "提取热门评论"}
+                  </button>
+                </div>
+                {hotCommentPreview.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3 text-sm text-slate-600">
+                      <span>已提取 {hotCommentPreview.length} 条热门评论</span>
+                      <button
+                        type="button"
+                        onClick={handleImportHotComments}
+                        disabled={submitting}
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        导入选中评论
+                      </button>
+                    </div>
+                    <div className="max-h-80 space-y-2 overflow-y-auto">
+                      {hotCommentPreview.map((item) => (
+                        <label key={item.commentId} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                          <input type="checkbox" checked={selectedHotCommentIds.includes(item.commentId)} onChange={() => toggleHotComment(item.commentId)} className="mt-1" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                              <span>{item.author}</span>
+                              <span>评论ID：{item.commentId}</span>
+                              <span>赞 {item.likeCount ?? 0}</span>
+                            </div>
+                            <p className="mt-2 text-sm text-slate-700">{item.text || "（无正文）"}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </section>
           ) : null}
 
