@@ -227,6 +227,74 @@ function computeJobStatus(total: number, success: number, failed: number) {
   return "PARTIAL_FAILED" as const;
 }
 
+function getCommentLikeConcurrency(urgency: "S" | "A" | "B") {
+  if (urgency === "S") {
+    return 5;
+  }
+
+  if (urgency === "A") {
+    return 3;
+  }
+
+  return 2;
+}
+
+async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
+  let cursor = 0;
+  const size = Math.max(1, Math.min(concurrency, items.length));
+
+  await Promise.all(
+    Array.from({ length: size }, async () => {
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+
+        if (index >= items.length) {
+          return;
+        }
+
+        await worker(items[index]);
+      }
+    }),
+  );
+}
+
+async function recomputeCommentLikeRunStatus(jobId: string, accountId: string) {
+  const existingRun = await prisma.actionJobAccountRun.findFirst({
+    where: { jobId, accountId },
+    select: { status: true },
+  });
+
+  const steps = await prisma.actionJobStep.findMany({
+    where: { jobId, accountId },
+    select: {
+      status: true,
+      sequenceNo: true,
+      errorMessage: true,
+    },
+    orderBy: { sequenceNo: "asc" },
+  });
+
+  const successCount = steps.filter((step) => step.status === "SUCCESS").length;
+  const failedSteps = steps.filter((step) => step.status === "FAILED");
+  const failedCount = failedSteps.length;
+  const latestFailed = failedSteps[failedSteps.length - 1];
+  const status = computeJobStatus(steps.length, successCount, failedCount);
+
+  if (existingRun?.status === "CANCELLED") {
+    return;
+  }
+
+  await prisma.actionJobAccountRun.updateMany({
+    where: { jobId, accountId },
+    data: {
+      currentStep: steps.length > 0 ? Math.max(...steps.map((step) => step.sequenceNo)) : 0,
+      status,
+      errorMessage: latestFailed?.errorMessage || null,
+    },
+  });
+}
+
 async function isActionJobCancelled(jobId: string) {
   const job = await prisma.actionJob.findUnique({
     where: { id: jobId },
@@ -365,14 +433,21 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   }
 
   const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
+  const accountStepsMap = new Map<string, typeof steps>();
 
-  for (const accountId of input.accountIds) {
+  for (const step of steps) {
+    const existing = accountStepsMap.get(step.accountId) || [];
+    existing.push(step);
+    accountStepsMap.set(step.accountId, existing);
+  }
+
+  await runWithConcurrency(input.accountIds, getCommentLikeConcurrency(urgency), async (accountId) => {
     if (await isActionJobCancelled(input.jobId)) {
       return;
     }
 
     const account = accountMap.get(accountId);
-    const accountSteps = steps.filter((item) => item.accountId === accountId);
+    const accountSteps = accountStepsMap.get(accountId) || [];
 
     const waveDelayMs = delayMap.get(accountId) || 0;
 
@@ -381,7 +456,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     }
 
     if (!account || accountSteps.length === 0) {
-      continue;
+      return;
     }
 
     if (await isAccountCircuitOpen(accountId)) {
@@ -389,7 +464,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         where: { jobId: input.jobId, accountId },
         data: { status: "FAILED", errorMessage: "账号熔断中，已自动暂停执行" },
       });
-      continue;
+      return;
     }
 
     if (await isProxyCircuitOpen(account.proxyNodeId)) {
@@ -397,23 +472,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         where: { jobId: input.jobId, accountId },
         data: { status: "FAILED", errorMessage: "代理熔断中，已自动暂停执行" },
       });
-      continue;
-    }
-
-    if (await isAccountCircuitOpen(accountId)) {
-      await prisma.actionJobAccountRun.updateMany({
-        where: { jobId: input.jobId, accountId },
-        data: { status: "FAILED", errorMessage: "账号熔断中，已自动暂停执行" },
-      });
-      continue;
-    }
-
-    if (await isProxyCircuitOpen(account.proxyNodeId)) {
-      await prisma.actionJobAccountRun.updateMany({
-        where: { jobId: input.jobId, accountId },
-        data: { status: "FAILED", errorMessage: "代理熔断中，已自动暂停执行" },
-      });
-      continue;
+      return;
     }
 
     let successCount = 0;
@@ -439,7 +498,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
             finishedAt: new Date(),
           },
         });
-        await recomputeRepostRunStatus(input.jobId, accountId);
+        await recomputeCommentLikeRunStatus(input.jobId, accountId);
         continue;
       }
 
@@ -452,7 +511,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
             finishedAt: new Date(),
           },
         });
-        await recomputeRepostRunStatus(input.jobId, accountId);
+        await recomputeCommentLikeRunStatus(input.jobId, accountId);
         continue;
       }
 
@@ -616,7 +675,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
         errorMessage: latestError || null,
       },
     });
-  }
+  });
 
   if (await isActionJobCancelled(input.jobId)) {
     return;
