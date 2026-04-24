@@ -17,8 +17,8 @@ type InteractionTaskWithRelations = InteractionTask & {
 };
 
 const statusText: Record<InteractionStatus, string> = {
-  PENDING: "待审核",
-  READY: "已确认",
+  PENDING: "待执行",
+  READY: "待确认",
   RUNNING: "执行中",
   SUCCESS: "成功",
   FAILED: "失败",
