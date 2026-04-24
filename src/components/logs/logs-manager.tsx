@@ -47,8 +47,22 @@ type LogSummaryRow = {
     blockedCount: number;
     latestExecutedAt: string;
     sampleDetails: string[];
+    topReason: string | null;
   }>;
 };
+
+function getFailureReasonText(log: LogWithRelations) {
+  if (log.errorMessage) {
+    return log.errorMessage;
+  }
+
+  if (getLogStage(log) === "PRECHECK_BLOCKED") {
+    return "预检拦截";
+  }
+
+  const detail = getBusinessDetailText(log);
+  return detail !== "-" ? detail : null;
+}
 
 function getLogCategory(log: LogWithRelations): LogCategory {
   if (log.actionType.includes("SCHEDULED") || log.actionType.includes("入队")) {
@@ -254,6 +268,7 @@ function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmi
           blockedCount: number;
           latestExecutedAt: string;
           sampleDetails: string[];
+          topReason: string | null;
         }
       >;
     }
@@ -295,6 +310,7 @@ function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmi
                     blockedCount: getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0,
                     latestExecutedAt: log.executedAt.toISOString(),
                     sampleDetails: detailText && detailText !== "-" ? [detailText] : [],
+                    topReason: !log.success ? getFailureReasonText(log) : null,
                   },
                 ],
               ]
@@ -331,6 +347,7 @@ function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmi
           blockedCount: getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0,
           latestExecutedAt: log.executedAt.toISOString(),
           sampleDetails: detailText && detailText !== "-" ? [detailText] : [],
+          topReason: !log.success ? getFailureReasonText(log) : null,
         });
       } else {
         accountRow.successCount += log.success ? 1 : 0;
@@ -341,6 +358,9 @@ function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmi
         }
         if (new Date(log.executedAt).getTime() > new Date(accountRow.latestExecutedAt).getTime()) {
           accountRow.latestExecutedAt = log.executedAt.toISOString();
+        }
+        if (!log.success && !accountRow.topReason) {
+          accountRow.topReason = getFailureReasonText(log);
         }
       }
     }
@@ -663,6 +683,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
                                   <span className="text-xs text-slate-500">{new Date(accountRow.latestExecutedAt).toLocaleString("zh-CN")}</span>
                                 </div>
                                 <p className="mt-2 text-xs text-slate-500">成功 {accountRow.successCount} / 失败 {accountRow.failedCount} / 拦截 {accountRow.blockedCount}</p>
+                                {accountRow.topReason ? <p className="mt-2 text-xs text-rose-600">主要原因：{accountRow.topReason}</p> : null}
                                 <p className="mt-2 text-xs text-slate-600">{accountRow.sampleDetails.join(" / ") || "暂无额外说明"}</p>
                               </div>
                             ))}
