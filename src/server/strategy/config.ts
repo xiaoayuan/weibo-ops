@@ -16,6 +16,11 @@ const urgencyRuleSchema = z.object({
 export const executionStrategySchema = z.object({
   actionJob: z.object({
     maxRetry: z.number().int().min(0).max(3),
+    commentLikeConcurrency: z.object({
+      S: z.number().int().min(1).max(20),
+      A: z.number().int().min(1).max(20),
+      B: z.number().int().min(1).max(20),
+    }),
     urgency: z.object({
       S: urgencyRuleSchema,
       A: urgencyRuleSchema,
@@ -37,6 +42,11 @@ export type ExecutionStrategy = z.infer<typeof executionStrategySchema>;
 export const defaultExecutionStrategy: ExecutionStrategy = {
   actionJob: {
     maxRetry: 1,
+    commentLikeConcurrency: {
+      S: 8,
+      A: 5,
+      B: 3,
+    },
     urgency: {
       S: {
         waveRatios: [0.3, 0.4, 0.3],
@@ -105,6 +115,11 @@ function normalizeStrategy(strategy: ExecutionStrategy): ExecutionStrategy {
   return {
     actionJob: {
       maxRetry: strategy.actionJob.maxRetry,
+      commentLikeConcurrency: {
+        S: strategy.actionJob.commentLikeConcurrency.S,
+        A: strategy.actionJob.commentLikeConcurrency.A,
+        B: strategy.actionJob.commentLikeConcurrency.B,
+      },
       urgency: {
         S: normalizeUrgency(strategy.actionJob.urgency.S),
         A: normalizeUrgency(strategy.actionJob.urgency.A),

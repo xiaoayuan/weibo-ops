@@ -15,6 +15,11 @@ type UrgencyConfig = {
 type ExecutionStrategy = {
   actionJob: {
     maxRetry: number;
+    commentLikeConcurrency: {
+      S: number;
+      A: number;
+      B: number;
+    };
     urgency: {
       S: UrgencyConfig;
       A: UrgencyConfig;
@@ -41,6 +46,11 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
     config: {
       actionJob: {
         maxRetry: 0,
+        commentLikeConcurrency: {
+          S: 4,
+          A: 3,
+          B: 2,
+        },
         urgency: {
           S: {
             waveRatios: [0.2, 0.3, 0.5],
@@ -84,6 +94,11 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
     config: {
       actionJob: {
         maxRetry: 1,
+        commentLikeConcurrency: {
+          S: 8,
+          A: 5,
+          B: 3,
+        },
         urgency: {
           S: {
             waveRatios: [0.3, 0.4, 0.3],
@@ -127,6 +142,11 @@ const strategyPresets: Record<StrategyPresetKey, { label: string; description: s
     config: {
       actionJob: {
         maxRetry: 2,
+        commentLikeConcurrency: {
+          S: 10,
+          A: 7,
+          B: 4,
+        },
         urgency: {
           S: {
             waveRatios: [0.4, 0.35, 0.25],
@@ -188,6 +208,9 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
   const [mode, setMode] = useState<StrategyMode>("preset");
   const [preset, setPreset] = useState<StrategyPresetKey>("BALANCED");
   const [maxRetry, setMaxRetry] = useState(String(initialConfig.actionJob.maxRetry));
+  const [sConcurrency, setSConcurrency] = useState(String(initialConfig.actionJob.commentLikeConcurrency.S));
+  const [aConcurrency, setAConcurrency] = useState(String(initialConfig.actionJob.commentLikeConcurrency.A));
+  const [bConcurrency, setBConcurrency] = useState(String(initialConfig.actionJob.commentLikeConcurrency.B));
 
   const [sRatios, setSRatios] = useState(toCsv(initialConfig.actionJob.urgency.S.waveRatios));
   const [aRatios, setARatios] = useState(toCsv(initialConfig.actionJob.urgency.A.waveRatios));
@@ -251,6 +274,11 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
           : {
               actionJob: {
                 maxRetry: Number(maxRetry),
+                commentLikeConcurrency: {
+                  S: Number(sConcurrency),
+                  A: Number(aConcurrency),
+                  B: Number(bConcurrency),
+                },
                 urgency: {
                   S: parseUrgencyConfig(sRatios, sWindows, sCooldown, sRetryDelay, sSla),
                   A: parseUrgencyConfig(aRatios, aWindows, aCooldown, aRetryDelay, aSla),
@@ -343,6 +371,18 @@ export function ExecutionStrategyForm({ initialConfig }: { initialConfig: Execut
           <label className="block">
             <span className="mb-1 block text-sm text-slate-700">最大重试次数</span>
             <input value={maxRetry} onChange={(event) => setMaxRetry(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-slate-700">控评并发 S</span>
+            <input value={sConcurrency} onChange={(event) => setSConcurrency(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-slate-700">控评并发 A</span>
+            <input value={aConcurrency} onChange={(event) => setAConcurrency(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-slate-700">控评并发 B</span>
+            <input value={bConcurrency} onChange={(event) => setBConcurrency(event.target.value)} type="number" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
         </div>
 

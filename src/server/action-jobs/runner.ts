@@ -227,16 +227,8 @@ function computeJobStatus(total: number, success: number, failed: number) {
   return "PARTIAL_FAILED" as const;
 }
 
-function getCommentLikeConcurrency(urgency: "S" | "A" | "B") {
-  if (urgency === "S") {
-    return 5;
-  }
-
-  if (urgency === "A") {
-    return 3;
-  }
-
-  return 2;
+function getCommentLikeConcurrency(urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
+  return strategy.actionJob.commentLikeConcurrency[urgency];
 }
 
 async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
@@ -441,7 +433,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     accountStepsMap.set(step.accountId, existing);
   }
 
-  await runWithConcurrency(input.accountIds, getCommentLikeConcurrency(urgency), async (accountId) => {
+  await runWithConcurrency(input.accountIds, getCommentLikeConcurrency(urgency, strategy), async (accountId) => {
     if (await isActionJobCancelled(input.jobId)) {
       return;
     }
