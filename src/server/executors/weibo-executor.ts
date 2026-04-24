@@ -1779,7 +1779,7 @@ export class WeiboExecutor implements SocialExecutor {
             : await sendLikeRequest(input.targetUrl, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(likeResult.summary);
         const likeConfirmed = commentMode
-          ? businessOk === true || isPostConfirmed(likeResult.summary)
+          ? businessOk === true || isLikeConfirmed(likeResult.summary)
           : isLikeConfirmed(likeResult.summary) || ("likeConfirmed" in likeResult && Boolean(likeResult.likeConfirmed));
 
         if (!likeResult.ok || businessOk === false || !likeConfirmed) {
