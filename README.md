@@ -117,6 +117,9 @@ AUTH_COOKIE_SECURE="false"
 ACCOUNT_SECRET_KEY="replace_with_a_32_plus_char_secret"
 EXECUTOR_MODE="weibo"
 APP_PORT="3007"
+AI_API_KEY=""
+AI_MODEL="gpt-4.1-mini"
+AI_BASE_URL="https://api.openai.com/v1/chat/completions"
 ```
 
 说明：
@@ -125,6 +128,8 @@ APP_PORT="3007"
 - 如果你当前通过 `http://NASIP:3007` 访问，`AUTH_COOKIE_SECURE` 请保持为 `false`
 - 只有在你已经配置 `HTTPS` 时，才改成 `true`
 - `EXECUTOR_MODE` 建议固定为 `weibo`，执行链路将走真实执行器
+- `AI_API_KEY` 用于文案库的 AI 生成功能，走服务器直连，不会占用微博代理流量
+- `AI_MODEL` 和 `AI_BASE_URL` 用于兼容 OpenAI 风格接口，默认可直接对接 OpenAI Chat Completions
 
 可使用下面命令生成高强度密钥：
 

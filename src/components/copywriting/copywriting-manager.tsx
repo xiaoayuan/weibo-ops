@@ -5,6 +5,24 @@ import { canManageBusinessData } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
 import { FormEvent, useState } from "react";
 
+type AiBusinessType = "DAILY_PLAN" | "QUICK_REPLY" | "COMMENT_CONTROL" | "REPOST_ROTATION";
+type AiTone = "NATURAL" | "PASSERBY" | "SUPPORTIVE" | "DISCUSSIVE" | "LIVELY";
+type AiLength = "SHORT" | "STANDARD" | "LONG";
+
+type AiFormState = {
+  businessType: AiBusinessType;
+  context: string;
+  tone: AiTone;
+  count: 10 | 20 | 50;
+  length: AiLength;
+  constraints: string[];
+};
+
+type AiCandidate = {
+  title: string;
+  content: string;
+};
+
 type FormState = {
   title: string;
   content: string;
@@ -21,11 +39,36 @@ const initialForm: FormState = {
   status: "ACTIVE",
 };
 
+const initialAiForm: AiFormState = {
+  businessType: "QUICK_REPLY",
+  context: "",
+  tone: "NATURAL",
+  count: 10,
+  length: "STANDARD",
+  constraints: [],
+};
+
+const aiConstraintOptions = ["避免营销感", "避免重复开头", "不要表情", "更像真人评论"] as const;
+
+function isAiCopywriting(item: CopywritingTemplate) {
+  return item.tags.includes("AI生成");
+}
+
+function getCopywritingSourceText(item: CopywritingTemplate) {
+  return isAiCopywriting(item) ? "AI" : "手动";
+}
+
 export function CopywritingManager({ currentUserRole, initialItems }: { currentUserRole: AppRole; initialItems: CopywritingTemplate[] }) {
   const [items, setItems] = useState(initialItems);
   const [form, setForm] = useState(initialForm);
+  const [aiForm, setAiForm] = useState(initialAiForm);
+  const [aiBatchId, setAiBatchId] = useState<string | null>(null);
+  const [aiCandidates, setAiCandidates] = useState<AiCandidate[]>([]);
+  const [selectedAiIndexes, setSelectedAiIndexes] = useState<number[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canManage = canManageBusinessData(currentUserRole);
 
@@ -113,6 +156,89 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
     }
   }
 
+  function toggleAiConstraint(value: string) {
+    setAiForm((current) => ({
+      ...current,
+      constraints: current.constraints.includes(value) ? current.constraints.filter((item) => item !== value) : [...current.constraints, value],
+    }));
+  }
+
+  function toggleAiCandidate(index: number) {
+    setSelectedAiIndexes((current) => (current.includes(index) ? current.filter((item) => item !== index) : [...current, index]));
+  }
+
+  async function handleGenerateAi(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      setAiGenerating(true);
+      setError(null);
+      const response = await fetch("/api/copywriting/ai-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(aiForm),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "AI 文案生成失败");
+      }
+
+      setAiBatchId(result.data.batchId);
+      setAiCandidates(result.data.candidates);
+      setSelectedAiIndexes(result.data.candidates.map((_: AiCandidate, index: number) => index));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI 文案生成失败");
+    } finally {
+      setAiGenerating(false);
+    }
+  }
+
+  async function handleSaveAiCandidates() {
+    const selectedItems = aiCandidates.filter((_, index) => selectedAiIndexes.includes(index));
+
+    if (!aiBatchId || selectedItems.length === 0) {
+      setError("请先选择至少一条 AI 文案");
+      return;
+    }
+
+    try {
+      setAiSaving(true);
+      setError(null);
+      const response = await fetch("/api/copywriting/ai-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          batchId: aiBatchId,
+          businessType: aiForm.businessType,
+          tone: aiForm.tone,
+          length: aiForm.length,
+          constraints: aiForm.constraints,
+          items: selectedItems.map((item) => ({
+            title: item.title,
+            content: item.content,
+            tags: [],
+            status: "ACTIVE",
+          })),
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "保存 AI 文案失败");
+      }
+
+      setItems((current) => [...result.data, ...current]);
+      setAiBatchId(null);
+      setAiCandidates([]);
+      setSelectedAiIndexes([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存 AI 文案失败");
+    } finally {
+      setAiSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -187,27 +313,129 @@ export function CopywritingManager({ currentUserRole, initialItems }: { currentU
         </section>
       ) : null}
 
+      {canManage ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-medium">AI 生成文案</h3>
+          <p className="mt-1 text-sm text-slate-500">AI 只生成候选文案，先预览再入库，不会直接执行任务。</p>
+          <form className="mt-4 grid gap-4" onSubmit={handleGenerateAi}>
+            <select
+              value={aiForm.businessType}
+              onChange={(event) => setAiForm((current) => ({ ...current, businessType: event.target.value as AiBusinessType }))}
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="DAILY_PLAN">每日计划</option>
+              <option value="QUICK_REPLY">一键回复</option>
+              <option value="COMMENT_CONTROL">控评</option>
+              <option value="REPOST_ROTATION">轮转</option>
+            </select>
+            <textarea
+              value={aiForm.context}
+              onChange={(event) => setAiForm((current) => ({ ...current, context: event.target.value }))}
+              className="min-h-28 rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              placeholder="填写主题、微博内容、活动语境或你想要的表达方向"
+            />
+            <div className="grid gap-4 md:grid-cols-3">
+              <select
+                value={aiForm.tone}
+                onChange={(event) => setAiForm((current) => ({ ...current, tone: event.target.value as AiTone }))}
+                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="NATURAL">自然</option>
+                <option value="PASSERBY">路人</option>
+                <option value="SUPPORTIVE">支持</option>
+                <option value="DISCUSSIVE">讨论</option>
+                <option value="LIVELY">活泼</option>
+              </select>
+              <select
+                value={aiForm.count}
+                onChange={(event) => setAiForm((current) => ({ ...current, count: Number(event.target.value) as 10 | 20 | 50 }))}
+                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value={10}>10 条</option>
+                <option value={20}>20 条</option>
+                <option value={50}>50 条</option>
+              </select>
+              <select
+                value={aiForm.length}
+                onChange={(event) => setAiForm((current) => ({ ...current, length: event.target.value as AiLength }))}
+                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="SHORT">短句</option>
+                <option value="STANDARD">标准</option>
+                <option value="LONG">略长</option>
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm text-slate-700">
+              {aiConstraintOptions.map((option) => (
+                <label key={option} className="inline-flex items-center gap-2">
+                  <input type="checkbox" checked={aiForm.constraints.includes(option)} onChange={() => toggleAiConstraint(option)} />
+                  {option}
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={aiGenerating}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {aiGenerating ? "生成中..." : "生成候选文案"}
+              </button>
+            </div>
+          </form>
+
+          {aiCandidates.length > 0 ? (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-base font-medium">生成预览</h4>
+                <button
+                  type="button"
+                  onClick={handleSaveAiCandidates}
+                  disabled={aiSaving}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {aiSaving ? "保存中..." : `保存选中 (${selectedAiIndexes.length})`}
+                </button>
+              </div>
+              <div className="space-y-3">
+                {aiCandidates.map((item, index) => (
+                  <label key={`${aiBatchId}-${index}`} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <input type="checkbox" checked={selectedAiIndexes.includes(index)} onChange={() => toggleAiCandidate(index)} className="mt-1" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-slate-900">{item.title}</span>
+                      <span className="mt-2 block text-sm text-slate-600">{item.content}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
+              <th className="px-6 py-3 font-medium">来源</th>
               <th className="px-6 py-3 font-medium">标题</th>
               <th className="px-6 py-3 font-medium">内容</th>
               <th className="px-6 py-3 font-medium">标签</th>
               <th className="px-6 py-3 font-medium">状态</th>
-               {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
-             </tr>
-           </thead>
-           <tbody>
-             {items.length === 0 ? (
-               <tr>
-                 <td colSpan={canManage ? 5 : 4} className="px-6 py-8 text-slate-500">
-                   暂无文案，先新增一条内容。
-                 </td>
-               </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id} className="border-t border-slate-200 align-top">
+              {canManage ? <th className="px-6 py-3 font-medium">操作</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={canManage ? 6 : 5} className="px-6 py-8 text-slate-500">
+                    暂无文案，先新增一条内容。
+                  </td>
+                </tr>
+             ) : (
+               items.map((item) => (
+                 <tr key={item.id} className="border-t border-slate-200 align-top">
+                  <td className="px-6 py-4">{getCopywritingSourceText(item)}</td>
                   <td className="px-6 py-4">{item.title}</td>
                   <td className="max-w-xl px-6 py-4 text-slate-600">{item.content}</td>
                   <td className="px-6 py-4">{item.tags.join("、") || "-"}</td>
