@@ -54,6 +54,13 @@ export async function fetchHotComments(targetUrl: string, limit: number, keyword
   }
 
   const root = response.json as Record<string, unknown>;
+  const rootOk = toNumber(root.ok);
+  const rootMessage = typeof root.msg === "string" ? root.msg : typeof root.message === "string" ? root.message : undefined;
+
+  if (rootOk !== undefined && rootOk !== 1 && rootOk !== 200) {
+    throw new Error(rootMessage || "微博热门评论接口未返回成功结果");
+  }
+
   const data = root.data && typeof root.data === "object" ? (root.data as Record<string, unknown>) : null;
   const comments = Array.isArray(data?.data) ? (data?.data as unknown[]) : [];
 

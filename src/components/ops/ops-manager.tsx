@@ -222,6 +222,7 @@ export function OpsManager({
   const [hotCommentKeywords, setHotCommentKeywords] = useState("");
   const [hotCommentPreview, setHotCommentPreview] = useState<HotCommentPreviewItem[]>([]);
   const [selectedHotCommentIds, setSelectedHotCommentIds] = useState<string[]>([]);
+  const [hotCommentMessage, setHotCommentMessage] = useState<string | null>(null);
   const [forceDuplicate, setForceDuplicate] = useState(false);
   const [rotationTargetUrl, setRotationTargetUrl] = useState("");
   const [rotationTimes, setRotationTimes] = useState(5);
@@ -638,6 +639,7 @@ export function OpsManager({
     try {
       setHotCommentLoading(true);
       setError(null);
+      setHotCommentMessage(null);
 
       const response = await fetch("/api/comment-pool/hot-comments", {
         method: "POST",
@@ -659,8 +661,11 @@ export function OpsManager({
 
       setHotCommentPreview(result.data.items);
       setSelectedHotCommentIds(result.data.items.map((item: HotCommentPreviewItem) => item.commentId));
+      setHotCommentMessage(`已提取 ${result.data.items.length} 条热门评论，请勾选后导入。`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "提取热门评论失败");
+      const message = err instanceof Error ? err.message : "提取热门评论失败";
+      setError(message);
+      setHotCommentMessage(message);
     } finally {
       setHotCommentLoading(false);
     }
@@ -677,6 +682,7 @@ export function OpsManager({
     try {
       setSubmitting(true);
       setError(null);
+      setHotCommentMessage(null);
 
       const response = await fetch("/api/comment-pool/batch-import", {
         method: "POST",
@@ -698,8 +704,11 @@ export function OpsManager({
       setHotCommentPreview([]);
       setSelectedHotCommentIds([]);
       setHotCommentTargetUrl("");
+      setHotCommentMessage(`已导入 ${selectedItems.length} 条热门评论到控评池。`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "导入热门评论失败");
+      const message = err instanceof Error ? err.message : "导入热门评论失败";
+      setError(message);
+      setHotCommentMessage(message);
     } finally {
       setSubmitting(false);
     }
@@ -1057,6 +1066,7 @@ export function OpsManager({
                     </div>
                   </div>
                 ) : null}
+                {hotCommentMessage ? <p className="text-sm text-slate-600">{hotCommentMessage}</p> : null}
               </div>
             </section>
           ) : null}
