@@ -131,8 +131,40 @@ function getBusinessResultText(log: LogWithRelations) {
 
 function getBusinessDetailText(log: LogWithRelations) {
   const payload = log.requestPayload && typeof log.requestPayload === "object" && !Array.isArray(log.requestPayload) ? (log.requestPayload as Record<string, unknown>) : null;
+  const responsePayload = log.responsePayload && typeof log.responsePayload === "object" && !Array.isArray(log.responsePayload) ? (log.responsePayload as Record<string, unknown>) : null;
   const targetUrl = payload && typeof payload.targetUrl === "string" ? payload.targetUrl : null;
   const stage = getLogStage(log);
+
+  if (log.actionType === "PLAN_GENERATED") {
+    const date = payload && typeof payload.date === "string" ? payload.date : "未知日期";
+    const createdCount = responsePayload && typeof responsePayload.createdCount === "number" ? responsePayload.createdCount : responsePayload && typeof responsePayload.count === "number" ? responsePayload.count : null;
+    const existingCount = responsePayload && typeof responsePayload.existingCount === "number" ? responsePayload.existingCount : null;
+
+    if (createdCount !== null || existingCount !== null) {
+      return `日期 ${date}，新生成 ${createdCount ?? 0} 条，已存在 ${existingCount ?? 0} 条。`;
+    }
+
+    return `日期 ${date}，系统已为该账号生成计划。`;
+  }
+
+  if (log.actionType === "PLAN_SCHEDULED") {
+    const date = payload && typeof payload.date === "string" ? payload.date : "未知日期";
+    const queuedCount = responsePayload && typeof responsePayload.queuedCount === "number" ? responsePayload.queuedCount : null;
+    return `日期 ${date}，已入队 ${queuedCount ?? 0} 条待执行计划。`;
+  }
+
+  if (log.actionType === "AUTO_CHECKIN_DAILY_RUN") {
+    const date = payload && typeof payload.date === "string" ? payload.date : "未知日期";
+    const total = responsePayload && typeof responsePayload.total === "number" ? responsePayload.total : null;
+    const successCount = responsePayload && typeof responsePayload.success === "number" ? responsePayload.success : null;
+    const failedCount = responsePayload && typeof responsePayload.failed === "number" ? responsePayload.failed : null;
+    return `日期 ${date}，共处理 ${total ?? 0} 条签到计划，成功 ${successCount ?? 0} 条，失败 ${failedCount ?? 0} 条。`;
+  }
+
+  if (log.actionType === "AUTO_FIRST_COMMENT_DAILY_RUN") {
+    const date = payload && typeof payload.date === "string" ? payload.date : "未知日期";
+    return `日期 ${date}，自动首评调度已触发。`;
+  }
 
   if (log.errorMessage) {
     return log.errorMessage;
@@ -144,10 +176,6 @@ function getBusinessDetailText(log: LogWithRelations) {
 
   if (targetUrl) {
     return targetUrl;
-  }
-
-  if (log.actionType === "PLAN_GENERATED") {
-    return "系统已为该账号生成计划。";
   }
 
   if (getLogCategory(log) === "QUEUE") {
@@ -219,6 +247,18 @@ function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmi
       return item;
     })
     .sort((a, b) => new Date(b.latestExecutedAt).getTime() - new Date(a.latestExecutedAt).getTime());
+}
+
+function getSummarySuccessText(row: LogSummaryRow) {
+  if (row.failedCount === 0) {
+    return `成功 ${row.successCount}`;
+  }
+
+  if (row.successCount === 0) {
+    return `失败 ${row.failedCount}`;
+  }
+
+  return `成功 ${row.successCount} / 失败 ${row.failedCount}`;
 }
 
 function readStageFromPayload(payload: unknown): LogStage {
@@ -487,7 +527,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
                     <td className="px-6 py-4">{categoryText[row.category]}</td>
                     <td className="px-6 py-4">{row.actionText}</td>
                     <td className="px-6 py-4">{row.accountCount || "-"}</td>
-                    <td className="px-6 py-4">{row.successCount}/{row.failedCount}</td>
+                    <td className="px-6 py-4">{getSummarySuccessText(row)}</td>
                     <td className="px-6 py-4">{row.blockedCount}</td>
                     <td className="max-w-md px-6 py-4 text-slate-600">{row.sampleDetails.join(" / ") || "-"}</td>
                     <td className="px-6 py-4">{new Date(row.latestExecutedAt).toLocaleString("zh-CN")}</td>
