@@ -1,10 +1,7 @@
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { runCommentLikeJob } from "@/server/action-jobs/runner";
+import { assignActionJobNode } from "@/server/action-job-nodes";
 import { writeExecutionLog } from "@/server/logs";
-import { taskTierToLane } from "@/server/task-scheduler/rate-limit";
-import { scheduleTask } from "@/server/task-scheduler";
-import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
 import { startCommentLikeJobSchema } from "@/server/validators/ops";
 
 export async function POST(request: Request) {
@@ -53,13 +50,16 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "包含无权限账号" }, { status: 403 });
     }
 
+    const targetNodeId = await assignActionJobNode(parsed.data.targetNodeId);
+
     const job = await prisma.actionJob.create({
       data: {
         jobType: "COMMENT_LIKE_BATCH",
-        status: "RUNNING",
+        status: "PENDING",
         config: {
           accountIds: parsed.data.accountIds,
           poolItemIds: poolItems.map((item) => item.id),
+          targetNodeId,
           urgency: parsed.data.urgency || "S",
           forecast: parsed.data.forecast,
           aiRisk: parsed.data.aiRisk,
@@ -92,31 +92,13 @@ export async function POST(request: Request) {
     );
 
     await prisma.actionJobStep.createMany({ data: stepData });
-    const scheduled = await scheduleTask({
-      kind: "ACTION_JOB",
-      id: job.id,
-      ownerUserId: auth.session.id,
-      label: `action-job:${job.id}:comment-like`,
-      lane: taskTierToLane(parsed.data.urgency || "S"),
-      run: () =>
-        runCommentLikeJob({
-          jobId: job.id,
-          ownerUserId: auth.session.id,
-          accountIds: parsed.data.accountIds,
-          poolItems,
-          urgency: parsed.data.urgency || "S",
-        }),
-    });
-
     await writeExecutionLog({
       actionType: "ACTION_JOB_SCHEDULED",
       requestPayload: {
         jobId: job.id,
         jobType: "COMMENT_LIKE_BATCH",
         ownerUserId: auth.session.id,
-        workerId: scheduled.workerId,
-        userConcurrency: scheduled.userConcurrency,
-        queueDepth: scheduled.queueDepth,
+        targetNodeId,
         aiRisk: parsed.data.aiRisk,
       },
       success: true,
@@ -139,12 +121,8 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json({ success: true, data: finalJob, workerId: scheduled.workerId });
-  } catch (error) {
-    if (error instanceof ScheduledTaskCancelledError) {
-      return Response.json({ success: false, message: "任务已停止" });
-    }
-
+    return Response.json({ success: true, data: finalJob, workerId: targetNodeId });
+  } catch {
     return Response.json({ success: false, message: "创建控评点赞任务失败" }, { status: 500 });
   }
 }

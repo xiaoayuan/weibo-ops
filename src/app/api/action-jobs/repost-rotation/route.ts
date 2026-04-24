@@ -1,10 +1,7 @@
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { runRepostRotationJob } from "@/server/action-jobs/runner";
+import { assignActionJobNode } from "@/server/action-job-nodes";
 import { writeExecutionLog } from "@/server/logs";
-import { taskTierToLane } from "@/server/task-scheduler/rate-limit";
-import { scheduleTask } from "@/server/task-scheduler";
-import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
 import { startRepostRotationJobSchema } from "@/server/validators/ops";
 
 export async function POST(request: Request) {
@@ -38,12 +35,15 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "包含无权限账号" }, { status: 403 });
     }
 
+    const targetNodeId = await assignActionJobNode(parsed.data.targetNodeId);
+
     const job = await prisma.actionJob.create({
       data: {
         jobType: "REPOST_ROTATION",
-        status: "RUNNING",
+        status: "PENDING",
         config: {
           accountIds: parsed.data.accountIds,
+          targetNodeId,
           targetUrl: parsed.data.targetUrl,
           times: parsed.data.times,
           intervalSec: parsed.data.intervalSec,
@@ -84,33 +84,13 @@ export async function POST(request: Request) {
     );
 
     await prisma.actionJobStep.createMany({ data: stepData });
-    const scheduled = await scheduleTask({
-      kind: "ACTION_JOB",
-      id: job.id,
-      ownerUserId: auth.session.id,
-      label: `action-job:${job.id}:repost-rotation`,
-      lane: taskTierToLane(parsed.data.urgency || "A"),
-      run: () =>
-        runRepostRotationJob({
-          jobId: job.id,
-          ownerUserId: auth.session.id,
-          accountIds: parsed.data.accountIds,
-          targetUrl: parsed.data.targetUrl,
-          times: parsed.data.times,
-          intervalSec: parsed.data.intervalSec,
-          urgency: parsed.data.urgency || "A",
-        }),
-    });
-
     await writeExecutionLog({
       actionType: "ACTION_JOB_SCHEDULED",
       requestPayload: {
         jobId: job.id,
         jobType: "REPOST_ROTATION",
         ownerUserId: auth.session.id,
-        workerId: scheduled.workerId,
-        userConcurrency: scheduled.userConcurrency,
-        queueDepth: scheduled.queueDepth,
+        targetNodeId,
         aiRisk: parsed.data.aiRisk,
       },
       success: true,
@@ -133,12 +113,8 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json({ success: true, data: finalJob, workerId: scheduled.workerId });
-  } catch (error) {
-    if (error instanceof ScheduledTaskCancelledError) {
-      return Response.json({ success: false, message: "任务已停止" });
-    }
-
+    return Response.json({ success: true, data: finalJob, workerId: targetNodeId });
+  } catch {
     return Response.json({ success: false, message: "创建轮转转发任务失败" }, { status: 500 });
   }
 }

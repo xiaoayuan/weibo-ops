@@ -1,0 +1,134 @@
+import { prisma } from "@/lib/prisma";
+import { runCommentLikeJob, runRepostRotationJob } from "@/server/action-jobs/runner";
+import { getActionJobNodeRole, getCurrentNodeId } from "@/server/action-job-nodes";
+
+declare global {
+  var __actionJobDispatcherStarted: boolean | undefined;
+}
+
+const POLL_INTERVAL_MS = 5_000;
+
+function shouldRunDispatcher() {
+  return getActionJobNodeRole() === "controller" || getActionJobNodeRole() === "worker";
+}
+
+async function claimNextActionJob(nodeId: string) {
+  const jobs = await prisma.actionJob.findMany({
+    where: {
+      status: "PENDING",
+    },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+    select: {
+      id: true,
+      jobType: true,
+      config: true,
+      createdBy: true,
+    },
+  });
+
+  for (const job of jobs) {
+    const config = job.config && typeof job.config === "object" && !Array.isArray(job.config) ? (job.config as Record<string, unknown>) : {};
+    if ((config.targetNodeId as string | undefined) !== nodeId) {
+      continue;
+    }
+
+    const updated = await prisma.actionJob.updateMany({
+      where: {
+        id: job.id,
+        status: "PENDING",
+      },
+      data: {
+        status: "RUNNING",
+        summary: {
+          claimedByNodeId: nodeId,
+          claimedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    if (updated.count === 1) {
+      return { job, config };
+    }
+  }
+
+  return null;
+}
+
+async function dispatchOnce() {
+  const nodeId = getCurrentNodeId();
+  const claimed = await claimNextActionJob(nodeId);
+
+  if (!claimed) {
+    return;
+  }
+
+  const { job, config } = claimed;
+
+  try {
+    if (job.jobType === "COMMENT_LIKE_BATCH") {
+      const poolItems = Array.isArray(config.poolItemIds)
+        ? await prisma.commentLinkPoolItem.findMany({
+            where: { id: { in: config.poolItemIds.filter((item): item is string => typeof item === "string") } },
+            select: { id: true, sourceUrl: true },
+            orderBy: { createdAt: "desc" },
+          })
+        : [];
+
+      await runCommentLikeJob({
+        jobId: job.id,
+        ownerUserId: job.createdBy || "system",
+        accountIds: Array.isArray(config.accountIds) ? config.accountIds.filter((item): item is string => typeof item === "string") : [],
+        poolItems,
+        urgency: (config.urgency as "S" | "A" | "B" | undefined) || "S",
+      });
+      return;
+    }
+
+    if (job.jobType === "REPOST_ROTATION") {
+      await runRepostRotationJob({
+        jobId: job.id,
+        ownerUserId: job.createdBy || "system",
+        accountIds: Array.isArray(config.accountIds) ? config.accountIds.filter((item): item is string => typeof item === "string") : [],
+        targetUrl: typeof config.targetUrl === "string" ? config.targetUrl : "",
+        times: typeof config.times === "number" ? config.times : 1,
+        intervalSec: toIntervalSec(config.intervalSec),
+        urgency: (config.urgency as "S" | "A" | "B" | undefined) || "A",
+      });
+    }
+  } catch (error) {
+    await prisma.actionJob.update({
+      where: { id: job.id },
+      data: {
+        status: "FAILED",
+        summary: {
+          claimedByNodeId: nodeId,
+          claimedAt: new Date().toISOString(),
+          dispatchError: error instanceof Error ? error.message : "action-job-dispatch-failed",
+        },
+      },
+    });
+  }
+}
+
+function scheduleLoop() {
+  void dispatchOnce().finally(() => {
+    setTimeout(scheduleLoop, POLL_INTERVAL_MS);
+  });
+}
+
+export function ensureActionJobDispatcherStarted() {
+  if (!shouldRunDispatcher()) {
+    return;
+  }
+
+  if (globalThis.__actionJobDispatcherStarted) {
+    return;
+  }
+
+  globalThis.__actionJobDispatcherStarted = true;
+  scheduleLoop();
+}
+function toIntervalSec(value: unknown): 0 | 3 | 5 | 10 {
+  return value === 0 || value === 3 || value === 5 || value === 10 ? value : 3;
+}

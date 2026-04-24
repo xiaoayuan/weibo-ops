@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ensureActionJobDispatcherStarted } from "@/server/action-jobs/dispatcher";
 import { ensureUserAutomationSchedulerStarted } from "@/server/scheduler/user-automation";
 import "./globals.css";
 
@@ -23,6 +24,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  ensureActionJobDispatcherStarted();
   ensureUserAutomationSchedulerStarted();
 
   return (

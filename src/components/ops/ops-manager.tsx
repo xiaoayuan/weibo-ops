@@ -32,6 +32,11 @@ type HotCommentPreviewItem = {
   likeCount?: number;
 };
 
+type ActionJobNodeOption = {
+  id: string;
+  label: string;
+};
+
 type JobForecast = {
   targetMinutes: number;
   limitMinutes: number;
@@ -194,12 +199,14 @@ export function OpsManager({
   initialJobs,
   initialPoolItems,
   initialStrategy,
+  nodeOptions,
 }: {
   accounts: WeiboAccount[];
   currentUserRole: AppRole;
   initialJobs: ActionJobWithRuns[];
   initialPoolItems: CommentLinkPoolItem[];
   initialStrategy: ExecutionStrategy;
+  nodeOptions: ActionJobNodeOption[];
 }) {
   const canManage = canManageBusinessData(currentUserRole);
   const [mobileView, setMobileView] = useState<"CREATE" | "TASKS">("CREATE");
@@ -229,6 +236,8 @@ export function OpsManager({
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
   const [commentLikeUrgency, setCommentLikeUrgency] = useState<"S" | "A" | "B">("S");
   const [rotationUrgency, setRotationUrgency] = useState<"S" | "A" | "B">("A");
+  const [commentLikeTargetNodeId, setCommentLikeTargetNodeId] = useState<string>("AUTO");
+  const [rotationTargetNodeId, setRotationTargetNodeId] = useState<string>("AUTO");
   const [rotationCopyTexts, setRotationCopyTexts] = useState("1\n2\n3\n4\n5");
   const [jobStatusFilter, setJobStatusFilter] = useState<"ALL" | ActionJob["status"]>("ALL");
   const [submitting, setSubmitting] = useState(false);
@@ -426,6 +435,10 @@ export function OpsManager({
     if (job.jobType === "COMMENT_LIKE_BATCH") {
       const poolItemIds = Array.isArray(config.poolItemIds) ? config.poolItemIds.length : 0;
       lines.push(`控评链接 ${poolItemIds} 条`);
+    }
+
+    if (typeof config.targetNodeId === "string") {
+      lines.push(`执行节点：${config.targetNodeId}`);
     }
 
     if (job.jobType === "REPOST_ROTATION") {
@@ -801,6 +814,7 @@ export function OpsManager({
         body: JSON.stringify({
           accountIds: selectedPoolAccountIds,
           poolItemIds: selectedPoolIds,
+          targetNodeId: commentLikeTargetNodeId === "AUTO" ? undefined : commentLikeTargetNodeId,
           urgency: commentLikeUrgency,
           forecast: commentLikeForecast,
           aiRisk: commentLikeAiRisk || undefined,
@@ -847,6 +861,7 @@ export function OpsManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountIds: selectedRotationAccountIds,
+          targetNodeId: rotationTargetNodeId === "AUTO" ? undefined : rotationTargetNodeId,
           targetUrl: rotationTargetUrl,
           times: rotationTimes,
           intervalSec: rotationIntervalSec,
@@ -1192,6 +1207,18 @@ export function OpsManager({
               </div>
               <div className="mt-4">
                 <select
+                  value={commentLikeTargetNodeId}
+                  onChange={(event) => setCommentLikeTargetNodeId(event.target.value)}
+                  className="mb-3 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="AUTO">自动分配执行节点</option>
+                  {nodeOptions.map((node) => (
+                    <option key={node.id} value={node.id}>
+                      {node.label}
+                    </option>
+                  ))}
+                </select>
+                <select
                   value={commentLikeUrgency}
                   onChange={(event) => setCommentLikeUrgency(event.target.value as "S" | "A" | "B")}
                   className="mb-3 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
@@ -1288,6 +1315,18 @@ export function OpsManager({
                 </label>
               ))}
             </div>
+            <select
+              value={rotationTargetNodeId}
+              onChange={(event) => setRotationTargetNodeId(event.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="AUTO">自动分配执行节点</option>
+              {nodeOptions.map((node) => (
+                <option key={node.id} value={node.id}>
+                  {node.label}
+                </option>
+              ))}
+            </select>
             <select
               value={rotationUrgency}
               onChange={(event) => setRotationUrgency(event.target.value as "S" | "A" | "B")}
