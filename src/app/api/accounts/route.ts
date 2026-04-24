@@ -43,12 +43,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const proxyNode = await getAutoAssignableProxyNode(auth.session.id);
+    let proxyNodeId: string | null = null;
+
+    try {
+      const proxyNode = await getAutoAssignableProxyNode(auth.session.id);
+      proxyNodeId = proxyNode.id;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+
+      if (!message.includes("暂无可用代理") && !message.includes("代理节点容量已满")) {
+        throw error;
+      }
+    }
 
     const account = await prisma.weiboAccount.create({
       data: {
         ownerUserId: auth.session.id,
-        proxyNodeId: proxyNode.id,
+        proxyNodeId,
         nickname: parsed.data.nickname,
         remark: parsed.data.remark || null,
         groupName: parsed.data.groupName || null,
@@ -63,6 +74,7 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       data: account,
+      message: proxyNodeId ? "账号已创建并自动绑定代理" : "账号已创建，当前未绑定代理",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "创建账号失败";
