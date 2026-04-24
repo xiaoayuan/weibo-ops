@@ -42,6 +42,7 @@ type AiRiskAssessment = {
 type JobConfig = {
   urgency?: "S" | "A" | "B";
   forecast?: JobForecast;
+  aiRisk?: AiRiskAssessment | null;
 };
 
 function estimateJobForecast(input: {
@@ -330,6 +331,45 @@ export function OpsManager({
     }
 
     return `预估 ${forecast.targetMinutes}-${forecast.limitMinutes} 分钟，实际目标 ${summary.sla.targetMinutes || 0} 分钟 / 上限 ${summary.sla.limitMinutes || 0} 分钟`;
+  }
+
+  function getJobSummaryText(job: ActionJobWithRuns) {
+    const runs = job.accountRuns;
+    const successCount = runs.filter((run) => run.status === "SUCCESS").length;
+    const failedCount = runs.filter((run) => run.status === "FAILED").length;
+    const partialCount = runs.filter((run) => run.status === "PARTIAL_FAILED").length;
+    const cancelledCount = runs.filter((run) => run.status === "CANCELLED").length;
+
+    return `成功 ${successCount} / 失败 ${failedCount} / 部分失败 ${partialCount} / 已取消 ${cancelledCount}`;
+  }
+
+  function getJobTopFailureText(job: ActionJobWithRuns) {
+    const failedRuns = job.accountRuns.filter((run) => Boolean(run.errorMessage));
+
+    if (failedRuns.length === 0) {
+      return "暂无失败原因";
+    }
+
+    const counter = new Map<string, number>();
+
+    for (const run of failedRuns) {
+      const reason = run.errorMessage || "未知原因";
+      counter.set(reason, (counter.get(reason) || 0) + 1);
+    }
+
+    const sorted = Array.from(counter.entries()).sort((a, b) => b[1] - a[1]);
+    const [reason, count] = sorted[0];
+    return `${reason}（${count} 个账号）`;
+  }
+
+  function getJobAccountPreviewText(job: ActionJobWithRuns) {
+    const grouped = job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`);
+
+    if (grouped.length <= 4) {
+      return grouped.join(" / ") || "-";
+    }
+
+    return `${grouped.slice(0, 4).join(" / ")} 等 ${grouped.length} 个账号`;
   }
 
   function toggleJobExpanded(id: string) {
@@ -1150,8 +1190,10 @@ export function OpsManager({
                   </div>
 
                   <div className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">
-                    {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
+                    {getJobAccountPreviewText(job)}
                   </div>
+                  <p className="mt-2 text-xs text-slate-500">{getJobSummaryText(job)}</p>
+                  <p className="mt-1 text-xs text-rose-600">主要失败：{getJobTopFailureText(job)}</p>
                   <p className="mt-2 text-xs text-slate-500">{getJobSlaText(job)}</p>
                   <p className="mt-1 text-xs text-slate-500">{getForecastCompareText(job)}</p>
 
@@ -1216,7 +1258,9 @@ export function OpsManager({
                       <td className="px-3 py-3">{getJobTypeText(job.jobType)}</td>
                       <td className="px-3 py-3">{jobStatusText[job.status]}</td>
                       <td className="px-3 py-3">
-                        {job.accountRuns.map((run) => `${run.account.nickname}:${jobStatusText[run.status]}`).join(" / ") || "-"}
+                        <p>{getJobAccountPreviewText(job)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{getJobSummaryText(job)}</p>
+                        <p className="mt-1 text-xs text-rose-600">主要失败：{getJobTopFailureText(job)}</p>
                       </td>
                       <td className="px-3 py-3">
                         <p>{getUrgencyText(getJobUrgency(job))}</p>
