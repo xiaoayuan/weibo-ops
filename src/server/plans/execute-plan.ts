@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { decryptText, getDecryptErrorMessage } from "@/lib/encrypt";
+import { formatBusinessDateTime, getBusinessDateText, toBusinessDateTime } from "@/lib/business-date";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
@@ -52,6 +53,17 @@ function toDateText(date: Date) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getNextFirstCommentRetryTime(input: { now: Date; planDate: Date; endTime?: string | null }) {
+  const next = new Date(input.now.getTime() + 30 * 60 * 1000);
+  const endBoundary = toBusinessDateTime(getBusinessDateText(input.planDate), input.endTime || "18:00");
+
+  if (next.getTime() > endBoundary.getTime()) {
+    return null;
+  }
+
+  return next;
 }
 
 export async function executePlanById(id: string, ownerUserId?: string) {
@@ -403,6 +415,49 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
     if (cancelledBeforeFinalize) {
       return toCancelledResult(cancelledBeforeFinalize);
+    }
+
+    const shouldRetryNoTarget = !executed && message === "未找到可用的 0 回复帖子";
+
+    if (shouldRetryNoTarget) {
+      const retryAt = getNextFirstCommentRetryTime({ now: new Date(), planDate: plan.planDate, endTime: plan.task?.endTime || null });
+
+      if (retryAt) {
+        const retryMessage = `暂未命中可首评帖子，已顺延至 ${formatBusinessDateTime(retryAt)} 再试`;
+        const updated = await prisma.dailyPlan.update({
+          where: { id },
+          data: {
+            status: "PENDING",
+            scheduledTime: retryAt,
+            resultMessage: retryMessage,
+          },
+          include: planInclude,
+        });
+
+        await writeExecutionLog({
+          accountId: updated.accountId,
+          planId: updated.id,
+          actionType: "FIRST_COMMENT_REQUEUED",
+          requestPayload: {
+            planType: updated.planType,
+            trigger: "manual_or_auto",
+            retryAt: retryAt.toISOString(),
+            timing,
+            scheduleDecision,
+          },
+          success: true,
+          errorMessage: retryMessage,
+        });
+
+        return {
+          ok: true as const,
+          success: false,
+          message: retryMessage,
+          data: updated,
+        };
+      }
+
+      message = "当天窗口内未命中可首评帖子，已结束执行";
     }
 
     const updated = await prisma.dailyPlan.update({

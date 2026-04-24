@@ -34,6 +34,7 @@ const actionTypeTextMap: Record<string, string> = {
   INVITE_CODE_UPDATED: "邀请码更新",
   USER_REGISTERED_WITH_INVITE: "邀请码注册",
   FIRST_COMMENT_EXECUTE_FAILED: "首评执行失败",
+  FIRST_COMMENT_REQUEUED: "首评重新排队",
 };
 
 const taskStatusTextMap: Record<string, string> = {
