@@ -39,6 +39,15 @@ type LogSummaryRow = {
   accountCount: number;
   latestExecutedAt: string;
   sampleDetails: string[];
+  accountRows: Array<{
+    accountId: string;
+    accountText: string;
+    successCount: number;
+    failedCount: number;
+    blockedCount: number;
+    latestExecutedAt: string;
+    sampleDetails: string[];
+  }>;
 };
 
 function getLogCategory(log: LogWithRelations): LogCategory {
@@ -231,7 +240,24 @@ function getSummaryKey(log: LogWithRelations, users: UserOption[], isAdmin: bool
 }
 
 function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmin: boolean) {
-  const map = new Map<string, LogSummaryRow & { accountIds: Set<string> }>();
+  const map = new Map<
+    string,
+    LogSummaryRow & {
+      accountIds: Set<string>;
+      accountMap: Map<
+        string,
+        {
+          accountId: string;
+          accountText: string;
+          successCount: number;
+          failedCount: number;
+          blockedCount: number;
+          latestExecutedAt: string;
+          sampleDetails: string[];
+        }
+      >;
+    }
+  >();
 
   for (const log of logs) {
     const summaryKey = getSummaryKey(log, users, isAdmin);
@@ -254,7 +280,26 @@ function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmi
         accountCount: log.account?.id ? 1 : 0,
         latestExecutedAt: log.executedAt.toISOString(),
         sampleDetails: detailText && detailText !== "-" ? [detailText] : [],
+        accountRows: [],
         accountIds: new Set(log.account?.id ? [log.account.id] : []),
+        accountMap: new Map(
+          log.account?.id
+            ? [
+                [
+                  log.account.id,
+                  {
+                    accountId: log.account.id,
+                    accountText: log.account.nickname || log.account.id,
+                    successCount: log.success ? 1 : 0,
+                    failedCount: log.success ? 0 : 1,
+                    blockedCount: getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0,
+                    latestExecutedAt: log.executedAt.toISOString(),
+                    sampleDetails: detailText && detailText !== "-" ? [detailText] : [],
+                  },
+                ],
+              ]
+            : [],
+        ),
       });
       continue;
     }
@@ -273,13 +318,42 @@ function buildLogSummaries(logs: LogWithRelations[], users: UserOption[], isAdmi
     if (new Date(log.executedAt).getTime() > new Date(row.latestExecutedAt).getTime()) {
       row.latestExecutedAt = log.executedAt.toISOString();
     }
+
+    if (log.account?.id) {
+      const accountRow = row.accountMap.get(log.account.id);
+
+      if (!accountRow) {
+        row.accountMap.set(log.account.id, {
+          accountId: log.account.id,
+          accountText: log.account.nickname || log.account.id,
+          successCount: log.success ? 1 : 0,
+          failedCount: log.success ? 0 : 1,
+          blockedCount: getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0,
+          latestExecutedAt: log.executedAt.toISOString(),
+          sampleDetails: detailText && detailText !== "-" ? [detailText] : [],
+        });
+      } else {
+        accountRow.successCount += log.success ? 1 : 0;
+        accountRow.failedCount += log.success ? 0 : 1;
+        accountRow.blockedCount += getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0;
+        if (detailText && detailText !== "-" && !accountRow.sampleDetails.includes(detailText) && accountRow.sampleDetails.length < 2) {
+          accountRow.sampleDetails.push(detailText);
+        }
+        if (new Date(log.executedAt).getTime() > new Date(accountRow.latestExecutedAt).getTime()) {
+          accountRow.latestExecutedAt = log.executedAt.toISOString();
+        }
+      }
+    }
   }
 
   return Array.from(map.values())
     .map((row) => {
-      const { accountIds, ...item } = row;
+      const { accountIds, accountMap, ...item } = row;
       void accountIds;
-      return item;
+      return {
+        ...item,
+        accountRows: Array.from(accountMap.values()).sort((a, b) => new Date(b.latestExecutedAt).getTime() - new Date(a.latestExecutedAt).getTime()),
+      };
     })
     .sort((a, b) => new Date(b.latestExecutedAt).getTime() - new Date(a.latestExecutedAt).getTime());
 }
@@ -410,6 +484,7 @@ function getScheduleSummary(log: LogWithRelations) {
 
 export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogWithRelations[]; users: UserOption[]; isAdmin: boolean }) {
   const [viewMode, setViewMode] = useState<LogsViewMode>("SUMMARY");
+  const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [resultFilter, setResultFilter] = useState<"ALL" | "SUCCESS" | "FAILED">("ALL");
   const [actionFilter, setActionFilter] = useState("ALL");
@@ -555,19 +630,48 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
                   </td>
                 </tr>
               ) : (
-                summaryRows.map((row) => (
-                  <tr key={row.id} className="border-t border-slate-200 align-top">
-                    <td className="px-6 py-4">{row.dateText}</td>
-                    {isAdmin ? <td className="px-6 py-4">{row.userText}</td> : null}
-                    <td className="px-6 py-4">{categoryText[row.category]}</td>
-                    <td className="px-6 py-4">{row.actionText}</td>
-                    <td className="px-6 py-4">{row.accountCount || "-"}</td>
-                    <td className="px-6 py-4">{getSummarySuccessText(row)}</td>
-                    <td className="px-6 py-4">{row.blockedCount}</td>
-                    <td className="max-w-md px-6 py-4 text-slate-600">{row.sampleDetails.join(" / ") || "-"}</td>
-                    <td className="px-6 py-4">{new Date(row.latestExecutedAt).toLocaleString("zh-CN")}</td>
-                  </tr>
-                ))
+                summaryRows.flatMap((row) => {
+                  const expanded = expandedSummaryId === row.id;
+
+                  return [
+                    <tr key={row.id} className="border-t border-slate-200 align-top">
+                      <td className="px-6 py-4">{row.dateText}</td>
+                      {isAdmin ? <td className="px-6 py-4">{row.userText}</td> : null}
+                      <td className="px-6 py-4">{categoryText[row.category]}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <button type="button" onClick={() => setExpandedSummaryId(expanded ? null : row.id)} className="text-sky-700 hover:text-sky-800">
+                            {expanded ? "收起" : "展开"}
+                          </button>
+                          <span>{row.actionText}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">{row.accountCount || "-"}</td>
+                      <td className="px-6 py-4">{getSummarySuccessText(row)}</td>
+                      <td className="px-6 py-4">{row.blockedCount}</td>
+                      <td className="max-w-md px-6 py-4 text-slate-600">{row.sampleDetails.join(" / ") || "-"}</td>
+                      <td className="px-6 py-4">{new Date(row.latestExecutedAt).toLocaleString("zh-CN")}</td>
+                    </tr>,
+                    expanded ? (
+                      <tr key={`${row.id}-accounts`} className="border-t border-slate-100 bg-slate-50">
+                        <td colSpan={isAdmin ? 9 : 8} className="px-6 py-4">
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            {row.accountRows.map((accountRow) => (
+                              <div key={accountRow.accountId} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="font-medium">{accountRow.accountText}</span>
+                                  <span className="text-xs text-slate-500">{new Date(accountRow.latestExecutedAt).toLocaleString("zh-CN")}</span>
+                                </div>
+                                <p className="mt-2 text-xs text-slate-500">成功 {accountRow.successCount} / 失败 {accountRow.failedCount} / 拦截 {accountRow.blockedCount}</p>
+                                <p className="mt-2 text-xs text-slate-600">{accountRow.sampleDetails.join(" / ") || "暂无额外说明"}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null,
+                  ];
+                })
               )}
             </tbody>
           </table>
