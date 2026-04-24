@@ -24,6 +24,9 @@ services:
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       ACCOUNT_SECRET_KEY: ${ACCOUNT_SECRET_KEY:-replace_with_a_32_plus_char_secret}
       EXECUTOR_MODE: ${EXECUTOR_MODE:-weibo}
+      NODE_ROLE: ${NODE_ROLE:-controller}
+      NODE_ID: ${NODE_ID:-main-1}
+      ACTION_JOB_NODES: ${ACTION_JOB_NODES:-main-1:主服务器}
       NODE_ENV: production
       PORT: 3000
     ports:
