@@ -35,6 +35,9 @@ type LinkPreview = {
   title: string;
   content: string;
   finalUrl: string;
+  suggestedBusinessType: AiBusinessType;
+  suggestedTone: AiTone;
+  recommendedContext: string;
 };
 
 type FormState = {
@@ -396,8 +399,9 @@ export function CopywritingManager({
 
     setAiForm((current) => ({
       ...current,
-      context: `${linkPreview.title}
-${linkPreview.content}`.trim(),
+      businessType: linkPreview.suggestedBusinessType,
+      tone: linkPreview.suggestedTone,
+      context: linkPreview.recommendedContext,
     }));
   }
 
@@ -542,10 +546,18 @@ ${linkPreview.content}`.trim(),
               <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
                 <p className="text-sm font-medium text-slate-900">{linkPreview.title}</p>
                 <p className="mt-2 text-sm text-slate-600">{linkPreview.content}</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-600">推荐业务：{businessTypeText[linkPreview.suggestedBusinessType]}</span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-600">推荐语气：{linkPreview.suggestedTone === "NATURAL" ? "自然" : linkPreview.suggestedTone === "PASSERBY" ? "路人" : linkPreview.suggestedTone === "SUPPORTIVE" ? "支持" : linkPreview.suggestedTone === "DISCUSSIVE" ? "讨论" : "活泼"}</span>
+                </div>
+                <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                  <p className="font-medium text-slate-700">推荐上下文</p>
+                  <p className="mt-2 whitespace-pre-wrap">{linkPreview.recommendedContext}</p>
+                </div>
                 <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
                   <span className="truncate">来源：{linkPreview.finalUrl}</span>
                   <button type="button" onClick={applyPreviewToContext} className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800">
-                    填入上下文
+                    应用推荐
                   </button>
                 </div>
               </div>
