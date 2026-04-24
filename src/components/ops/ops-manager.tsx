@@ -52,6 +52,15 @@ type JobSummary = {
   successAccounts?: number;
   failedAccounts?: number;
   partialAccounts?: number;
+  targetUrl?: string;
+  times?: number;
+  intervalSec?: number;
+  urgency?: "S" | "A" | "B";
+  scheduleDecision?: {
+    effectiveTier?: "S" | "A" | "B";
+    delayMs?: number;
+    reasons?: string[];
+  };
 };
 
 function estimateJobForecast(input: {
@@ -392,6 +401,40 @@ export function OpsManager({
     }
 
     return jobStatusText[run.status];
+  }
+
+  function getJobDetailLines(job: ActionJobWithRuns) {
+    const config = ((job.config || {}) as Record<string, unknown>) || {};
+    const summary = ((job.summary || {}) as JobSummary) || {};
+    const lines: string[] = [];
+
+    if (job.jobType === "COMMENT_LIKE_BATCH") {
+      const poolItemIds = Array.isArray(config.poolItemIds) ? config.poolItemIds.length : 0;
+      lines.push(`控评链接 ${poolItemIds} 条`);
+    }
+
+    if (job.jobType === "REPOST_ROTATION") {
+      const targetUrl = typeof summary.targetUrl === "string" ? summary.targetUrl : typeof config.targetUrl === "string" ? config.targetUrl : "-";
+      const times = typeof summary.times === "number" ? summary.times : typeof config.times === "number" ? config.times : 0;
+      const intervalSec = typeof summary.intervalSec === "number" ? summary.intervalSec : typeof config.intervalSec === "number" ? config.intervalSec : 0;
+      lines.push(`目标链接：${targetUrl}`);
+      lines.push(`轮转次数：每号 ${times} 次，间隔 ${intervalSec} 秒`);
+    }
+
+    const aiRisk = (config.aiRisk as AiRiskAssessment | undefined) || null;
+    if (aiRisk) {
+      lines.push(`AI 风险：${aiRisk.riskLevel === "HIGH" ? "高风险" : aiRisk.riskLevel === "MEDIUM" ? "中风险" : "低风险"}，${aiRisk.summary}`);
+    }
+
+    const effectiveTier = summary.scheduleDecision?.effectiveTier;
+    const delayMs = summary.scheduleDecision?.delayMs || 0;
+    const scheduleReasons = summary.scheduleDecision?.reasons || [];
+    if (effectiveTier || delayMs > 0 || scheduleReasons.length > 0) {
+      const delayText = delayMs > 0 ? `，延后 ${Math.ceil(delayMs / 1000)} 秒` : "";
+      lines.push(`调度结果：${effectiveTier ? `${effectiveTier} 级执行` : "按默认等级执行"}${delayText}${scheduleReasons.length > 0 ? `，原因：${scheduleReasons.join(" / ")}` : ""}`);
+    }
+
+    return lines;
   }
 
   function getJobAccountPreviewText(job: ActionJobWithRuns) {
@@ -1239,6 +1282,12 @@ export function OpsManager({
 
                   {expanded ? (
                     <div className="mt-3 space-y-2">
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                        <p className="font-medium">批次摘要</p>
+                        <div className="mt-2 space-y-1 text-xs text-slate-500">
+                          {getJobDetailLines(job).length > 0 ? getJobDetailLines(job).map((line) => <p key={line}>{line}</p>) : <p>暂无额外摘要</p>}
+                        </div>
+                      </div>
                       {job.accountRuns.map((run) => (
                         <div key={run.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
                           <div className="flex items-center justify-between gap-3">
@@ -1317,6 +1366,12 @@ export function OpsManager({
                     expanded ? (
                       <tr key={`${job.id}-details`} className="border-t border-slate-100 bg-slate-50">
                         <td colSpan={8} className="px-3 py-3">
+                          <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                            <p className="font-medium">批次摘要</p>
+                            <div className="mt-2 space-y-1 text-xs text-slate-500">
+                              {getJobDetailLines(job).length > 0 ? getJobDetailLines(job).map((line) => <p key={line}>{line}</p>) : <p>暂无额外摘要</p>}
+                            </div>
+                          </div>
                           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                             {job.accountRuns.map((run) => (
                               <div key={run.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
