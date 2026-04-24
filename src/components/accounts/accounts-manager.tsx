@@ -73,6 +73,26 @@ const loginStatusText: Record<AccountLoginStatus, string> = {
   FAILED: "检测失败",
 };
 
+function getAccountProxyText(account: WeiboAccount) {
+  return account.proxyNodeId ? "已绑定代理" : "未绑定代理";
+}
+
+function getAccountLoginHint(account: WeiboAccount) {
+  if (account.loginErrorMessage?.includes("重新登录") || account.loginErrorMessage?.includes("登录态失效") || account.loginErrorMessage?.includes("解密失败")) {
+    return "需重新登录";
+  }
+
+  if (account.loginStatus === "EXPIRED") {
+    return "登录态已失效";
+  }
+
+  if (account.loginStatus === "FAILED") {
+    return "登录态检测失败";
+  }
+
+  return null;
+}
+
 export function AccountsManager({ currentUserRole, initialAccounts }: { currentUserRole: AppRole; initialAccounts: WeiboAccount[] }) {
   const [accounts, setAccounts] = useState(initialAccounts);
   const [form, setForm] = useState<FormState>(initialForm);
@@ -960,12 +980,16 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                         />
                       </td>
                     ) : null}
-                   <td className="px-6 py-4">
-                      <div className="font-medium text-slate-900">{account.nickname}</div>
-                      <div className="mt-1 text-xs text-slate-500">{statusText[account.status]} / 风险 {account.riskLevel}</div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        微博：{account.username || "-"} / UID：{account.uid || "-"}
-                      </div>
+                    <td className="px-6 py-4">
+                       <div className="font-medium text-slate-900">{account.nickname}</div>
+                       <div className="mt-1 text-xs text-slate-500">{statusText[account.status]} / 风险 {account.riskLevel}</div>
+                       <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                         <span className={`rounded-full px-2 py-0.5 ${account.proxyNodeId ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{getAccountProxyText(account)}</span>
+                         {getAccountLoginHint(account) ? <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">{getAccountLoginHint(account)}</span> : null}
+                       </div>
+                       <div className="mt-1 text-xs text-slate-400">
+                         微博：{account.username || "-"} / UID：{account.uid || "-"}
+                       </div>
                       <div className="mt-1 text-xs text-slate-400">
                         节奏：
                         {account.scheduleWindowEnabled
@@ -974,7 +998,10 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                       </div>
                     </td>
                     <td className="px-6 py-4">{account.groupName || "-"}</td>
-                    <td className="px-6 py-4">{loginStatusText[account.loginStatus]}</td>
+                    <td className="px-6 py-4">
+                      <div>{loginStatusText[account.loginStatus]}</div>
+                      {getAccountLoginHint(account) ? <div className="mt-1 text-xs text-rose-600">{getAccountLoginHint(account)}</div> : null}
+                    </td>
                     <td className="px-6 py-4">
                       {account.lastCheckAt ? new Date(account.lastCheckAt).toLocaleString("zh-CN") : "-"}
                     </td>
