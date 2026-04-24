@@ -31,13 +31,19 @@ export async function POST(request: Request) {
     );
 
     const created = await prisma.$transaction(
-      parsed.data.items.map((item) =>
+      parsed.data.items.map((item, index) =>
         prisma.copywritingTemplate.create({
           data: {
             title: item.title,
             content: item.content,
             status: item.status,
-            tags: Array.from(new Set([...item.tags, ...aiTags])),
+            tags: Array.from(
+              new Set([
+                ...item.tags,
+                ...aiTags,
+                ...(parsed.data.riskAssessments?.[index]?.riskLevel ? [`AI风控:${parsed.data.riskAssessments[index].riskLevel}`] : []),
+              ]),
+            ),
           },
         }),
       ),

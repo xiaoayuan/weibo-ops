@@ -50,6 +50,7 @@ export async function POST(request: Request) {
           copywritingTexts: parsed.data.copywritingTexts || [],
           urgency: parsed.data.urgency || "A",
           forecast: parsed.data.forecast,
+          aiRisk: parsed.data.aiRisk,
         },
         createdBy: auth.session.id,
       },
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
         workerId: scheduled.workerId,
         userConcurrency: scheduled.userConcurrency,
         queueDepth: scheduled.queueDepth,
+        aiRisk: parsed.data.aiRisk,
       },
       success: true,
     });

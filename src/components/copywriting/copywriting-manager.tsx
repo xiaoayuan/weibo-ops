@@ -350,6 +350,7 @@ export function CopywritingManager({
           tone: aiForm.tone,
           length: aiForm.length,
           constraints: aiForm.constraints,
+          riskAssessments: selectedAiIndexes.map((index) => aiCandidateRisks[index]).filter(Boolean),
           items: selectedItems.map((item) => ({
             title: item.title,
             content: item.content,

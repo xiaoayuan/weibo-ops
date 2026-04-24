@@ -9,6 +9,14 @@ const forecastSchema = z.object({
   notes: z.array(z.string().trim().min(1).max(200)).max(10),
 });
 
+const aiRiskSchema = z.object({
+  riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  summary: z.string().trim().min(1).max(300),
+  reasons: z.array(z.string().trim().min(1).max(300)).max(10),
+  suggestions: z.array(z.string().trim().min(1).max(300)).max(10),
+  canBlock: z.boolean(),
+});
+
 export const createCommentPoolItemSchema = z.object({
   sourceUrl: z.string().url("请填写有效链接"),
   note: z.string().trim().max(80, "备注不能超过 80 字").optional().or(z.literal("")),
@@ -28,6 +36,7 @@ export const startCommentLikeJobSchema = z.object({
   poolItemIds: z.array(z.string().min(1)).min(1, "至少选择一条评论链接"),
   urgency: urgencySchema.default("S").optional(),
   forecast: forecastSchema.optional(),
+  aiRisk: aiRiskSchema.optional(),
 });
 
 export const startRepostRotationJobSchema = z.object({
@@ -38,4 +47,5 @@ export const startRepostRotationJobSchema = z.object({
   copywritingTexts: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
   urgency: urgencySchema.default("A").optional(),
   forecast: forecastSchema.optional(),
+  aiRisk: aiRiskSchema.optional(),
 });

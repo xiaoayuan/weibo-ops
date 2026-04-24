@@ -62,6 +62,7 @@ export async function POST(request: Request) {
           poolItemIds: poolItems.map((item) => item.id),
           urgency: parsed.data.urgency || "S",
           forecast: parsed.data.forecast,
+          aiRisk: parsed.data.aiRisk,
         },
         createdBy: auth.session.id,
       },
@@ -116,6 +117,7 @@ export async function POST(request: Request) {
         workerId: scheduled.workerId,
         userConcurrency: scheduled.userConcurrency,
         queueDepth: scheduled.queueDepth,
+        aiRisk: parsed.data.aiRisk,
       },
       success: true,
     });

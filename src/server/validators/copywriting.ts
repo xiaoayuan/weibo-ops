@@ -3,6 +3,13 @@ import { z } from "zod";
 const aiBusinessTypeSchema = z.enum(["DAILY_PLAN", "QUICK_REPLY", "COMMENT_CONTROL", "REPOST_ROTATION"]);
 const aiToneSchema = z.enum(["NATURAL", "PASSERBY", "SUPPORTIVE", "DISCUSSIVE", "LIVELY"]);
 const aiLengthSchema = z.enum(["SHORT", "STANDARD", "LONG"]);
+const aiRiskAssessmentSchema = z.object({
+  riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  summary: z.string().min(1).max(300),
+  reasons: z.array(z.string().min(1).max(300)).max(10),
+  suggestions: z.array(z.string().min(1).max(300)).max(10),
+  canBlock: z.boolean(),
+});
 
 export const createCopywritingSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(100, "标题过长"),
@@ -27,6 +34,7 @@ export const saveAiCopywritingSchema = z.object({
   length: aiLengthSchema,
   constraints: z.array(z.string().trim().min(1).max(50)).max(10).default([]),
   items: z.array(createCopywritingSchema).min(1, "至少选择一条文案").max(100),
+  riskAssessments: z.array(aiRiskAssessmentSchema).max(100).optional(),
 });
 
 export const rewriteAiCopywritingSchema = z.object({
