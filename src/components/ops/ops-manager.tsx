@@ -4,7 +4,8 @@ import type { ActionJob, ActionJobAccountRun, CommentLinkPoolItem, WeiboAccount 
 import { canManageBusinessData } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
 import type { ExecutionStrategy } from "@/server/strategy/config";
-import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type ActionJobWithRuns = ActionJob & {
   accountRuns: Array<
@@ -208,6 +209,7 @@ export function OpsManager({
   initialStrategy: ExecutionStrategy;
   nodeOptions: ActionJobNodeOption[];
 }) {
+  const router = useRouter();
   const canManage = canManageBusinessData(currentUserRole);
   const [mobileView, setMobileView] = useState<"CREATE" | "TASKS">("CREATE");
   const [activeTab, setActiveTab] = useState<"POOL" | "ROTATION">("POOL");
@@ -309,6 +311,20 @@ export function OpsManager({
 
     return jobs.filter((job) => job.status === jobStatusFilter);
   }, [jobStatusFilter, jobs]);
+
+  useEffect(() => {
+    const hasActiveJobs = jobs.some((job) => job.status === "PENDING" || job.status === "RUNNING");
+
+    if (!hasActiveJobs) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      router.refresh();
+    }, 10000);
+
+    return () => window.clearInterval(timer);
+  }, [jobs, router]);
 
   function getJobTypeText(jobType: ActionJob["jobType"]) {
     return jobType === "COMMENT_LIKE_BATCH" ? "控评点赞" : "轮转转发";
@@ -1450,20 +1466,30 @@ export function OpsManager({
       <section className={`${mobileView === "CREATE" ? "hidden md:block " : ""}rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6`}>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-medium">最近任务</h3>
-          <select
-            value={jobStatusFilter}
-            onChange={(event) => setJobStatusFilter(event.target.value as "ALL" | ActionJob["status"])}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
-          >
-            <option value="ALL">全部状态</option>
-            <option value="RUNNING">仅运行中</option>
-            <option value="PENDING">待执行</option>
-            <option value="SUCCESS">成功</option>
-            <option value="PARTIAL_FAILED">部分失败</option>
-            <option value="FAILED">失败</option>
-            <option value="CANCELLED">已取消</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              刷新任务
+            </button>
+            <select
+              value={jobStatusFilter}
+              onChange={(event) => setJobStatusFilter(event.target.value as "ALL" | ActionJob["status"])}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="ALL">全部状态</option>
+              <option value="RUNNING">仅运行中</option>
+              <option value="PENDING">待执行</option>
+              <option value="SUCCESS">成功</option>
+              <option value="PARTIAL_FAILED">部分失败</option>
+              <option value="FAILED">失败</option>
+              <option value="CANCELLED">已取消</option>
+            </select>
+          </div>
         </div>
+        <p className="mt-2 text-xs text-slate-500">存在待执行或执行中任务时，列表会每 10 秒自动刷新一次。</p>
 
         <div className="mt-4 space-y-3 md:hidden">
           {filteredJobs.length === 0 ? (
