@@ -1628,6 +1628,41 @@ function successResult(message: string, status: ExecutorActionResult["status"], 
   };
 }
 
+function getLikeFailureMessage(input: {
+  targetUrl: string;
+  summary: unknown;
+  commentMode: boolean;
+  loginStatus: string;
+}) {
+  const summaryText = summarizePayload(input.summary).toLowerCase();
+
+  if (summaryText.includes("已赞") || summaryText.includes("already") || summaryText.includes("repeat like")) {
+    return "该目标可能已经点过赞，重复点赞未通过。";
+  }
+
+  if (summaryText.includes("visitor") || summaryText.includes("sina visitor") || summaryText.includes("passport")) {
+    return "当前请求被微博游客系统拦截，请检查代理/IP 质量。";
+  }
+
+  if (summaryText.includes("xsrf") || summaryText.includes("token")) {
+    return "点赞请求缺少必要校验参数，请重新登录该账号。";
+  }
+
+  if (summaryText.includes("评论") && summaryText.includes("不存在")) {
+    return "目标评论不可见、已删除或评论 ID 无效。";
+  }
+
+  if (summaryText.includes("目标链接中未识别到微博 id") || summaryText.includes("评论直达链接中未识别到评论 id")) {
+    return input.commentMode ? "评论链接格式不正确，无法识别评论 ID。" : "微博链接格式不正确，无法识别微博 ID。";
+  }
+
+  if (input.loginStatus !== "ONLINE") {
+    return "账号当前登录态异常，点赞请求未通过。";
+  }
+
+  return input.commentMode ? "评论点赞请求未通过，请检查评论链接、账号状态或是否已点赞。" : "点赞请求未通过，请检查目标链接和账号登录态。";
+}
+
 export class WeiboExecutor implements SocialExecutor {
   async executePlan(input: ExecutePlanInput): Promise<ExecutorActionResult> {
     const blocked = validatePlanPrecheck(input, "weibo");
@@ -1817,7 +1852,14 @@ export class WeiboExecutor implements SocialExecutor {
           : isLikeConfirmed(likeResult.summary) || ("likeConfirmed" in likeResult && Boolean(likeResult.likeConfirmed));
 
         if (!likeResult.ok || businessOk === false || !likeConfirmed) {
-          return blockedResult("点赞请求未通过，请检查目标链接和账号登录态。", {
+          return blockedResult(
+            getLikeFailureMessage({
+              targetUrl: input.targetUrl,
+              summary: likeResult.summary,
+              commentMode,
+              loginStatus: account.loginStatus,
+            }),
+            {
             executor: "weibo",
             precheck: "blocked",
             reason: commentMode ? "COMMENT_LIKE_REQUEST_FAILED" : "LIKE_REQUEST_FAILED",
@@ -1829,7 +1871,8 @@ export class WeiboExecutor implements SocialExecutor {
             probe,
             warmup,
             likeResult,
-          });
+            },
+          );
         }
 
         const verifyResult = commentMode
