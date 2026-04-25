@@ -1240,9 +1240,10 @@ export function OpsManager({
               </div>
               <div className="mt-4 grid gap-2 md:grid-cols-3">
                 {accounts.map((account) => (
-                  <label key={account.id} className="flex items-center gap-2 text-sm text-slate-700">
+                  <label key={account.id} className={`flex items-center gap-2 text-sm ${account.status === "RISKY" ? "text-rose-700" : "text-slate-700"}`}>
                     <input type="checkbox" checked={selectedPoolAccountIds.includes(account.id)} onChange={() => togglePoolAccount(account.id)} />
-                    {account.nickname}
+                    <span>{account.nickname}</span>
+                    {account.status === "RISKY" ? <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-700">高风险</span> : null}
                   </label>
                 ))}
               </div>
@@ -1345,16 +1346,17 @@ export function OpsManager({
               </button>
             </div>
             <div className="grid gap-2 md:grid-cols-3">
-              {accounts.map((account) => (
-                <label key={account.id} className="flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={selectedRotationAccountIds.includes(account.id)}
-                    onChange={() => toggleRotationAccount(account.id)}
-                  />
-                  {account.nickname}
-                </label>
-              ))}
+                {accounts.map((account) => (
+                  <label key={account.id} className={`flex items-center gap-2 text-sm ${account.status === "RISKY" ? "text-rose-700" : "text-slate-700"}`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedRotationAccountIds.includes(account.id)}
+                      onChange={() => toggleRotationAccount(account.id)}
+                    />
+                    <span>{account.nickname}</span>
+                    {account.status === "RISKY" ? <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-700">高风险</span> : null}
+                  </label>
+                ))}
             </div>
             <select
               value={rotationTargetNodeId}
