@@ -453,6 +453,49 @@ export function OpsManager({
     return `${reason}（${count} 个账号）`;
   }
 
+  function classifyFailureReason(reason: string) {
+    if (reason.includes("已点赞") || reason.includes("点过赞") || reason.includes("重复点赞")) {
+      return "已点赞/重复操作";
+    }
+
+    if (reason.includes("评论") && (reason.includes("无效") || reason.includes("不可见") || reason.includes("已删除") || reason.includes("不存在"))) {
+      return "评论无效或不可见";
+    }
+
+    if (reason.includes("游客系统") || reason.includes("代理/IP 质量")) {
+      return "游客拦截/代理问题";
+    }
+
+    if (reason.includes("重新登录") || reason.includes("登录态") || reason.includes("XSRF")) {
+      return "账号登录态问题";
+    }
+
+    if (reason.includes("格式不正确") || reason.includes("识别") || reason.includes("链接")) {
+      return "链接格式问题";
+    }
+
+    return "其他失败";
+  }
+
+  function getJobFailureBreakdown(job: ActionJobWithRuns) {
+    const reasons = job.accountRuns.map((run) => run.errorMessage).filter((item): item is string => Boolean(item));
+
+    if (reasons.length === 0) {
+      return [];
+    }
+
+    const counter = new Map<string, number>();
+
+    for (const reason of reasons) {
+      const category = classifyFailureReason(reason);
+      counter.set(category, (counter.get(category) || 0) + 1);
+    }
+
+    return Array.from(counter.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => `${label} ${count} 个账号`);
+  }
+
   function getRunStateText(job: ActionJobWithRuns, run: ActionJobWithRuns["accountRuns"][number]) {
     if (job.status === "CANCELLED" && run.status === "CANCELLED") {
       return "已停止";
@@ -1526,6 +1569,7 @@ export function OpsManager({
                   <p className="mt-2 text-xs text-slate-500">{getJobNodeSummaryText(job)}</p>
                   <p className="mt-2 text-xs text-slate-500">{getJobSummaryText(job)}</p>
                   <p className="mt-1 text-xs text-rose-600">主要失败：{getJobTopFailureText(job)}</p>
+                  {getJobFailureBreakdown(job).length > 0 ? <p className="mt-1 text-xs text-slate-500">失败分类：{getJobFailureBreakdown(job).join(" / ")}</p> : null}
                   <p className="mt-2 text-xs text-slate-500">{getJobSlaText(job)}</p>
                   <p className="mt-1 text-xs text-slate-500">{getForecastCompareText(job)}</p>
 
@@ -1599,6 +1643,7 @@ export function OpsManager({
                         <p>{getJobAccountPreviewText(job)}</p>
                         <p className="mt-1 text-xs text-slate-500">{getJobSummaryText(job)}</p>
                         <p className="mt-1 text-xs text-rose-600">主要失败：{getJobTopFailureText(job)}</p>
+                        {getJobFailureBreakdown(job).length > 0 ? <p className="mt-1 text-xs text-slate-500">失败分类：{getJobFailureBreakdown(job).join(" / ")}</p> : null}
                       </td>
                       <td className="px-3 py-3">
                         <p>{getUrgencyText(getJobUrgency(job))}</p>
@@ -1628,6 +1673,7 @@ export function OpsManager({
                             <p className="font-medium">批次摘要</p>
                             <div className="mt-2 space-y-1 text-xs text-slate-500">
                               {getJobDetailLines(job).length > 0 ? getJobDetailLines(job).map((line) => <p key={line}>{line}</p>) : <p>暂无额外摘要</p>}
+                              {getJobFailureBreakdown(job).length > 0 ? <p>失败分类：{getJobFailureBreakdown(job).join(" / ")}</p> : null}
                             </div>
                           </div>
                           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
