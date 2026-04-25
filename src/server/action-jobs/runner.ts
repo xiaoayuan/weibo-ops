@@ -286,6 +286,10 @@ function getCommentLikeStepJitterMs(urgency: "S" | "A" | "B") {
   return 1000 + Math.floor(Math.random() * 4000);
 }
 
+function isDuplicateLikeFailure(message: string) {
+  return message.includes("已点赞") || message.includes("点过赞") || message.includes("重复点赞");
+}
+
 function getRepostConcurrency(urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
   return strategy.actionJob.repostConcurrency[urgency];
 }
@@ -491,6 +495,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   }
   const { rounds, shuffledMap } = buildCommentLikeRounds(input.accountIds, accountStepsMap as Map<string, PrismaActionJobStep[]>);
   const accountState = new Map(input.accountIds.map((accountId) => [accountId, { successCount: 0, failedCount: 0, latestError: "", started: false }]));
+  const duplicateLikeTargets = new Map<string, Set<string>>();
 
   for (const accountId of input.accountIds) {
     const waveDelayMs = delayMap.get(accountId) || 0;
@@ -514,6 +519,22 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
       const state = accountState.get(accountId);
       if (!state) {
+        return;
+      }
+
+      const skippedTargets = duplicateLikeTargets.get(accountId);
+      if (skippedTargets?.has(step.targetUrl)) {
+        await prisma.actionJobStep.update({
+          where: { id: step.id },
+          data: {
+            status: "FAILED",
+            errorMessage: "该目标已在本批次判定为已点赞，自动跳过",
+            finishedAt: new Date(),
+          },
+        });
+        state.failedCount += 1;
+        state.latestError = "该目标已在本批次判定为已点赞，自动跳过";
+        await recomputeCommentLikeRunStatus(input.jobId, accountId);
         return;
       }
 
@@ -605,6 +626,11 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       } else {
         state.failedCount += 1;
         state.latestError = result.message;
+        if (isDuplicateLikeFailure(result.message)) {
+          const currentTargets = duplicateLikeTargets.get(accountId) || new Set<string>();
+          currentTargets.add(step.targetUrl);
+          duplicateLikeTargets.set(accountId, currentTargets);
+        }
       }
 
       await prisma.actionJobStep.update({
