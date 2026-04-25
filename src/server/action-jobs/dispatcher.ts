@@ -33,6 +33,11 @@ async function claimNextActionJob(nodeId: string) {
       continue;
     }
 
+    const earliestStartAt = typeof config.earliestStartAt === "string" ? new Date(config.earliestStartAt) : null;
+    if (earliestStartAt && earliestStartAt.getTime() > Date.now()) {
+      continue;
+    }
+
     const updated = await prisma.actionJob.updateMany({
       where: {
         id: job.id,
@@ -41,6 +46,7 @@ async function claimNextActionJob(nodeId: string) {
       data: {
         status: "RUNNING",
         summary: {
+          ...(config.scheduleDecision && typeof config.scheduleDecision === "object" ? { scheduleDecision: config.scheduleDecision } : {}),
           claimedByNodeId: nodeId,
           claimedAt: new Date().toISOString(),
         },

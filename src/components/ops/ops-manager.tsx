@@ -396,13 +396,14 @@ export function OpsManager({
     const summary = ((job.summary || {}) as Record<string, unknown>) || {};
     const targetNodeId = typeof config.targetNodeId === "string" ? config.targetNodeId : "自动分配";
     const claimedByNodeId = typeof summary.claimedByNodeId === "string" ? summary.claimedByNodeId : null;
+    const earliestStartAt = typeof config.earliestStartAt === "string" ? config.earliestStartAt : null;
 
     if (claimedByNodeId) {
       return `目标 ${targetNodeId} / 已由 ${claimedByNodeId} 执行`;
     }
 
     if (job.status === "PENDING") {
-      return `目标 ${targetNodeId} / 等待节点领取`;
+      return `目标 ${targetNodeId}${earliestStartAt ? ` / 最早 ${new Date(earliestStartAt).toLocaleString("zh-CN")}` : ""} / 等待节点领取`;
     }
 
     return `目标 ${targetNodeId}`;

@@ -2,6 +2,7 @@ import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { assignActionJobNode } from "@/server/action-job-nodes";
 import { writeExecutionLog } from "@/server/logs";
+import { reserveRateLimitedExecution } from "@/server/task-scheduler/rate-limit";
 import { startCommentLikeJobSchema } from "@/server/validators/ops";
 
 export async function POST(request: Request) {
@@ -51,6 +52,12 @@ export async function POST(request: Request) {
     }
 
     const targetNodeId = await assignActionJobNode(parsed.data.targetNodeId);
+    const scheduleDecision = await reserveRateLimitedExecution({
+      ownerUserId: auth.session.id,
+      taskType: "COMMENT_CONTROL",
+      baseTier: parsed.data.urgency || "S",
+    });
+    const earliestStartAt = new Date(Date.now() + scheduleDecision.delayMs).toISOString();
 
     const job = await prisma.actionJob.create({
       data: {
@@ -60,7 +67,9 @@ export async function POST(request: Request) {
           accountIds: parsed.data.accountIds,
           poolItemIds: poolItems.map((item) => item.id),
           targetNodeId,
-          urgency: parsed.data.urgency || "S",
+          urgency: scheduleDecision.effectiveTier,
+          earliestStartAt,
+          scheduleDecision,
           forecast: parsed.data.forecast,
           aiRisk: parsed.data.aiRisk,
         },
@@ -99,6 +108,8 @@ export async function POST(request: Request) {
         jobType: "COMMENT_LIKE_BATCH",
         ownerUserId: auth.session.id,
         targetNodeId,
+        earliestStartAt,
+        scheduleDecision,
         aiRisk: parsed.data.aiRisk,
       },
       success: true,

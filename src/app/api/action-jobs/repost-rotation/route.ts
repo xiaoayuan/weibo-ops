@@ -2,6 +2,7 @@ import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { assignActionJobNode } from "@/server/action-job-nodes";
 import { writeExecutionLog } from "@/server/logs";
+import { reserveRateLimitedExecution } from "@/server/task-scheduler/rate-limit";
 import { startRepostRotationJobSchema } from "@/server/validators/ops";
 
 export async function POST(request: Request) {
@@ -36,6 +37,12 @@ export async function POST(request: Request) {
     }
 
     const targetNodeId = await assignActionJobNode(parsed.data.targetNodeId);
+    const scheduleDecision = await reserveRateLimitedExecution({
+      ownerUserId: auth.session.id,
+      taskType: "REPOST_ROTATION",
+      baseTier: parsed.data.urgency || "A",
+    });
+    const earliestStartAt = new Date(Date.now() + scheduleDecision.delayMs).toISOString();
 
     const job = await prisma.actionJob.create({
       data: {
@@ -48,7 +55,9 @@ export async function POST(request: Request) {
           times: parsed.data.times,
           intervalSec: parsed.data.intervalSec,
           copywritingTexts: parsed.data.copywritingTexts || [],
-          urgency: parsed.data.urgency || "A",
+          urgency: scheduleDecision.effectiveTier,
+          earliestStartAt,
+          scheduleDecision,
           forecast: parsed.data.forecast,
           aiRisk: parsed.data.aiRisk,
         },
@@ -91,6 +100,8 @@ export async function POST(request: Request) {
         jobType: "REPOST_ROTATION",
         ownerUserId: auth.session.id,
         targetNodeId,
+        earliestStartAt,
+        scheduleDecision,
         aiRisk: parsed.data.aiRisk,
       },
       success: true,

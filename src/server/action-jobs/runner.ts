@@ -5,7 +5,6 @@ import { attachRiskMetaToPayload, classifyAndApplyAccountRisk } from "@/server/r
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { getExecutionStrategy, type ExecutionStrategy } from "@/server/strategy/config";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
-import { reserveRateLimitedExecution, resolveActionJobTaskType } from "@/server/task-scheduler/rate-limit";
 
 type StartCommentLikeJobInput = {
   jobId: string;
@@ -353,7 +352,7 @@ export async function recomputeRepostRunStatus(jobId: string, accountId: string)
 export async function recomputeRepostJobSummary(jobId: string, targetUrl: string, times: number, intervalSec: 0 | 3 | 5 | 10, urgency: "S" | "A" | "B") {
   const existingJob = await prisma.actionJob.findUnique({
     where: { id: jobId },
-    select: { status: true },
+    select: { status: true, summary: true },
   });
 
   if (existingJob?.status === "CANCELLED") {
@@ -373,6 +372,7 @@ export async function recomputeRepostJobSummary(jobId: string, targetUrl: string
     data: {
       status: finalStatus,
       summary: {
+        ...(existingJob?.summary && typeof existingJob.summary === "object" && !Array.isArray(existingJob.summary) ? (existingJob.summary as Record<string, unknown>) : {}),
         totalAccounts: finalRuns.length,
         successAccounts,
         failedAccounts,
@@ -392,7 +392,11 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     return;
   }
 
-  const [accounts, steps] = await Promise.all([
+  const [jobRecord, accounts, steps] = await Promise.all([
+    prisma.actionJob.findUnique({
+      where: { id: input.jobId },
+      select: { config: true, summary: true },
+    }),
     prisma.weiboAccount.findMany({
       where: {
         id: { in: input.accountIds },
@@ -417,16 +421,9 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const strategy = await getExecutionStrategy();
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
-  const scheduleDecision = await reserveRateLimitedExecution({
-    ownerUserId: input.ownerUserId,
-    taskType: resolveActionJobTaskType("COMMENT_LIKE_BATCH"),
-    baseTier: input.urgency || "S",
-  });
-  const urgency = scheduleDecision.effectiveTier;
-
-  if (scheduleDecision.delayMs > 0) {
-    await sleep(scheduleDecision.delayMs);
-  }
+  const jobConfig = jobRecord?.config && typeof jobRecord.config === "object" && !Array.isArray(jobRecord.config) ? (jobRecord.config as Record<string, unknown>) : {};
+  const scheduleDecision = jobConfig.scheduleDecision && typeof jobConfig.scheduleDecision === "object" ? (jobConfig.scheduleDecision as Record<string, unknown>) : null;
+  const urgency = (jobConfig.urgency as "S" | "A" | "B" | undefined) || input.urgency || "S";
 
   const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
   const accountStepsMap = new Map<string, typeof steps>();
@@ -683,20 +680,22 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const partialAccounts = finalRuns.filter((item) => item.status === "PARTIAL_FAILED").length;
   const finalStatus = failedAccounts === 0 && partialAccounts === 0 ? "SUCCESS" : successAccounts > 0 ? "PARTIAL_FAILED" : "FAILED";
   const sla = await computeJobSlaSummary(input.jobId, urgency, strategy);
+  const existingSummary = jobRecord?.summary && typeof jobRecord.summary === "object" && !Array.isArray(jobRecord.summary) ? (jobRecord.summary as Record<string, unknown>) : {};
 
   await prisma.actionJob.update({
     where: { id: input.jobId },
     data: {
       status: finalStatus,
       summary: {
+        ...existingSummary,
         totalAccounts: finalRuns.length,
         successAccounts,
         failedAccounts,
         partialAccounts,
         urgency,
-        scheduleDecision,
+        scheduleDecision: scheduleDecision ? JSON.parse(JSON.stringify(scheduleDecision)) : null,
         sla,
-      },
+      } as never,
     },
   });
 }
@@ -706,7 +705,11 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
     return;
   }
 
-  const [accounts, steps] = await Promise.all([
+  const [jobRecord, accounts, steps] = await Promise.all([
+    prisma.actionJob.findUnique({
+      where: { id: input.jobId },
+      select: { config: true, summary: true },
+    }),
     prisma.weiboAccount.findMany({
       where: {
         id: { in: input.accountIds },
@@ -731,16 +734,9 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
   const strategy = await getExecutionStrategy();
   const accountMap = new Map(accounts.map((item) => [item.id, item]));
   const executor = getExecutor();
-  const scheduleDecision = await reserveRateLimitedExecution({
-    ownerUserId: input.ownerUserId,
-    taskType: resolveActionJobTaskType("REPOST_ROTATION"),
-    baseTier: input.urgency || "A",
-  });
-  const urgency = scheduleDecision.effectiveTier;
-
-  if (scheduleDecision.delayMs > 0) {
-    await sleep(scheduleDecision.delayMs);
-  }
+  const jobConfig = jobRecord?.config && typeof jobRecord.config === "object" && !Array.isArray(jobRecord.config) ? (jobRecord.config as Record<string, unknown>) : {};
+  const scheduleDecision = jobConfig.scheduleDecision && typeof jobConfig.scheduleDecision === "object" ? (jobConfig.scheduleDecision as Record<string, unknown>) : null;
+  const urgency = (jobConfig.urgency as "S" | "A" | "B" | undefined) || input.urgency || "A";
 
   const delayMap = buildWaveDelayMap(input.accountIds, urgency, strategy);
   const accountStepsMap = new Map<string, typeof steps>();
