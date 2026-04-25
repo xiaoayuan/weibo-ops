@@ -5,6 +5,7 @@
 - After each completed code change, push to GitHub unless the user explicitly asks not to.
 - After each push, provide VPS update commands.
 - Prefer fixing production issues and execution-chain stability over feature expansion.
+- After each meaningful milestone or change in project direction, update this handoff file so the next session can continue without re-explaining context.
 
 ## Current Infrastructure
 
