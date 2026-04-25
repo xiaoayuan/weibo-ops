@@ -97,15 +97,9 @@ export async function classifyAndApplyAccountRisk(input: RiskInput): Promise<Ris
     nextFailures = beforeFailures + failureDelta;
   }
 
-  let nextStatus = account.status;
-
-  if (nextRisk >= rules.threshold.markRiskyAt && account.status === "ACTIVE") {
-    nextStatus = "RISKY";
-  }
-
-  if (nextRisk <= rules.threshold.recoverActiveAt && account.status === "RISKY") {
-    nextStatus = "ACTIVE";
-  }
+  // 保留风险分提示，但不再自动把账号状态切成 RISKY，避免账号在执行页面里“消失”。
+  // 旧版本已被自动标成 RISKY 的账号，在下一次风险更新时自动恢复为 ACTIVE。
+  const nextStatus = account.status === "RISKY" ? "ACTIVE" : account.status;
 
   await prisma.weiboAccount.update({
     where: { id: account.id },
