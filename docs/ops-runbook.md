@@ -1,16 +1,8 @@
-# Ops Runbook
+# 运维操作手册
 
-## Standard Update Flow
+## 标准更新流程
 
-### Main server
-
-```bash
-cd /opt/weibo-ops
-git pull origin main
-docker compose up -d
-```
-
-### Second worker server
+### 主服务器
 
 ```bash
 cd /opt/weibo-ops
@@ -18,11 +10,23 @@ git pull origin main
 docker compose up -d
 ```
 
-Use `docker compose up -d --build` only when an image rebuild is actually needed.
+### 第二台 worker 服务器
 
-## Two-Node Environment Variables
+```bash
+cd /opt/weibo-ops
+git pull origin main
+docker compose up -d
+```
 
-### Controller
+只有在确实需要重新构建镜像时，才使用：
+
+```bash
+docker compose up -d --build
+```
+
+## 双节点环境变量
+
+### controller 节点
 
 ```env
 NODE_ROLE="controller"
@@ -30,7 +34,7 @@ NODE_ID="main-1"
 ACTION_JOB_NODES="main-1:主服务器,worker-1:第二执行节点"
 ```
 
-### Worker
+### worker 节点
 
 ```env
 NODE_ROLE="worker"
@@ -38,27 +42,27 @@ NODE_ID="worker-1"
 ACTION_JOB_NODES="main-1:主服务器,worker-1:第二执行节点"
 ```
 
-## Shared Secrets
+## 必须保持一致的密钥
 
-These must stay identical on both nodes:
+以下值在主服务器和 worker 之间必须一致：
 
 - `JWT_SECRET`
 - `ACCOUNT_SECRET_KEY`
-- AI provider credentials if AI is enabled on both nodes
+- 如果两边都启用 AI，则 AI 接口密钥也要一致
 
-Do not change them casually.
+不要随意修改，否则会导致登录失效或 Cookie 解密失败。
 
-## Database Rules
+## 数据库约束
 
-- The main server hosts the primary PostgreSQL database.
-- The worker must point `DATABASE_URL` to the main server database.
-- If database credentials drift, the app will fail with Prisma `P1000` authentication errors.
+- 主服务器承担主 PostgreSQL 数据库。
+- worker 节点的 `DATABASE_URL` 必须指向主服务器数据库。
+- 如果数据库密码不一致，应用会出现 Prisma `P1000` 认证错误。
 
-## Common Recovery Commands
+## 常用恢复命令
 
-### Reset PostgreSQL password back to `password`
+### 将 PostgreSQL 密码恢复为 `password`
 
-Use only if both nodes are already configured around that credential and the app is failing with `P1000`.
+仅在两边都围绕这个密码配置，且应用明确报 `P1000` 时使用。
 
 ```bash
 cd /opt/weibo-ops
@@ -66,32 +70,32 @@ docker compose exec db psql -U postgres -d postgres -c "ALTER USER postgres WITH
 docker compose restart app
 ```
 
-### Restore old accounts marked `RISKY`
+### 将历史上被标成 `RISKY` 的账号恢复成 `ACTIVE`
 
-Used after the risk-status automation was removed.
+用于旧版本自动把账号状态切成 `RISKY` 后的恢复。
 
 ```bash
 cd /opt/weibo-ops
 docker compose exec db psql -U postgres -d weibo_ops -c "update \"WeiboAccount\" set status='ACTIVE' where status='RISKY';"
 ```
 
-## Quick Runtime Checks
+## 常用运行检查
 
-### Main server app logs
+### 主服务器 app 日志
 
 ```bash
 cd /opt/weibo-ops
 docker compose logs app --since=10m
 ```
 
-### Worker app logs
+### worker app 日志
 
 ```bash
 cd /opt/weibo-ops
 docker compose logs app --since=5m
 ```
 
-### Environment verification inside a container
+### 查看容器内环境变量
 
 ```bash
 docker compose exec app printenv NODE_ROLE
@@ -99,54 +103,54 @@ docker compose exec app printenv NODE_ID
 docker compose exec app printenv DATABASE_URL
 ```
 
-## Action-Job Verification
+## Action-job 排查 SQL
 
-To inspect the latest action jobs directly in the database:
+### 看最新批次任务
 
 ```bash
 cd /opt/weibo-ops
 docker compose exec db psql -U postgres -d weibo_ops -c "select id,status,config,summary from \"ActionJob\" order by \"createdAt\" desc limit 5;"
 ```
 
-To inspect account-run progress for a job:
+### 看账号级进度
 
 ```bash
 cd /opt/weibo-ops
 docker compose exec db psql -U postgres -d weibo_ops -c "select \"accountId\", status, \"currentStep\", \"totalSteps\", \"errorMessage\" from \"ActionJobAccountRun\" where \"jobId\"='JOB_ID' order by \"createdAt\" asc;"
 ```
 
-To inspect step-level progress for a job:
+### 看 step 级进度
 
 ```bash
 cd /opt/weibo-ops
 docker compose exec db psql -U postgres -d weibo_ops -c "select \"accountId\", \"sequenceNo\", status, \"startedAt\", \"finishedAt\", \"errorMessage\" from \"ActionJobStep\" where \"jobId\"='JOB_ID' order by \"accountId\", \"sequenceNo\" limit 50;"
 ```
 
-## Daily Plan Checks
+## 每日计划检查
 
-The project uses business timezone scheduling (`Asia/Shanghai`).
+项目当前以 `Asia/Shanghai` 作为业务时区。
 
-Daily plan generation defaults to the business window:
+每日计划默认窗口：
 
 - `01:00-18:00`
 
-If plans appear stuck, first check:
+如果计划看起来卡住，先检查：
 
-- whether the user has auto-execute enabled
-- whether the scheduled time has passed
-- whether the plan is merely queued or actually executing
+- 用户是否开启自动执行
+- 计划时间是否已到
+- 当前状态是待执行、已入队，还是执行中
 
-## Proxy Evaluation Notes
+## 代理评估说明
 
-Proxy connectivity is not the same as Weibo usability.
+代理“能联网”不等于“能稳定通微博”。
 
-A proxy may:
+一个代理可能：
 
-- connect successfully to the internet
-- still be blocked by the Weibo visitor system
+- 能访问外网
+- 但依然会被微博游客系统拦截
 
-When testing residential proxies, treat these as separate outcomes:
+测试代理时，至少要区分这三类结果：
 
-- network reachable
-- Weibo reachable but visitor-blocked
-- Weibo actually usable
+- 网络可达
+- 微博可达但被游客系统拦截
+- 微博业务真实可用

@@ -11,6 +11,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - After each code change is completed and verified, push the change to GitHub unless the user explicitly says not to.
 - After each pushed change, provide VPS update commands.
 - Prefer fixing real production issues and core execution flows before adding secondary features.
+- Explanations, summaries, and user-facing guidance should be written in Chinese by default unless the user explicitly asks for another language.
 
 ## Project Priorities
 

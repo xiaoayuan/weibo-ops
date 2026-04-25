@@ -1,124 +1,125 @@
-# Session Handoff
+# 会话交接说明
 
-## Working Agreement
+## 协作约定
 
-- After each completed code change, push to GitHub unless the user explicitly asks not to.
-- After each push, provide VPS update commands.
-- Prefer fixing production issues and execution-chain stability over feature expansion.
-- After each meaningful milestone or change in project direction, update this handoff file so the next session can continue without re-explaining context.
+- 每次完成代码改动并验证后，默认推送到 GitHub，除非用户明确要求不要推送。
+- 每次推送后，默认给出 VPS 更新指令。
+- 优先修复真实生产问题和核心执行链路，不要让次要功能抢占主线。
+- 每次出现关键进展或项目方向变化后，都要更新这份交接文档，方便新会话直接接上。
+- 面向用户的解释、总结和操作说明默认使用中文回复。
 
-## Current Infrastructure
+## 当前基础架构
 
-### Main server
+### 主服务器
 
-- Role: `controller`
-- Hosts the primary database
-- Hosts the main backend and management UI
-- Runs daily plan generation and daily plan scheduling
+- 角色：`controller`
+- 承担主数据库
+- 承担主后台与管理页面
+- 负责每日计划自动生成与自动调度
 
-### Second server
+### 第二台服务器
 
-- Role: `worker`
-- Shares the primary database on the main server
-- Runs distributed `action-job` workloads
-- Used mainly for comment control and repost rotation execution
+- 角色：`worker`
+- 共享主服务器数据库
+- 负责分布式执行 `action-job`
+- 目前主要用于控评和轮转执行
 
-### Shared secrets
+### 必须保持一致的密钥
 
-These must stay identical across controller and worker nodes:
+以下值在主服务器和 worker 之间必须完全一致：
 
 - `JWT_SECRET`
 - `ACCOUNT_SECRET_KEY`
-- AI provider credentials, if AI is used on both nodes
+- 若两边都启用 AI，则 AI 接口相关密钥也要一致
 
-Changing these without care can break login and encrypted account cookies.
+不要随意修改这些值，否则会导致登录或账号 Cookie 解密失败。
 
-## Current Product Model
+## 当前产品模型
 
-### Public vs private execution
+### 公共任务与私有执行
 
-- Comment control and repost rotation tasks are public/shared tasks.
-- All users may jointly edit those tasks.
-- Actual execution is private: each user only uses their own Weibo accounts.
+- 控评任务和轮转任务是公共任务。
+- 所有用户都可以共同编辑这些任务。
+- 实际执行是私有的：每个用户只能使用自己的微博账号执行。
 
-### Main priorities
+### 当前主线优先级
 
-1. Comment control
-2. Repost rotation
-3. Daily plans
-4. Account stability
-5. Logs and recovery
+1. 控评
+2. 轮转
+3. 每日计划生成与执行
+4. 账号可用性与执行稳定性
+5. 日志、可观测性与恢复
 
-## What Has Already Been Done
+## 已经完成的关键事项
 
-### Daily plans
+### 每日计划
 
-- Plan time generation now uses business timezone (`Asia/Shanghai`).
-- Default daily execution window is `01:00-18:00`.
-- `PENDING` display was clarified from "待审核" to "待执行".
-- Daily auto-generation now has missed-time recovery.
-- Daily auto-execution and auto-generation use business-time comparisons.
-- Plan page shows pending reasons.
-- Auto-scheduled plans now distinguish "已入队" from true execution more clearly.
-- First-comment plans now retry later in the day when no suitable zero-reply target is found.
+- 计划时间生成已统一按上海时区。
+- 每日计划默认执行窗口改成 `01:00-18:00`。
+- `PENDING` 展示文案已从“待审核”改成“待执行”。
+- 自动生成支持错过时间后的补偿生成。
+- 自动生成和自动执行都按业务时区比较时间。
+- 每日计划页面可显示“未执行原因”。
+- 自动调度的计划可以更清楚区分“已入队”和“真正执行中”。
+- 首评计划在当天窗口内未命中 0 回复帖子时，会自动顺延重试。
 
-### Comment control / repost rotation
+### 控评 / 轮转
 
-- Recent task list now shows batch summaries.
-- Batch details include AI risk, target info, and scheduling notes.
-- Cancellation semantics were clarified.
-- Comment control uses controlled account concurrency.
-- Repost rotation uses controlled account concurrency.
-- Comment control concurrency is configurable.
-- Repost concurrency is configurable.
-- S-tier comment control startup was made more aggressive.
-- Action-job delays are now pre-scheduled at task creation time.
-- Distributed action-job node assignment is implemented.
-- Task list now shows target node and execution node.
-- Action-job list auto-refreshes while tasks are pending/running.
+- 最近任务列表支持批次摘要。
+- 批次详情会显示 AI 风险、目标信息、调度说明等。
+- 停止/取消状态语义已优化。
+- 控评已改成受控并发执行。
+- 轮转已改成受控并发执行。
+- 控评并发和轮转并发都已可配置。
+- `S` 级控评默认启动更激进。
+- action-job 的延后预定已前移到任务创建阶段。
+- 双服务器 action-job 节点分配和领取执行已经打通。
+- 任务列表可以看到目标节点和执行节点。
+- 任务列表在待执行/执行中时会自动刷新。
 
-### Comment-control execution quality
+### 控评执行质量
 
-- Success checks for comment-like execution were tightened.
-- Humanized execution flow was added:
-  - warmup request before like
-  - shuffled target order per account
-  - round-robin progress across accounts
-- Failure reasons for likes are more explicit.
-- Failure categories are grouped in task summaries.
-- Duplicate-like targets are skipped within the same batch for the same account.
+- 控评点赞的成功判定已收紧。
+- 控评动作链已做第一版拟人化：
+  - 点赞前轻量前置访问
+  - 每个账号的链接顺序打乱
+  - 按账号轮次推进，不再单账号扫完整批
+- 控评失败原因已细分。
+- 控评失败分类已支持汇总展示。
+- 同一账号在同一批次里遇到重复点赞目标会自动跳过。
 
-### Accounts
+### 账号侧
 
-- Accounts can now be created even when no proxy pool is available.
-- Account list shows proxy binding state.
-- Account list shows login-state warnings more clearly.
-- Credential decrypt failures now show human-readable messages.
-- The system no longer auto-marks accounts as `RISKY`; risk score remains, but account status is not automatically switched to `RISKY` anymore.
+- 无代理时也允许新增账号。
+- 账号列表显示代理绑定状态。
+- 账号列表显示登录态异常提示。
+- Cookie 解密失败已改成中文友好提示。
+- 系统不再自动把账号状态切成 `RISKY`，只保留风险分和风险提示。
 
-### Comment pool
+### 控评池
 
-- Comment pool supports extracting hot comments from a Weibo link.
-- Optional keyword filtering is available during hot-comment extraction.
-- Extraction has clearer inline feedback and better diagnostics.
+- 支持从微博链接提取热门评论。
+- 提取热门评论支持可选关键词过滤。
+- 提取区内有更明确的成功/失败反馈和错误诊断。
 
-### AI and auxiliary tooling
+### AI 辅助
 
-- AI provider configuration can be edited from the copywriting page.
-- AI copywriting supports generation, rewrite, filtering, and preview.
-- AI risk helper is connected for copywriting review, task risk hints, and log summaries.
-- AI risk keywords are configurable.
+- 文案库支持 AI 接口配置。
+- AI 文案支持生成、改写、筛选与预览。
+- AI 风控助手已接到文案预审、任务风险提示和日志总结。
+- 风险词词库可配置。
 
-## Current Open Thread
+## 当前阶段的开放主线
 
-The latest mainline work has focused on comment-control execution realism and distributed execution stability.
+当前主线仍然围绕控评和轮转的真实执行效果展开。
 
-The next likely area of work is one of:
+优先观察与继续优化的方向：
 
-- observe real comment-control batches and fix newly exposed bottlenecks
-- improve worker-node observability if execution becomes hard to track
-- continue execution-chain hardening without shifting focus back to secondary AI/copywriting work
+- 控评批次的真实成功率
+- 失败原因是否足够清晰
+- 双服务器下的启动与执行一致性
+- 控评动作链拟人化后的真实效果
 
-## Important Known Caveat
+## 已知说明
 
-The local development/build environment may show transient Prisma `ECONNREFUSED` messages during `next build` static page generation if no live database is present in the local environment. These messages have repeatedly appeared during validation but have not blocked successful application builds in the real deployment path. Do not confuse those local build-time warnings with current production failures unless runtime logs show the same issue.
+本地开发/构建环境下，`next build` 期间如果没有稳定数据库，可能会看到 Prisma 的 `ECONNREFUSED` 告警。这类告警多次出现在本地校验中，但并没有阻止构建完成。不要把这类本地构建期告警和线上真实运行错误混为一谈，除非运行日志里也出现同样的问题。
