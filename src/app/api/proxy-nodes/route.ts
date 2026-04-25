@@ -13,12 +13,14 @@ export async function GET() {
 
   return Response.json({
     success: true,
-    data: nodes.map((node) => ({
-      id: node.id,
-      name: node.name,
-      protocol: node.protocol,
-      host: node.host,
-      port: node.port,
+      data: nodes.map((node) => ({
+        id: node.id,
+        name: node.name,
+        protocol: node.protocol,
+        rotationMode: node.rotationMode,
+        countryCode: node.countryCode,
+        host: node.host,
+        port: node.port,
       username: node.username,
       enabled: node.enabled,
       maxAccounts: node.maxAccounts,
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
 
     const node = await createProxyNode(auth.session.id, {
       ...parsed.data,
+      countryCode: parsed.data.countryCode || undefined,
       username: parsed.data.username || undefined,
       password: parsed.data.password || undefined,
     });
@@ -60,6 +63,8 @@ export async function POST(request: Request) {
         id: node.id,
         name: node.name,
         protocol: node.protocol,
+        rotationMode: node.rotationMode,
+        countryCode: node.countryCode,
         host: node.host,
         port: node.port,
         username: node.username,

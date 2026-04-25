@@ -7,6 +7,8 @@ const DEFAULT_MAX_ACCOUNTS = 100;
 export type ProxyNodeInput = {
   name: string;
   protocol: ProxyProtocol;
+  rotationMode?: "STICKY" | "M1" | "M5" | "M10";
+  countryCode?: string;
   host: string;
   port: number;
   username?: string;
@@ -32,6 +34,8 @@ function toCreatePayload(ownerUserId: string, input: ProxyNodeInput) {
     ownerUserId,
     name: input.name.trim(),
     protocol: input.protocol,
+    rotationMode: input.rotationMode ?? "M5",
+    countryCode: input.countryCode?.trim() ? input.countryCode.trim().toUpperCase() : null,
     host: input.host.trim(),
     port: input.port,
     username: input.username?.trim() ? input.username.trim() : null,
@@ -45,6 +49,8 @@ function toUpdatePayload(input: Partial<ProxyNodeInput>) {
   return {
     name: input.name !== undefined ? input.name.trim() : undefined,
     protocol: input.protocol,
+    rotationMode: input.rotationMode,
+    countryCode: input.countryCode !== undefined ? (input.countryCode.trim() ? input.countryCode.trim().toUpperCase() : null) : undefined,
     host: input.host !== undefined ? input.host.trim() : undefined,
     port: input.port,
     username: input.username !== undefined ? (input.username.trim() ? input.username.trim() : null) : undefined,
@@ -142,6 +148,97 @@ export async function assignProxyForAccount(accountId: string) {
   });
 
   return node.id;
+}
+
+export async function autoAssignProxyBindingsForAccount(accountId: string) {
+  const account = await prisma.weiboAccount.findUnique({
+    where: { id: accountId },
+    select: {
+      id: true,
+      ownerUserId: true,
+      proxyNodeId: true,
+      backupProxyNodeId: true,
+      fallbackProxyNodeId: true,
+      proxyBindingMode: true,
+      proxyBindingLocked: true,
+    },
+  });
+
+  if (!account?.ownerUserId) {
+    throw new Error("账号不存在或未绑定所属用户");
+  }
+
+  if (account.proxyBindingLocked || account.proxyBindingMode !== "AUTO") {
+    return {
+      updated: false,
+      reason: "locked_or_manual",
+    };
+  }
+
+  const nextPrimaryId = account.proxyNodeId || (await getAutoAssignableProxyNode(account.ownerUserId)).id;
+  const nextBackupId =
+    account.backupProxyNodeId || (await getAutoAssignableProxyNode(account.ownerUserId, [nextPrimaryId])).id;
+  const nextFallbackId =
+    account.fallbackProxyNodeId || (await getAutoAssignableProxyNode(account.ownerUserId, [nextPrimaryId, nextBackupId])).id;
+
+  if (
+    nextPrimaryId === account.proxyNodeId &&
+    nextBackupId === account.backupProxyNodeId &&
+    nextFallbackId === account.fallbackProxyNodeId
+  ) {
+    return {
+      updated: false,
+      reason: "no_change",
+    };
+  }
+
+  await prisma.weiboAccount.update({
+    where: { id: account.id },
+    data: {
+      proxyNodeId: nextPrimaryId,
+      backupProxyNodeId: nextBackupId,
+      fallbackProxyNodeId: nextFallbackId,
+    },
+  });
+
+  return {
+    updated: true,
+    reason: "updated",
+  };
+}
+
+export async function autoAssignProxyBindingsForOwner(ownerUserId: string) {
+  const accounts = await prisma.weiboAccount.findMany({
+    where: { ownerUserId },
+    select: {
+      id: true,
+      proxyBindingMode: true,
+      proxyBindingLocked: true,
+    },
+  });
+
+  let updatedCount = 0;
+
+  for (const account of accounts) {
+    if (account.proxyBindingLocked || account.proxyBindingMode !== "AUTO") {
+      continue;
+    }
+
+    try {
+      const result = await autoAssignProxyBindingsForAccount(account.id);
+
+      if (result.updated) {
+        updatedCount += 1;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return {
+    total: accounts.length,
+    updated: updatedCount,
+  };
 }
 
 export async function assignMissingProxyNodes(ownerUserId: string) {

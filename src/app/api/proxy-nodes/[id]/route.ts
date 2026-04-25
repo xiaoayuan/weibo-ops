@@ -24,6 +24,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/proxy-
 
     const updated = await updateProxyNode(auth.session.id, id, {
       ...parsed.data,
+      countryCode: parsed.data.countryCode,
       username: parsed.data.username,
       password: parsed.data.password,
     });
@@ -47,6 +48,8 @@ export async function PATCH(request: Request, context: RouteContext<"/api/proxy-
         id: updated.id,
         name: updated.name,
         protocol: updated.protocol,
+        rotationMode: updated.rotationMode,
+        countryCode: updated.countryCode,
         host: updated.host,
         port: updated.port,
         username: updated.username,

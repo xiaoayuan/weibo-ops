@@ -18,6 +18,7 @@ const navItems = [
   { href: "/logs", label: "执行日志", icon: Bell, iconName: "Bell" },
   { href: "/traffic", label: "流量监控", icon: BarChart3, iconName: "BarChart3" },
   { href: "/scheduler", label: "调度监控", icon: RefreshCw, iconName: "RefreshCw" },
+  { href: "/proxy-center", label: "代理中心", icon: Settings, iconName: "Settings", minRole: "ADMIN" as const },
   { href: "/users", label: "用户管理", icon: Shield, iconName: "Shield", minRole: "ADMIN" as const },
   { href: "/settings", label: "系统设置", icon: Settings, iconName: "Settings", minRole: "ADMIN" as const },
 ];

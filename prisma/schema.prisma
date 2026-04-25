@@ -79,6 +79,18 @@ enum ProxyProtocol {
   SOCKS5
 }
 
+enum ProxyRotationMode {
+  STICKY
+  M1
+  M5
+  M10
+}
+
+enum ProxyBindingMode {
+  AUTO
+  MANUAL
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -109,6 +121,8 @@ model ProxyNode {
   ownerUserId       String
   name              String
   protocol          ProxyProtocol @default(HTTP)
+  rotationMode      ProxyRotationMode @default(M5)
+  countryCode       String?
   host              String
   port              Int
   username          String?
@@ -147,6 +161,11 @@ model WeiboAccount {
   id                  String             @id @default(cuid())
   ownerUserId         String?
   proxyNodeId         String?
+  backupProxyNodeId   String?
+  fallbackProxyNodeId String?
+  proxyBindingMode    ProxyBindingMode   @default(AUTO)
+  proxyBindingLocked  Boolean            @default(false)
+  allowHostFallback   Boolean            @default(true)
   nickname            String
   remark              String?
   groupName           String?

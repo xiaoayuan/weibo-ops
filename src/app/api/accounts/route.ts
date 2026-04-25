@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/permissions";
-import { getAutoAssignableProxyNode } from "@/server/proxy-pool";
+import { autoAssignProxyBindingsForAccount, getAutoAssignableProxyNode } from "@/server/proxy-pool";
 import { createAccountSchema } from "@/server/validators/account";
 
 export async function GET() {
@@ -70,6 +70,10 @@ export async function POST(request: Request) {
         baseJitterSec: parsed.data.baseJitterSec || 0,
       },
     });
+
+    if (proxyNodeId) {
+      await autoAssignProxyBindingsForAccount(account.id).catch(() => undefined);
+    }
 
     return Response.json({
       success: true,

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/permissions";
-import { assignProxyForAccount } from "@/server/proxy-pool";
+import { autoAssignProxyBindingsForAccount } from "@/server/proxy-pool";
 import { updateAccountSchema } from "@/server/validators/account";
 
 export async function GET(_request: Request, context: RouteContext<"/api/accounts/[id]">) {
@@ -100,9 +100,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
       data: updateData,
     });
 
-    if (!account.proxyNodeId) {
-      await assignProxyForAccount(account.id);
-    }
+    await autoAssignProxyBindingsForAccount(account.id).catch(() => undefined);
 
     const refreshed = await prisma.weiboAccount.findUnique({ where: { id: account.id } });
 

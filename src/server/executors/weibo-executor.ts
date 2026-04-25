@@ -2,7 +2,7 @@ import { decryptText, getDecryptErrorMessage } from "@/lib/encrypt";
 import { prisma } from "@/lib/prisma";
 import { sendHttpRequestWithRetry } from "@/server/executors/http-client";
 import { validateInteractionPrecheck, validatePlanPrecheck } from "@/server/executors/precheck";
-import { getProxyConfigForAccount, type ProxyConfig } from "@/server/proxy-config";
+import { getProxyExecutionCandidatesForAccount, type ProxyConfig } from "@/server/proxy-config";
 import { extractStatusIdFromUrl, fetchStatusCommentsCount, sendStatusComment } from "@/server/plans/first-comment-plan";
 import type { ExecuteInteractionInput, ExecutePlanInput, ExecutorActionResult, SocialExecutor } from "@/server/executors/types";
 import { randomUUID } from "node:crypto";
@@ -568,6 +568,38 @@ async function buildConnectivityProbe(cookie: string, proxyConfig?: ProxyConfig 
     status: response.status,
     summary: response.json ?? response.text.slice(0, 200),
     traffic: readTrafficFromResponse(response),
+  };
+}
+
+async function resolveExecutionProxy(accountId: string, cookie: string) {
+  const candidates = await getProxyExecutionCandidatesForAccount(accountId);
+  const attempts: Array<{ label: string; ok: boolean; status?: number; message?: string }> = [];
+
+  for (const candidate of candidates) {
+    try {
+      const probe = await buildConnectivityProbe(cookie, candidate.proxyConfig);
+      attempts.push({ label: candidate.label, ok: probe.ok, status: probe.status });
+
+      if (probe.ok) {
+        return {
+          selected: candidate,
+          probe,
+          attempts,
+        };
+      }
+    } catch (error) {
+      attempts.push({
+        label: candidate.label,
+        ok: false,
+        message: error instanceof Error ? error.message : "连通性测试失败",
+      });
+    }
+  }
+
+  return {
+    selected: null,
+    probe: null,
+    attempts,
   };
 }
 
@@ -1673,10 +1705,9 @@ export class WeiboExecutor implements SocialExecutor {
 
     try {
       const account = await getAccountCookie(input.accountId);
-      const proxyConfig = await getProxyConfigForAccount(input.accountId);
-      const probe = await buildConnectivityProbe(account.cookie, proxyConfig);
+      const resolvedProxy = await resolveExecutionProxy(input.accountId, account.cookie);
 
-      if (!probe.ok) {
+      if (!resolvedProxy.selected || !resolvedProxy.probe?.ok) {
         return blockedResult("微博连通性探测未通过，无法进入真实执行阶段。", {
           executor: "weibo",
           precheck: "blocked",
@@ -1685,9 +1716,18 @@ export class WeiboExecutor implements SocialExecutor {
           topicName: input.topicName,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
-          probe,
+          proxyAttempts: resolvedProxy.attempts,
         });
       }
+
+      const proxyConfig = resolvedProxy.selected.proxyConfig;
+      const probe = resolvedProxy.probe;
+      const proxyRoute = {
+        selected: resolvedProxy.selected.label,
+        proxyNodeId: resolvedProxy.selected.proxyNodeId,
+        useHostNetwork: resolvedProxy.selected.useHostNetwork,
+        attempts: resolvedProxy.attempts,
+      };
 
       if (input.planType === "CHECK_IN") {
         const checkInResult = await sendCheckInRequest(input, account.cookie, proxyConfig);
@@ -1704,6 +1744,7 @@ export class WeiboExecutor implements SocialExecutor {
             topicUrl: input.topicUrl,
             loginStatus: account.loginStatus,
             traffic: mergeTraffic(probe.traffic, checkInResult.traffic),
+            proxyRoute,
             probe,
             checkInResult,
           });
@@ -1718,6 +1759,7 @@ export class WeiboExecutor implements SocialExecutor {
           topicUrl: input.topicUrl,
           loginStatus: account.loginStatus,
           traffic: mergeTraffic(probe.traffic, checkInResult.traffic),
+          proxyRoute,
           probe,
           checkInResult,
         });
@@ -1805,6 +1847,7 @@ export class WeiboExecutor implements SocialExecutor {
           topicUrl: input.topicUrl,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
+          proxyRoute,
           probe,
         },
       );
@@ -1822,10 +1865,9 @@ export class WeiboExecutor implements SocialExecutor {
 
     try {
       const account = await getAccountCookie(input.accountId);
-      const proxyConfig = await getProxyConfigForAccount(input.accountId);
-      const probe = await buildConnectivityProbe(account.cookie, proxyConfig);
+      const resolvedProxy = await resolveExecutionProxy(input.accountId, account.cookie);
 
-      if (!probe.ok) {
+      if (!resolvedProxy.selected || !resolvedProxy.probe?.ok) {
         return blockedResult("微博连通性探测未通过，无法进入真实执行阶段。", {
           executor: "weibo",
           precheck: "blocked",
@@ -1833,9 +1875,18 @@ export class WeiboExecutor implements SocialExecutor {
           actionType: input.actionType,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
-          probe,
+          proxyAttempts: resolvedProxy.attempts,
         });
       }
+
+      const proxyConfig = resolvedProxy.selected.proxyConfig;
+      const probe = resolvedProxy.probe;
+      const proxyRoute = {
+        selected: resolvedProxy.selected.label,
+        proxyNodeId: resolvedProxy.selected.proxyNodeId,
+        useHostNetwork: resolvedProxy.selected.useHostNetwork,
+        attempts: resolvedProxy.attempts,
+      };
 
       if (input.actionType === "LIKE") {
         const warmup = await warmupInteractionTarget(input.targetUrl, account.cookie, proxyConfig);
@@ -1868,6 +1919,7 @@ export class WeiboExecutor implements SocialExecutor {
             targetUrl: input.targetUrl,
             loginStatus: account.loginStatus,
             traffic: mergeTraffic(probe.traffic, warmup.traffic, likeResult.traffic),
+            proxyRoute,
             probe,
             warmup,
             likeResult,
@@ -1890,6 +1942,7 @@ export class WeiboExecutor implements SocialExecutor {
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
           traffic: mergeTraffic(probe.traffic, warmup.traffic, likeResult.traffic, verifyResult?.traffic),
+          proxyRoute,
           probe,
           warmup,
           likeResult,
@@ -2008,6 +2061,7 @@ export class WeiboExecutor implements SocialExecutor {
           actionType: input.actionType,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
+          proxyRoute,
           probe,
         },
       );

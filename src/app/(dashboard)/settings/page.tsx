@@ -3,7 +3,6 @@ import { getActionTypeText } from "@/lib/display-text";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { ProfileSecurityForm } from "@/components/settings/profile-security-form";
-import { ProxyPoolForm } from "@/components/settings/proxy-pool-form";
 import { RiskRulesForm } from "@/components/settings/risk-rules-form";
 import { ExecutionStrategyForm } from "@/components/settings/execution-strategy-form";
 import { ExecutorHealthCard } from "@/components/settings/executor-health-card";
@@ -93,7 +92,7 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, proxyNodes, executorStatus, rateLimitSnapshot] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, executorStatus, rateLimitSnapshot] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -144,15 +143,6 @@ export default async function SettingsPage() {
     prisma.$queryRaw`SELECT 1`,
     getRiskRules(),
     getExecutionStrategy(),
-    prisma.proxyNode.findMany({
-      where: { ownerUserId: session.id },
-      include: {
-        _count: {
-          select: { accounts: true },
-        },
-      },
-      orderBy: [{ enabled: "desc" }, { createdAt: "asc" }],
-    }),
     Promise.resolve(getExecutorHealthStatus()),
     getRateLimitSnapshot(),
   ]);
@@ -274,20 +264,6 @@ export default async function SettingsPage() {
         initialAutoGenerateTime={currentUser?.autoGenerateTime || "00:10"}
         initialAutoExecuteEnabled={currentUser?.autoExecuteEnabled ?? true}
         initialAutoExecuteStartTime={currentUser?.autoExecuteStartTime || "09:00"}
-      />
-      <ProxyPoolForm
-        initialNodes={proxyNodes.map((node) => ({
-          id: node.id,
-          name: node.name,
-          protocol: node.protocol,
-          host: node.host,
-          port: node.port,
-          username: node.username,
-          enabled: node.enabled,
-          maxAccounts: node.maxAccounts,
-          assignedAccounts: node._count.accounts,
-          hasPassword: Boolean(node.passwordEncrypted),
-        }))}
       />
       <ExecutionStrategyForm initialConfig={executionStrategy} />
       <RiskRulesForm initialRules={riskRules} />

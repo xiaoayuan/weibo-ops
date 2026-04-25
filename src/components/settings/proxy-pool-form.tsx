@@ -3,11 +3,14 @@
 import { FormEvent, useState } from "react";
 
 type ProxyProtocol = "HTTP" | "HTTPS" | "SOCKS5";
+type ProxyRotationMode = "STICKY" | "M1" | "M5" | "M10";
 
 type ProxyNodeItem = {
   id: string;
   name: string;
   protocol: ProxyProtocol;
+  rotationMode: ProxyRotationMode;
+  countryCode: string | null;
   host: string;
   port: number;
   username: string | null;
@@ -20,6 +23,8 @@ type ProxyNodeItem = {
 type FormState = {
   name: string;
   protocol: ProxyProtocol;
+  rotationMode: ProxyRotationMode;
+  countryCode: string;
   host: string;
   port: string;
   username: string;
@@ -31,6 +36,8 @@ type FormState = {
 const initialForm: FormState = {
   name: "",
   protocol: "HTTP",
+  rotationMode: "M5",
+  countryCode: "",
   host: "",
   port: "",
   username: "",
@@ -71,6 +78,8 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
       const payload = {
         name: form.name.trim(),
         protocol: form.protocol,
+        rotationMode: form.rotationMode,
+        countryCode: form.countryCode.trim(),
         host: form.host.trim(),
         port: Number(form.port),
         username: form.username.trim(),
@@ -106,6 +115,8 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
     setForm({
       name: node.name,
       protocol: node.protocol,
+      rotationMode: node.rotationMode,
+      countryCode: node.countryCode || "",
       host: node.host,
       port: String(node.port),
       username: node.username || "",
@@ -250,6 +261,31 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
         </label>
 
         <label className="block">
+          <span className="mb-2 block text-sm font-medium text-slate-700">轮换模式</span>
+          <select
+            value={form.rotationMode}
+            onChange={(event) => setForm((current) => ({ ...current, rotationMode: event.target.value as ProxyRotationMode }))}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+          >
+            <option value="STICKY">粘性</option>
+            <option value="M1">1 分钟</option>
+            <option value="M5">5 分钟</option>
+            <option value="M10">10 分钟</option>
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-slate-700">国家/地区</span>
+          <input
+            type="text"
+            value={form.countryCode}
+            onChange={(event) => setForm((current) => ({ ...current, countryCode: event.target.value.toUpperCase() }))}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            placeholder="US / JP / SG"
+          />
+        </label>
+
+        <label className="block">
           <span className="mb-2 block text-sm font-medium text-slate-700">代理主机</span>
           <input
             type="text"
@@ -352,6 +388,9 @@ export function ProxyPoolForm({ initialNodes }: { initialNodes: ProxyNodeItem[] 
                   <p className="mt-1 text-xs text-slate-500">
                     {node.protocol}://{node.host}:{node.port}
                     {node.username ? ` (${node.username})` : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {node.countryCode || "未设置地区"} / {node.rotationMode === "STICKY" ? "粘性" : node.rotationMode === "M1" ? "1分钟" : node.rotationMode === "M5" ? "5分钟" : "10分钟"}
                   </p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${node.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-700"}`}>
