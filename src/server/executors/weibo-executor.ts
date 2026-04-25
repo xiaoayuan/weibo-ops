@@ -913,6 +913,39 @@ async function sendCommentLikeRequest(targetUrl: string, cookie: string, proxyCo
   };
 }
 
+async function warmupInteractionTarget(targetUrl: string, cookie: string, proxyConfig?: ProxyConfig | null) {
+  try {
+    const response = await sendHttpRequestWithRetry(
+      {
+        url: targetUrl,
+        method: "GET",
+        headers: {
+          Cookie: cookie,
+          Referer: "https://weibo.com/",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        timeoutMs: 10_000,
+        proxyConfig,
+      },
+      { retries: 1 },
+    );
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      traffic: readTrafficFromResponse(response),
+      finalUrl: response.finalUrl,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      traffic: mergeTraffic(),
+      finalUrl: targetUrl,
+    };
+  }
+}
+
 async function sendRepostRequest(targetUrl: string, cookie: string, repostContent?: string | null, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
@@ -1770,6 +1803,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.actionType === "LIKE") {
+        const warmup = await warmupInteractionTarget(input.targetUrl, account.cookie, proxyConfig);
         const commentId = tryExtractCommentId(input.targetUrl);
         const commentMode = Boolean(commentId) || isCommentLikeLink(input.targetUrl);
         const likeResult = commentId
@@ -1791,8 +1825,9 @@ export class WeiboExecutor implements SocialExecutor {
             actionType: input.actionType,
             targetUrl: input.targetUrl,
             loginStatus: account.loginStatus,
-            traffic: mergeTraffic(probe.traffic, likeResult.traffic),
+            traffic: mergeTraffic(probe.traffic, warmup.traffic, likeResult.traffic),
             probe,
+            warmup,
             likeResult,
           });
         }
@@ -1811,8 +1846,9 @@ export class WeiboExecutor implements SocialExecutor {
           actionType: input.actionType,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,
-          traffic: mergeTraffic(probe.traffic, likeResult.traffic, verifyResult?.traffic),
+          traffic: mergeTraffic(probe.traffic, warmup.traffic, likeResult.traffic, verifyResult?.traffic),
           probe,
+          warmup,
           likeResult,
           verifyResult,
           verifyWarning:

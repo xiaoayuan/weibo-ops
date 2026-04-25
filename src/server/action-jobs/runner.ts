@@ -1,3 +1,4 @@
+import type { ActionJobStep as PrismaActionJobStep } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getExecutor } from "@/server/executors";
 import { writeExecutionLog } from "@/server/logs";
@@ -230,6 +231,61 @@ function getCommentLikeConcurrency(urgency: "S" | "A" | "B", strategy: Execution
   return strategy.actionJob.commentLikeConcurrency[urgency];
 }
 
+function shuffleItems<T>(items: T[]) {
+  const next = [...items];
+
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    const current = next[index];
+    next[index] = next[swapIndex];
+    next[swapIndex] = current;
+  }
+
+  return next;
+}
+
+function buildCommentLikeRounds(accountIds: string[], accountStepsMap: Map<string, PrismaActionJobStep[]>) {
+  const shuffledMap = new Map<string, PrismaActionJobStep[]>();
+  let maxSteps = 0;
+
+  for (const accountId of accountIds) {
+    const shuffledSteps = shuffleItems(accountStepsMap.get(accountId) || []);
+    shuffledMap.set(accountId, shuffledSteps);
+    maxSteps = Math.max(maxSteps, shuffledSteps.length);
+  }
+
+  const rounds: Array<Array<{ accountId: string; step: PrismaActionJobStep }>> = [];
+
+  for (let roundIndex = 0; roundIndex < maxSteps; roundIndex += 1) {
+    const items: Array<{ accountId: string; step: PrismaActionJobStep }> = [];
+
+    for (const accountId of shuffleItems(accountIds)) {
+      const step = shuffledMap.get(accountId)?.[roundIndex];
+      if (step) {
+        items.push({ accountId, step });
+      }
+    }
+
+    if (items.length > 0) {
+      rounds.push(items);
+    }
+  }
+
+  return { rounds, shuffledMap };
+}
+
+function getCommentLikeStepJitterMs(urgency: "S" | "A" | "B") {
+  if (urgency === "S") {
+    return 200 + Math.floor(Math.random() * 1200);
+  }
+
+  if (urgency === "A") {
+    return 500 + Math.floor(Math.random() * 2000);
+  }
+
+  return 1000 + Math.floor(Math.random() * 4000);
+}
+
 function getRepostConcurrency(urgency: "S" | "A" | "B", strategy: ExecutionStrategy) {
   return strategy.actionJob.repostConcurrency[urgency];
 }
@@ -433,111 +489,67 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
     existing.push(step);
     accountStepsMap.set(step.accountId, existing);
   }
+  const { rounds, shuffledMap } = buildCommentLikeRounds(input.accountIds, accountStepsMap as Map<string, PrismaActionJobStep[]>);
+  const accountState = new Map(input.accountIds.map((accountId) => [accountId, { successCount: 0, failedCount: 0, latestError: "", started: false }]));
 
-  await runWithConcurrency(input.accountIds, getCommentLikeConcurrency(urgency, strategy), async (accountId) => {
-    if (await isActionJobCancelled(input.jobId)) {
-      return;
-    }
-
-    const account = accountMap.get(accountId);
-    const accountSteps = accountStepsMap.get(accountId) || [];
-
+  for (const accountId of input.accountIds) {
     const waveDelayMs = delayMap.get(accountId) || 0;
-
     if (waveDelayMs > 0) {
       await sleep(waveDelayMs);
     }
+  }
 
-    if (!account || accountSteps.length === 0) {
-      return;
-    }
-
-    if (await isAccountCircuitOpen(accountId)) {
-      await prisma.actionJobAccountRun.updateMany({
-        where: { jobId: input.jobId, accountId },
-        data: { status: "FAILED", errorMessage: "账号熔断中，已自动暂停执行" },
-      });
-      return;
-    }
-
-    if (await isProxyCircuitOpen(account.proxyNodeId)) {
-      await prisma.actionJobAccountRun.updateMany({
-        where: { jobId: input.jobId, accountId },
-        data: { status: "FAILED", errorMessage: "代理熔断中，已自动暂停执行" },
-      });
-      return;
-    }
-
-    let successCount = 0;
-    let failedCount = 0;
-    let latestError = "";
-
-    await prisma.actionJobAccountRun.updateMany({
-      where: { jobId: input.jobId, accountId },
-      data: { status: "RUNNING" },
-    });
-
-    for (const step of accountSteps) {
+  for (const round of rounds) {
+    await runWithConcurrency(round, getCommentLikeConcurrency(urgency, strategy), async ({ accountId, step }) => {
       if (await isActionJobCancelled(input.jobId)) {
+        return;
+      }
+
+      const account = accountMap.get(accountId);
+      const accountSteps = shuffledMap.get(accountId) || [];
+
+      if (!account || accountSteps.length === 0) {
+        return;
+      }
+
+      const state = accountState.get(accountId);
+      if (!state) {
         return;
       }
 
       if (await isAccountCircuitOpen(accountId)) {
         await prisma.actionJobStep.update({
           where: { id: step.id },
-          data: {
-            status: "FAILED",
-            errorMessage: "账号熔断中，跳过执行",
-            finishedAt: new Date(),
-          },
+          data: { status: "FAILED", errorMessage: "账号熔断中，跳过执行", finishedAt: new Date() },
         });
+        state.failedCount += 1;
+        state.latestError = "账号熔断中，跳过执行";
         await recomputeCommentLikeRunStatus(input.jobId, accountId);
-        continue;
+        return;
       }
 
       if (await isProxyCircuitOpen(account.proxyNodeId)) {
         await prisma.actionJobStep.update({
           where: { id: step.id },
-          data: {
-            status: "FAILED",
-            errorMessage: "代理熔断中，跳过执行",
-            finishedAt: new Date(),
-          },
+          data: { status: "FAILED", errorMessage: "代理熔断中，跳过执行", finishedAt: new Date() },
         });
+        state.failedCount += 1;
+        state.latestError = "代理熔断中，跳过执行";
         await recomputeCommentLikeRunStatus(input.jobId, accountId);
-        continue;
+        return;
       }
 
-      if (await isAccountCircuitOpen(accountId)) {
-        await prisma.actionJobStep.update({
-          where: { id: step.id },
-          data: {
-            status: "FAILED",
-            errorMessage: "账号熔断中，跳过执行",
-            finishedAt: new Date(),
-          },
-        });
-        failedCount += 1;
-        continue;
-      }
-
-      if (await isProxyCircuitOpen(account.proxyNodeId)) {
-        await prisma.actionJobStep.update({
-          where: { id: step.id },
-          data: {
-            status: "FAILED",
-            errorMessage: "代理熔断中，跳过执行",
-            finishedAt: new Date(),
-          },
-        });
-        failedCount += 1;
-        continue;
+      if (!state.started) {
+        await prisma.actionJobAccountRun.updateMany({ where: { jobId: input.jobId, accountId }, data: { status: "RUNNING" } });
+        state.started = true;
       }
 
       await prisma.actionJobStep.update({
         where: { id: step.id },
         data: { status: "RUNNING", startedAt: new Date() },
       });
+
+      await sleep(getCommentLikeStepJitterMs(urgency));
 
       const timing = await waitForAccountExecutionWindow(accountId, `action-job:${input.jobId}:comment-like:${step.id}`, {
         scheduleWindowEnabled: account.scheduleWindowEnabled,
@@ -588,12 +600,11 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       }
 
       const success = result.success && result.status === "SUCCESS";
-
       if (success) {
-        successCount += 1;
+        state.successCount += 1;
       } else {
-        failedCount += 1;
-        latestError = result.message;
+        state.failedCount += 1;
+        state.latestError = result.message;
       }
 
       await prisma.actionJobStep.update({
@@ -643,32 +654,31 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
       await prisma.actionJobAccountRun.updateMany({
         where: { jobId: input.jobId, accountId },
         data: {
-          currentStep: step.sequenceNo,
-          status: failedCount > 0 ? "PARTIAL_FAILED" : "RUNNING",
-          errorMessage: latestError || null,
+          currentStep: state.successCount + state.failedCount,
+          status: state.failedCount > 0 ? "PARTIAL_FAILED" : "RUNNING",
+          errorMessage: state.latestError || null,
         },
       });
+    });
+  }
 
-      if (step.sequenceNo < accountSteps.length) {
-        await sleep(computeAccountCooldownMs(urgency, strategy));
-
-        if (await isActionJobCancelled(input.jobId)) {
-          return;
-        }
-      }
+  for (const accountId of input.accountIds) {
+    const state = accountState.get(accountId);
+    const accountSteps = shuffledMap.get(accountId) || [];
+    if (!state || accountSteps.length === 0) {
+      continue;
     }
 
-    const accountStatus = computeJobStatus(accountSteps.length, successCount, failedCount);
-
+    const accountStatus = computeJobStatus(accountSteps.length, state.successCount, state.failedCount);
     await prisma.actionJobAccountRun.updateMany({
       where: { jobId: input.jobId, accountId },
       data: {
         status: accountStatus,
-        currentStep: accountSteps.length,
-        errorMessage: latestError || null,
+        currentStep: state.successCount + state.failedCount,
+        errorMessage: state.latestError || null,
       },
     });
-  });
+  }
 
   if (await isActionJobCancelled(input.jobId)) {
     return;
