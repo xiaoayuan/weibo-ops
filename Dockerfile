@@ -19,7 +19,7 @@ ENV ACTION_JOB_NODES=$ACTION_JOB_NODES
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npx prisma generate && cp -r src/generated/prisma node_modules/.prisma/client && npm run build
+RUN npx prisma generate && mkdir -p node_modules/.prisma/client && cp -r src/generated/prisma/* node_modules/.prisma/client/ && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
