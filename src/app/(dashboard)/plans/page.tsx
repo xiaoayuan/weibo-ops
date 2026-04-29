@@ -54,6 +54,7 @@ function getPendingReason(input: {
   scheduledTime: Date;
   autoExecuteEnabled: boolean;
   autoExecuteStartTime: string;
+  autoExecuteEndTime: string;
   scheduleNote?: string | null;
 }) {
   if (input.status !== "PENDING" && input.status !== "READY") {
@@ -75,6 +76,10 @@ function getPendingReason(input: {
   const nowHm = toBusinessHm(input.now);
   if (input.planDateText === input.todayText && nowHm < input.autoExecuteStartTime) {
     return `未到自动执行开始时间（${input.autoExecuteStartTime}）`;
+  }
+
+  if (input.planDateText === input.todayText && nowHm > input.autoExecuteEndTime) {
+    return `已过自动执行结束时间（${input.autoExecuteEndTime}）`;
   }
 
   if (input.scheduledTime.getTime() > input.now.getTime()) {
@@ -119,6 +124,7 @@ export default async function PlansPage() {
       select: {
         autoExecuteEnabled: true,
         autoExecuteStartTime: true,
+        autoExecuteEndTime: true,
       },
     }),
   ]);
@@ -163,6 +169,7 @@ export default async function PlansPage() {
       scheduledTime: plan.scheduledTime,
       autoExecuteEnabled: user?.autoExecuteEnabled ?? true,
       autoExecuteStartTime: user?.autoExecuteStartTime || "09:00",
+      autoExecuteEndTime: user?.autoExecuteEndTime || "18:00",
       scheduleNote: scheduleNoteMap.get(plan.id) || null,
     }),
   }));

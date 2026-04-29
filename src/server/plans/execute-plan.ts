@@ -99,6 +99,19 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       include: planInclude,
     });
 
+    await writeExecutionLog({
+      accountId: updated.accountId,
+      planId: updated.id,
+      actionType: "PLAN_EXECUTE_BLOCKED",
+      requestPayload: {
+        planType: updated.planType,
+        trigger: "manual_or_auto",
+        reason: "ACCOUNT_CIRCUIT_OPEN",
+      },
+      success: false,
+      errorMessage: updated.resultMessage || "计划已暂停",
+    });
+
     return {
       ok: true as const,
       success: false,
@@ -112,6 +125,19 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       where: { id },
       data: { status: "FAILED", resultMessage: "代理熔断中，计划已自动暂停" },
       include: planInclude,
+    });
+
+    await writeExecutionLog({
+      accountId: updated.accountId,
+      planId: updated.id,
+      actionType: "PLAN_EXECUTE_BLOCKED",
+      requestPayload: {
+        planType: updated.planType,
+        trigger: "manual_or_auto",
+        reason: "PROXY_CIRCUIT_OPEN",
+      },
+      success: false,
+      errorMessage: updated.resultMessage || "计划已暂停",
     });
 
     return {
@@ -170,6 +196,19 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           resultMessage: "首评计划未绑定任务配置",
         },
         include: planInclude,
+      });
+
+      await writeExecutionLog({
+        accountId: updated.accountId,
+        planId: updated.id,
+        actionType: "FIRST_COMMENT_EXECUTE_FAILED",
+        requestPayload: {
+          planType: updated.planType,
+          trigger: "manual_or_auto",
+          timing,
+        },
+        success: false,
+        errorMessage: updated.resultMessage || "首评执行失败",
       });
 
       return {
@@ -544,6 +583,66 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           topicUrl: plan.task?.superTopic.topicUrl || null,
         });
 
+  const riskRules = await getRiskRules();
+  const errorClass = classifyExecutionOutcome(
+    {
+      success: executionResult.success,
+      message: executionResult.message,
+      responsePayload: executionResult.responsePayload,
+    },
+    riskRules,
+  );
+
+  if (!executionResult.success && executionResult.status === "FAILED" && (errorClass === "TRANSIENT_NETWORK" || errorClass === "PLATFORM_BUSY")) {
+    const retryCount = await prisma.executionLog.count({
+      where: {
+        planId: plan.id,
+        actionType: "PLAN_REQUEUED",
+      },
+    });
+
+    if (retryCount < 1) {
+      const retryAt = getNextFirstCommentRetryTime({ now: new Date(), planDate: plan.planDate, endTime: plan.task?.endTime || null });
+
+      if (retryAt) {
+        const retryMessage = `执行失败（${executionResult.message || "未知错误"}），已自动重试一次，顺延至 ${formatBusinessDateTime(retryAt)}`;
+        const updated = await prisma.dailyPlan.update({
+          where: { id },
+          data: {
+            status: "PENDING",
+            scheduledTime: retryAt,
+            resultMessage: retryMessage,
+          },
+          include: planInclude,
+        });
+
+        await writeExecutionLog({
+          accountId: updated.accountId,
+          planId: updated.id,
+          actionType: "PLAN_REQUEUED",
+          requestPayload: {
+            planType: updated.planType,
+            trigger: "manual_or_auto",
+            retryAt: retryAt.toISOString(),
+            reasonClass: errorClass,
+            message: executionResult.message,
+            timing,
+            scheduleDecision,
+          },
+          success: true,
+          errorMessage: retryMessage,
+        });
+
+        return {
+          ok: true as const,
+          success: false,
+          message: retryMessage,
+          data: updated,
+        };
+      }
+    }
+  }
+
   const cancelledBeforeFinalize = await getCancelledPlan(id);
 
   if (cancelledBeforeFinalize) {
@@ -570,7 +669,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     accountId: updated.accountId,
     proxyNodeId: updated.account.proxyNodeId,
     success: executionResult.success,
-    errorClass: riskMeta.errorClass,
+    errorClass: riskMeta.errorClass || errorClass,
   });
 
   await writeExecutionLog({

@@ -1,0 +1,103 @@
+<h2>手机端控评/轮转布局方向</h2>
+<p class="subtitle">先选交互骨架，不纠结颜色。重点看单手操作、信息密度、停止/查看进度是否顺手。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 分段工作台</div>
+        <div class="mockup-body">
+          <div style="display:grid;gap:10px;">
+            <div style="padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;">
+              <div class="label">快捷区</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                <button class="mock-button">开始控评</button>
+                <button class="mock-button">开始轮转</button>
+                <button class="mock-button">仅运行中</button>
+                <button class="mock-button">手机执行</button>
+              </div>
+            </div>
+            <div style="padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;">
+              <div class="label">最近任务</div>
+              <div style="margin-top:8px;display:grid;gap:8px;">
+                <div style="padding:10px;border-radius:10px;background:#f8fafc;">控评点赞 / 运行中 / 3账号</div>
+                <div style="padding:10px;border-radius:10px;background:#f8fafc;">轮转转发 / 部分失败 / 5账号</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A: 分段工作台</h3>
+      <p>先把高频动作放最上面，再看最近任务。适合你经常“发起任务 + 盯状态”。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 底部双标签</div>
+        <div class="mockup-body">
+          <div style="display:grid;gap:10px;">
+            <div style="padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;">
+              <div class="label">当前标签: 任务列表</div>
+              <div style="display:grid;gap:8px;margin-top:8px;">
+                <div style="padding:10px;border-radius:10px;background:#f8fafc;">运行中 / 可停止 / 展开看账号进度</div>
+                <div style="padding:10px;border-radius:10px;background:#f8fafc;">待执行 / 可开始</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <button class="mock-button">创建任务</button>
+              <button class="mock-button">任务列表</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B: 底部双标签</h3>
+      <p>把“创建”和“管理”拆开，手机上结构最清楚。适合长时间在手机里操作。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 单页折叠流</div>
+        <div class="mockup-body">
+          <div style="display:grid;gap:8px;">
+            <div style="padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;">创建控评 ▼</div>
+            <div style="padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;">创建轮转 ▼</div>
+            <div style="padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;">最近任务 ▼</div>
+            <div style="padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff;">手机执行入口 ▼</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 C: 单页折叠流</h3>
+      <p>不改页面结构，只改成手机手风琴。实现最快，但长期操作效率一般。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>我推荐 B</h4>
+      <ul>
+        <li>手机上最不拥挤</li>
+        <li>创建和管理心智清晰</li>
+        <li>后续加任务详情、展开卡片也最自然</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>代价</h4>
+      <ul>
+        <li>比简单折叠要多一点前端改动</li>
+        <li>需要给最近任务重做移动端卡片</li>
+      </ul>
+    </div>
+  </div>
+</div>

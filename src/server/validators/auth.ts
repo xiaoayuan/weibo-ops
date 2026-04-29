@@ -13,9 +13,11 @@ export const proxySettingsSchema = z
     proxyPassword: z.string().max(255, "代理密码过长").optional().or(z.literal("")),
     taskConcurrency: z.number().int("并发数必须是整数").min(1, "并发数至少为 1").max(5, "并发数最多为 5").optional(),
     autoGenerateEnabled: z.boolean().optional(),
-    autoGenerateTime: hhmmSchema.optional(),
+    autoGenerateWindowStart: hhmmSchema.optional(),
+    autoGenerateWindowEnd: hhmmSchema.optional(),
     autoExecuteEnabled: z.boolean().optional(),
     autoExecuteStartTime: hhmmSchema.optional(),
+    autoExecuteEndTime: hhmmSchema.optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.proxyEnabled) {
@@ -58,9 +60,11 @@ export const updateProfileSchema = z
     proxyPassword: z.string().max(255, "代理密码过长").optional().or(z.literal("")),
     taskConcurrency: z.number().int("并发数必须是整数").min(1, "并发数至少为 1").max(5, "并发数最多为 5").optional(),
     autoGenerateEnabled: z.boolean().optional(),
-    autoGenerateTime: hhmmSchema.optional(),
+    autoGenerateWindowStart: hhmmSchema.optional(),
+    autoGenerateWindowEnd: hhmmSchema.optional(),
     autoExecuteEnabled: z.boolean().optional(),
     autoExecuteStartTime: hhmmSchema.optional(),
+    autoExecuteEndTime: hhmmSchema.optional(),
   })
   .superRefine((data, ctx) => {
     const hasProfileChange = (data.username && data.username.trim() !== "") || (data.password && data.password !== "");
@@ -73,9 +77,23 @@ export const updateProfileSchema = z
       data.proxyPassword !== undefined ||
       data.taskConcurrency !== undefined ||
       data.autoGenerateEnabled !== undefined ||
-      data.autoGenerateTime !== undefined ||
+      data.autoGenerateWindowStart !== undefined ||
+      data.autoGenerateWindowEnd !== undefined ||
       data.autoExecuteEnabled !== undefined ||
-      data.autoExecuteStartTime !== undefined;
+      data.autoExecuteStartTime !== undefined ||
+      data.autoExecuteEndTime !== undefined;
+
+    if (
+      data.autoGenerateWindowStart &&
+      data.autoGenerateWindowEnd &&
+      data.autoGenerateWindowStart >= data.autoGenerateWindowEnd
+    ) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["autoGenerateWindowEnd"], message: "生成窗口结束时间必须晚于开始时间" });
+    }
+
+    if (data.autoExecuteStartTime && data.autoExecuteEndTime && data.autoExecuteStartTime >= data.autoExecuteEndTime) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["autoExecuteEndTime"], message: "自动执行结束时间必须晚于开始时间" });
+    }
 
     if (!hasProfileChange && !hasProxyChange) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["username"], message: "至少填写一个修改项" });

@@ -9,6 +9,15 @@ import { scheduleTask } from "@/server/task-scheduler";
 
 declare global {
   var __userAutomationSchedulerStarted: boolean | undefined;
+  var __autoExecuteInFlightPlanIds: Set<string> | undefined;
+}
+
+function getAutoExecuteInFlightPlanIds() {
+  if (!globalThis.__autoExecuteInFlightPlanIds) {
+    globalThis.__autoExecuteInFlightPlanIds = new Set<string>();
+  }
+
+  return globalThis.__autoExecuteInFlightPlanIds;
 }
 
 function toHm(date: Date) {
@@ -17,6 +26,32 @@ function toHm(date: Date) {
 
 function isAfterOrEqualHm(left: string, right: string) {
   return left >= right;
+}
+
+function parseHmToMinutes(hm: string) {
+  const matched = hm.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+
+  if (!matched) {
+    return null;
+  }
+
+  return Number(matched[1]) * 60 + Number(matched[2]);
+}
+
+function stableHash(input: string) {
+  let hash = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 33 + input.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+}
+
+function toHmFromMinutes(totalMinutes: number) {
+  const hour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const minute = String(totalMinutes % 60).padStart(2, "0");
+  return `${hour}:${minute}`;
 }
 
 async function runAutoGenerate(now: Date) {
@@ -30,12 +65,27 @@ async function runAutoGenerate(now: Date) {
     select: {
       id: true,
       username: true,
-      autoGenerateTime: true,
+      autoGenerateWindowStart: true,
+      autoGenerateWindowEnd: true,
     },
   });
 
   for (const user of users) {
-    if (!isAfterOrEqualHm(hm, user.autoGenerateTime)) {
+    const startMinutes = parseHmToMinutes(user.autoGenerateWindowStart);
+    const endMinutes = parseHmToMinutes(user.autoGenerateWindowEnd);
+    const nowMinutes = parseHmToMinutes(hm);
+
+    if (startMinutes === null || endMinutes === null || nowMinutes === null || startMinutes >= endMinutes) {
+      continue;
+    }
+
+    if (nowMinutes < startMinutes || nowMinutes > endMinutes) {
+      continue;
+    }
+
+    const triggerMinutes = startMinutes + (stableHash(`${user.id}:${dateText}`) % (endMinutes - startMinutes + 1));
+
+    if (nowMinutes < triggerMinutes) {
       continue;
     }
 
@@ -67,6 +117,9 @@ async function runAutoGenerate(now: Date) {
           trigger: "AUTO_DAILY_GENERATE",
           date: dateText,
           time: hm,
+          windowStart: user.autoGenerateWindowStart,
+          windowEnd: user.autoGenerateWindowEnd,
+          triggerTime: toHmFromMinutes(triggerMinutes),
         },
         responsePayload: {
           createdCount: result.createdCount,
@@ -82,6 +135,9 @@ async function runAutoGenerate(now: Date) {
           trigger: "AUTO_DAILY_GENERATE",
           date: dateText,
           time: hm,
+          windowStart: user.autoGenerateWindowStart,
+          windowEnd: user.autoGenerateWindowEnd,
+          triggerTime: toHmFromMinutes(triggerMinutes),
         },
         success: false,
         errorMessage: error instanceof Error ? error.message : "自动生成计划失败",
@@ -91,6 +147,7 @@ async function runAutoGenerate(now: Date) {
 }
 
 async function runAutoExecute(now: Date) {
+  const inFlightPlanIds = getAutoExecuteInFlightPlanIds();
   const hm = toHm(now);
   const dateText = getBusinessDateText(now);
   const planDate = toBusinessDate(dateText);
@@ -102,11 +159,12 @@ async function runAutoExecute(now: Date) {
     select: {
       id: true,
       autoExecuteStartTime: true,
+      autoExecuteEndTime: true,
     },
   });
 
   for (const user of users) {
-    if (!isAfterOrEqualHm(hm, user.autoExecuteStartTime)) {
+    if (!isAfterOrEqualHm(hm, user.autoExecuteStartTime) || hm > user.autoExecuteEndTime) {
       continue;
     }
 
@@ -137,7 +195,13 @@ async function runAutoExecute(now: Date) {
       continue;
     }
 
-    const ids = candidates.map((item) => item.id);
+    const queueablePlans = candidates.filter((item) => !inFlightPlanIds.has(item.id));
+
+    if (queueablePlans.length === 0) {
+      continue;
+    }
+
+    const ids = queueablePlans.map((item) => item.id);
     await prisma.dailyPlan.updateMany({
       where: {
         id: {
@@ -153,7 +217,8 @@ async function runAutoExecute(now: Date) {
       },
     });
 
-    for (const plan of candidates) {
+    for (const plan of queueablePlans) {
+      inFlightPlanIds.add(plan.id);
       void scheduleTask({
         kind: "PLAN",
         id: plan.id,
@@ -169,6 +234,8 @@ async function runAutoExecute(now: Date) {
             resultMessage: error instanceof Error ? error.message : "自动执行入队失败",
           },
         });
+      }).finally(() => {
+        inFlightPlanIds.delete(plan.id);
       });
     }
 
@@ -179,9 +246,11 @@ async function runAutoExecute(now: Date) {
         trigger: "AUTO_DAILY_EXECUTE",
         date: dateText,
         time: hm,
+        windowStart: user.autoExecuteStartTime,
+        windowEnd: user.autoExecuteEndTime,
       },
       responsePayload: {
-        queuedCount: candidates.length,
+        queuedCount: queueablePlans.length,
       },
       success: true,
     });

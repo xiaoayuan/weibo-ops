@@ -34,6 +34,29 @@
 
 不要随意修改这些值，否则会导致登录或账号 Cookie 解密失败。
 
+## 数据库防误删红线（必须遵守）
+
+- 生产环境禁止执行 `docker compose down -v`。
+- 生产环境禁止执行 `docker volume prune` 和 `docker system prune --volumes`。
+- `COMPOSE_PROJECT_NAME` 必须固定为 `weibo-ops`（写入 `.env`），避免切到新卷导致“像被删库”。
+- 数据库 `5432` 禁止对公网暴露；`db` 服务配置中不能出现 `ports`。
+- 若存在 `docker-compose.override.yml`，要确认其没有把 `db.ports` 合并回来。
+
+### 快速检查命令
+
+```bash
+cd /opt/weibo-ops
+docker compose config | sed -n '/^  db:/,/^  [a-zA-Z0-9_-]\+:/p'
+docker compose ps
+ss -lntp | grep 5432 || echo "OK: host not listening 5432"
+```
+
+通过标准：
+
+- `db` 配置块里无 `ports`。
+- `docker compose ps` 中 `weibo-ops-db` 不显示 `0.0.0.0:5432->5432`。
+- `ss` 输出 `OK: host not listening 5432`。
+
 ## 当前产品模型
 
 ### 公共任务与私有执行
@@ -131,3 +154,9 @@
 ## 已知说明
 
 本地开发/构建环境下，`next build` 期间如果没有稳定数据库，可能会看到 Prisma 的 `ECONNREFUSED` 告警。这类告警多次出现在本地校验中，但并没有阻止构建完成。不要把这类本地构建期告警和线上真实运行错误混为一谈，除非运行日志里也出现同样的问题。
+
+## 当前待办（接主线前必须完成）
+
+- 先在生产库确认 `admin` 的 `passwordHash` 为有效 bcrypt（长度通常约 60）。
+- 若 hash 异常（如长度 5），按 `docs/ops-runbook.md` 的“重置 `admin` 登录密码（修复 hash 异常）”执行修复。
+- 登录恢复后，先验证新增微博账号不再触发 `WeiboAccount_ownerUserId_fkey`，再继续控评/轮转主线验证。

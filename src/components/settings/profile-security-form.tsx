@@ -31,17 +31,21 @@ export function ProfileSecurityForm({
   initialProxySettings,
   initialTaskConcurrency,
   initialAutoGenerateEnabled,
-  initialAutoGenerateTime,
+  initialAutoGenerateWindowStart,
+  initialAutoGenerateWindowEnd,
   initialAutoExecuteEnabled,
   initialAutoExecuteStartTime,
+  initialAutoExecuteEndTime,
 }: {
   initialUsername: string;
   initialProxySettings: ProxySettings;
   initialTaskConcurrency: number;
   initialAutoGenerateEnabled: boolean;
-  initialAutoGenerateTime: string;
+  initialAutoGenerateWindowStart: string;
+  initialAutoGenerateWindowEnd: string;
   initialAutoExecuteEnabled: boolean;
   initialAutoExecuteStartTime: string;
+  initialAutoExecuteEndTime: string;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState(initialUsername);
@@ -56,9 +60,11 @@ export function ProfileSecurityForm({
   const [proxyPasswordConfigured, setProxyPasswordConfigured] = useState(initialProxySettings.proxyPasswordConfigured);
   const [taskConcurrency, setTaskConcurrency] = useState(String(initialTaskConcurrency));
   const [autoGenerateEnabled, setAutoGenerateEnabled] = useState(initialAutoGenerateEnabled);
-  const [autoGenerateTime, setAutoGenerateTime] = useState(initialAutoGenerateTime);
+  const [autoGenerateWindowStart, setAutoGenerateWindowStart] = useState(initialAutoGenerateWindowStart);
+  const [autoGenerateWindowEnd, setAutoGenerateWindowEnd] = useState(initialAutoGenerateWindowEnd);
   const [autoExecuteEnabled, setAutoExecuteEnabled] = useState(initialAutoExecuteEnabled);
   const [autoExecuteStartTime, setAutoExecuteStartTime] = useState(initialAutoExecuteStartTime);
+  const [autoExecuteEndTime, setAutoExecuteEndTime] = useState(initialAutoExecuteEndTime);
   const [submitting, setSubmitting] = useState(false);
   const [testingProxy, setTestingProxy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,12 +97,26 @@ export function ProfileSecurityForm({
       proxyPassword !== "" ||
       Number(taskConcurrency) !== initialTaskConcurrency ||
       autoGenerateEnabled !== initialAutoGenerateEnabled ||
-      autoGenerateTime !== initialAutoGenerateTime ||
+      autoGenerateWindowStart !== initialAutoGenerateWindowStart ||
+      autoGenerateWindowEnd !== initialAutoGenerateWindowEnd ||
       autoExecuteEnabled !== initialAutoExecuteEnabled ||
-      autoExecuteStartTime !== initialAutoExecuteStartTime;
+      autoExecuteStartTime !== initialAutoExecuteStartTime ||
+      autoExecuteEndTime !== initialAutoExecuteEndTime;
 
     if (!hasUsernameChange && !hasPasswordChange && !hasProxyChange) {
       setError("请至少修改用户名、密码或代理配置");
+      setMessage(null);
+      return;
+    }
+
+    if (autoGenerateWindowStart >= autoGenerateWindowEnd) {
+      setError("每日自动生成窗口结束时间必须晚于开始时间");
+      setMessage(null);
+      return;
+    }
+
+    if (autoExecuteStartTime >= autoExecuteEndTime) {
+      setError("每日自动执行结束时间必须晚于开始时间");
       setMessage(null);
       return;
     }
@@ -126,9 +146,11 @@ export function ProfileSecurityForm({
           proxyPassword: proxyPassword !== "" ? proxyPassword : undefined,
           taskConcurrency: Number(taskConcurrency),
           autoGenerateEnabled,
-          autoGenerateTime,
+          autoGenerateWindowStart,
+          autoGenerateWindowEnd,
           autoExecuteEnabled,
           autoExecuteStartTime,
+          autoExecuteEndTime,
         }),
       });
       const result = await response.json();
@@ -325,11 +347,21 @@ export function ProfileSecurityForm({
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">生成时间</span>
+              <span className="mb-2 block text-sm font-medium text-slate-700">生成窗口开始</span>
               <input
                 type="time"
-                value={autoGenerateTime}
-                onChange={(event) => setAutoGenerateTime(event.target.value)}
+                value={autoGenerateWindowStart}
+                onChange={(event) => setAutoGenerateWindowStart(event.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">生成窗口结束</span>
+              <input
+                type="time"
+                value={autoGenerateWindowEnd}
+                onChange={(event) => setAutoGenerateWindowEnd(event.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
               />
             </label>
@@ -352,6 +384,16 @@ export function ProfileSecurityForm({
                 type="time"
                 value={autoExecuteStartTime}
                 onChange={(event) => setAutoExecuteStartTime(event.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">执行结束时间</span>
+              <input
+                type="time"
+                value={autoExecuteEndTime}
+                onChange={(event) => setAutoExecuteEndTime(event.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
               />
             </label>

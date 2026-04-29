@@ -58,6 +58,81 @@ ACTION_JOB_NODES="main-1:主服务器,worker-1:第二执行节点"
 - worker 节点的 `DATABASE_URL` 必须指向主服务器数据库。
 - 如果数据库密码不一致，应用会出现 Prisma `P1000` 认证错误。
 
+## 数据库防误删与安全基线
+
+### 强制规则
+
+- 生产环境禁止执行 `docker compose down -v`。
+- 生产环境禁止执行 `docker volume prune` 和 `docker system prune --volumes`。
+- `COMPOSE_PROJECT_NAME` 必须固定为 `weibo-ops`，避免切到新卷导致“像被删库”。
+- 禁止让数据库直接暴露公网 `5432`。
+
+`.env` 需要包含：
+
+```env
+COMPOSE_PROJECT_NAME=weibo-ops
+```
+
+### 5432 暴露检查
+
+```bash
+cd /opt/weibo-ops
+docker compose config | sed -n '/^  db:/,/^  [a-zA-Z0-9_-]\+:/p'
+docker compose ps
+ss -lntp | grep 5432 || echo "OK: host not listening 5432"
+```
+
+通过标准：
+
+- `db` 配置块里没有 `ports`。
+- `docker compose ps` 里 `weibo-ops-db` 不是 `0.0.0.0:5432->5432`。
+- `ss` 输出 `OK: host not listening 5432`。
+
+### override 风险
+
+如果 `docker-compose.override.yml` 存在，可能把 `db.ports` 合并回来：
+
+```bash
+cd /opt/weibo-ops
+ls -l docker-compose*.yml
+docker compose config | sed -n '/^  db:/,/^  [a-zA-Z0-9_-]\+:/p'
+```
+
+生产环境建议移除或重命名 `docker-compose.override.yml`。
+
+### 异常重启后自检
+
+```bash
+cd /opt/weibo-ops
+docker compose up -d
+docker compose ps
+docker compose logs --since=10m db app
+docker compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d weibo_ops -c "SELECT now();"'
+docker compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d weibo_ops -c "\dt" | sed -n "1,40p"'
+```
+
+若出现新卷初始化（日志含 `initdb` 且显示 `Volume ... Created`），需要立刻从最新备份回灌。
+
+### 本地备份与回灌
+
+备份脚本：`/opt/weibo-ops/scripts/backup_local.sh`
+
+手动执行：
+
+```bash
+/opt/weibo-ops/scripts/backup_local.sh
+```
+
+从最新备份恢复：
+
+```bash
+cd /opt/weibo-ops
+LATEST=$(ls -1t /opt/weibo-ops/backups/weibo_ops_*.sql.gz | head -n1)
+docker compose exec -T db sh -lc 'dropdb -U "$POSTGRES_USER" --if-exists weibo_ops && createdb -U "$POSTGRES_USER" weibo_ops'
+gunzip -c "$LATEST" | docker compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d weibo_ops'
+docker compose restart app
+```
+
 ## 常用恢复命令
 
 ### 将 PostgreSQL 密码恢复为 `password`
@@ -69,6 +144,23 @@ cd /opt/weibo-ops
 docker compose exec db psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD 'password';"
 docker compose restart app
 ```
+
+### 重置 `admin` 登录密码（修复 hash 异常）
+
+当出现“用户名密码错误”且确认 `User` 表里已有 `admin` 时，优先检查 `passwordHash` 是否是有效 bcrypt（通常长度约 60）。
+
+```bash
+cd /opt/weibo-ops
+docker compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d weibo_ops -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"'
+docker compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d weibo_ops -c "UPDATE \"User\" SET \"passwordHash\" = crypt('"'"'admin123'"'"', gen_salt('"'"'bf'"'"', 10)), \"updatedAt\" = now() WHERE username='"'"'admin'"'"';"'
+docker compose exec -T db sh -lc 'psql -U "$POSTGRES_USER" -d weibo_ops -c "SELECT username, length(\"passwordHash\") AS hash_len FROM \"User\" WHERE username='"'"'admin'"'"';"'
+docker compose restart app
+```
+
+通过标准：
+
+- `hash_len` 接近 60（明显大于 20，不是 5 这类异常值）。
+- 清理浏览器旧 Cookie 后可用新密码登录。
 
 ### 将历史上被标成 `RISKY` 的账号恢复成 `ACTIVE`
 

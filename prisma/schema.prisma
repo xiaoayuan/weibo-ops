@@ -105,8 +105,11 @@ model User {
   taskConcurrency Int @default(1)
   autoGenerateEnabled Boolean @default(true)
   autoGenerateTime String @default("00:10")
+  autoGenerateWindowStart String @default("01:00")
+  autoGenerateWindowEnd String @default("22:00")
   autoExecuteEnabled Boolean @default(true)
   autoExecuteStartTime String @default("09:00")
+  autoExecuteEndTime String @default("18:00")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

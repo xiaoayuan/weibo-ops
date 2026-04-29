@@ -85,9 +85,11 @@ export default async function SettingsPage() {
       proxyPasswordEncrypted: true,
       taskConcurrency: true,
       autoGenerateEnabled: true,
-      autoGenerateTime: true,
+      autoGenerateWindowStart: true,
+      autoGenerateWindowEnd: true,
       autoExecuteEnabled: true,
       autoExecuteStartTime: true,
+      autoExecuteEndTime: true,
     },
   });
 
@@ -261,9 +263,11 @@ export default async function SettingsPage() {
         initialProxySettings={sanitizeProxySettings(currentUser || {})}
         initialTaskConcurrency={currentUser?.taskConcurrency || 1}
         initialAutoGenerateEnabled={currentUser?.autoGenerateEnabled ?? true}
-        initialAutoGenerateTime={currentUser?.autoGenerateTime || "00:10"}
+        initialAutoGenerateWindowStart={currentUser?.autoGenerateWindowStart || "01:00"}
+        initialAutoGenerateWindowEnd={currentUser?.autoGenerateWindowEnd || "22:00"}
         initialAutoExecuteEnabled={currentUser?.autoExecuteEnabled ?? true}
         initialAutoExecuteStartTime={currentUser?.autoExecuteStartTime || "09:00"}
+        initialAutoExecuteEndTime={currentUser?.autoExecuteEndTime || "18:00"}
       />
       <ExecutionStrategyForm initialConfig={executionStrategy} />
       <RiskRulesForm initialRules={riskRules} />
