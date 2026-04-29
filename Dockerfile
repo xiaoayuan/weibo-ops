@@ -25,6 +25,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 ARG DATABASE_URL=postgresql://postgres:password@db:5432/weibo_ops?schema=public
 ARG JWT_SECRET=replace_me_with_a_strong_secret
 ARG AUTH_COOKIE_SECURE=false
