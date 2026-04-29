@@ -23,7 +23,7 @@ ENV NODE_ID=$NODE_ID
 ENV ACTION_JOB_NODES=$ACTION_JOB_NODES
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate && npm run build
+RUN npm install prisma && npx prisma generate && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
