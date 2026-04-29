@@ -1,10 +1,23 @@
 import Link from "next/link";
-import { BarChart3, Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, MessageCircleHeart, RefreshCw, Settings, Shield, Tags, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { hasRequiredRole, requirePageRole } from "@/lib/permissions";
+import {
+  BarChart3,
+  Bell,
+  CalendarRange,
+  ClipboardList,
+  FileText,
+  LayoutDashboard,
+  MessageCircleHeart,
+  RefreshCw,
+  Settings,
+  Shield,
+  Tags,
+  Users,
+} from "@/lib/icons";
 
 const navItems = [
   { href: "/", label: "控制台", icon: LayoutDashboard, iconName: "LayoutDashboard" },
@@ -46,7 +59,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   href={item.href}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
                 >
-                  <Icon className="h-4 w-4" />
+                <Icon size={16} className="h-4 w-4" />
                   <span>{item.label}</span>
                 </Link>
               );

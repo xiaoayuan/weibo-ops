@@ -1,10 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, Bell, CalendarRange, ClipboardList, FileText, LayoutDashboard, Menu, MessageCircleHeart, RefreshCw, Settings, Shield, Tags, Users, X } from "lucide-react";
 import { useState } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import {
+  BarChart3,
+  Bell,
+  CalendarRange,
+  ClipboardList,
+  FileText,
+  LayoutDashboard,
+  Menu,
+  MessageCircleHeart,
+  RefreshCw,
+  Settings,
+  Shield,
+  Tags,
+  Users,
+  X,
+} from "@/lib/icons";
 
 type NavItem = {
   href: string;
@@ -38,7 +53,7 @@ export function MobileNav({ items, username, role }: { items: NavItem[]; usernam
           onClick={() => setOpen(true)}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
         >
-          <Menu className="h-4 w-4" />
+          <Menu size={16} className="h-4 w-4" />
           菜单
         </button>
         <div className="text-right text-sm text-slate-500">
@@ -56,7 +71,7 @@ export function MobileNav({ items, username, role }: { items: NavItem[]; usernam
                 <p className="mt-1 text-xs text-slate-500">多账号任务管理后台</p>
               </div>
               <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-slate-200 p-2 text-slate-700">
-                <X className="h-4 w-4" />
+                <X size={16} className="h-4 w-4" />
               </button>
             </div>
 
@@ -71,7 +86,7 @@ export function MobileNav({ items, username, role }: { items: NavItem[]; usernam
                     onClick={() => setOpen(false)}
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon size={16} className="h-4 w-4" />
                     <span>{item.label}</span>
                   </Link>
                 );

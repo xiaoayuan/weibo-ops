@@ -1,15 +1,10 @@
+import type { AiRiskAssessment, AiRiskLevel } from "@/types/job";
+export type { AiRiskAssessment, AiRiskLevel } from "@/types/job";
+
 import { resolveAiRuntimeConfig } from "@/server/copywriting/ai-config";
 import { getAiRiskConfig } from "@/server/ai-risk-config";
-
-export type AiRiskLevel = "LOW" | "MEDIUM" | "HIGH";
-
-export type AiRiskAssessment = {
-  riskLevel: AiRiskLevel;
-  summary: string;
-  reasons: string[];
-  suggestions: string[];
-  canBlock: boolean;
-};
+export { resolveAiRuntimeConfig } from "@/server/copywriting/ai-config";
+export { getAiRiskConfig } from "@/server/ai-risk-config";
 
 function stripCodeFences(text: string) {
   return text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();

@@ -4,6 +4,7 @@ import type { ActionJob, ActionJobAccountRun, CommentLinkPoolItem, WeiboAccount 
 import { canManageBusinessData } from "@/lib/permission-rules";
 import type { AppRole } from "@/lib/permission-rules";
 import type { ExecutionStrategy } from "@/server/strategy/config";
+import type { AiRiskAssessment, JobConfig, JobForecast, JobSummary } from "@/types/job";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -36,45 +37,6 @@ type HotCommentPreviewItem = {
 type ActionJobNodeOption = {
   id: string;
   label: string;
-};
-
-type JobForecast = {
-  targetMinutes: number;
-  limitMinutes: number;
-  riskLevel: "low" | "medium" | "high";
-  notes: string[];
-};
-
-type AiRiskAssessment = {
-  riskLevel: "LOW" | "MEDIUM" | "HIGH";
-  summary: string;
-  reasons: string[];
-  suggestions: string[];
-  canBlock: boolean;
-};
-
-type JobConfig = {
-  urgency?: "S" | "A" | "B";
-  forecast?: JobForecast;
-  aiRisk?: AiRiskAssessment | null;
-};
-
-type JobSummary = {
-  stoppedBy?: string;
-  stoppedAt?: string;
-  totalAccounts?: number;
-  successAccounts?: number;
-  failedAccounts?: number;
-  partialAccounts?: number;
-  targetUrl?: string;
-  times?: number;
-  intervalSec?: number;
-  urgency?: "S" | "A" | "B";
-  scheduleDecision?: {
-    effectiveTier?: "S" | "A" | "B";
-    delayMs?: number;
-    reasons?: string[];
-  };
 };
 
 function estimateJobForecast(input: {

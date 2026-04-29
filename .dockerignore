@@ -6,3 +6,17 @@ npm-debug.log*
 .DS_Store
 coverage
 src/generated/prisma
+.git
+docs
+prisma/migrations
+*.test.ts
+*.test.tsx
+.eslintrc*
+eslint.config.mjs
+AGENTS.md
+CLAUDE.md
+README.md
+tsconfig*.json
+tailwind.config.*
+postcss.config.mjs
+.superpowers

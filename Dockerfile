@@ -1,7 +1,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --omit=dev
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -45,13 +45,10 @@ ENV EXECUTOR_MODE=$EXECUTOR_MODE
 ENV NODE_ROLE=$NODE_ROLE
 ENV NODE_ID=$NODE_ID
 ENV ACTION_JOB_NODES=$ACTION_JOB_NODES
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/package-lock.json ./package-lock.json
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/prisma ./prisma
+COPY --from=builder --chown=node:node /app/prisma.config.ts ./
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]
