@@ -50,6 +50,6 @@ COPY --from=builder --chown=node:node /app/package.json ./package.json
 COPY --from=builder --chown=node:node /app/package-lock.json ./package-lock.json
 COPY --from=builder --chown=node:node /app/src/generated ./src/generated
 COPY --from=builder --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && apk add --no-cache netcat-openbsd
 EXPOSE 3000
 CMD ["node", "server.js"]
