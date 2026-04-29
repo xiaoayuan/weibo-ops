@@ -1,8 +1,3 @@
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
 FROM node:20-alpine AS builder
 WORKDIR /app
 ARG DATABASE_URL=postgresql://postgres:password@db:5432/weibo_ops?schema=public
@@ -21,9 +16,10 @@ ENV EXECUTOR_MODE=$EXECUTOR_MODE
 ENV NODE_ROLE=$NODE_ROLE
 ENV NODE_ID=$NODE_ID
 ENV ACTION_JOB_NODES=$ACTION_JOB_NODES
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
-RUN npm install prisma && npx prisma generate && npm run build
+RUN npx prisma generate && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -49,6 +45,8 @@ COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/prisma ./prisma
 COPY --from=builder --chown=node:node /app/prisma.config.ts ./
-COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --from=builder --chown=node:node /app/package-lock.json ./package-lock.json
+RUN npm ci --omit=dev
 EXPOSE 3000
 CMD ["node", "server.js"]
