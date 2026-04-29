@@ -141,20 +141,20 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const planGeneratedBatches = todayPlanLogs.filter((log) => log.actionType === "PLAN_GENERATED" && log.success).length;
+  const planGeneratedBatches = todayPlanLogs.filter((log: typeof todayPlanLogs[number]) => log.actionType === "PLAN_GENERATED" && log.success).length;
   const generatedPlanCount = todayPlanLogs
-    .filter((log) => log.actionType === "PLAN_GENERATED" && log.success)
-    .reduce((sum, log) => sum + readNumberField(log.responsePayload, ["createdCount", "count"]), 0);
+    .filter((log: typeof todayPlanLogs[number]) => log.actionType === "PLAN_GENERATED" && log.success)
+    .reduce((sum: number, log: typeof todayPlanLogs[number]) => sum + readNumberField(log.responsePayload, ["createdCount", "count"]), 0);
   const queuedPlanCount = todayPlanLogs
-    .filter((log) => log.actionType === "PLAN_SCHEDULED" && log.success)
-    .reduce((sum, log) => sum + readNumberField(log.responsePayload, ["queuedCount"]), 0);
+    .filter((log: typeof todayPlanLogs[number]) => log.actionType === "PLAN_SCHEDULED" && log.success)
+    .reduce((sum: number, log: typeof todayPlanLogs[number]) => sum + readNumberField(log.responsePayload, ["queuedCount"]), 0);
   const executedSuccessCount = todayPlanLogs.filter(
-    (log) =>
+    (log: typeof todayPlanLogs[number]) =>
       (log.actionType === "PLAN_EXECUTE_PRECHECKED" || log.actionType === "FIRST_COMMENT_EXECUTE_SUCCESS") &&
       log.success,
   ).length;
   const executedFailedCount = todayPlanLogs.filter(
-    (log) =>
+    (log: typeof todayPlanLogs[number]) =>
       log.actionType === "PLAN_EXECUTE_BLOCKED" ||
       (log.actionType === "PLAN_EXECUTE_PRECHECKED" && !log.success) ||
       log.actionType === "FIRST_COMMENT_EXECUTE_FAILED",

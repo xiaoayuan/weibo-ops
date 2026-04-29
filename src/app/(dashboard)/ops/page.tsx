@@ -42,13 +42,13 @@ export default async function OpsPage() {
   ]);
 
   const jobs = rawJobs
-    .filter((job) => {
+    .filter((job: typeof rawJobs[number]) => {
       const config = job.config as { executionMode?: string } | null;
       return config?.executionMode !== "MOBILE_ASSISTED";
     })
-    .map((job) => ({
+    .map((job: typeof rawJobs[number]) => ({
     ...job,
-    accountRuns: job.accountRuns.map((run) => ({
+    accountRuns: job.accountRuns.map((run: typeof job.accountRuns[number]) => ({
       ...run,
       account: {
         id: run.account.id,

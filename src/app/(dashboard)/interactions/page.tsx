@@ -102,7 +102,7 @@ export default async function InteractionsPage() {
     }
   }
 
-  const tasks = rawTasks.map((task) => ({
+  const tasks = rawTasks.map((task: typeof rawTasks[number]) => ({
     ...task,
     scheduleNote: scheduleNoteMap.get(task.id) || null,
     isOwned: task.account.ownerUserId === session.id,
