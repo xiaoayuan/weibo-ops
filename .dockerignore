@@ -5,7 +5,6 @@ npm-debug.log*
 .env.local
 .DS_Store
 coverage
-src/generated/prisma
 .git
 docs
 prisma/migrations

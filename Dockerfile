@@ -18,6 +18,7 @@ ENV NODE_ID=$NODE_ID
 ENV ACTION_JOB_NODES=$ACTION_JOB_NODES
 COPY package.json package-lock.json ./
 RUN npm ci
+COPY tsconfig.json ./
 COPY . .
 RUN npx prisma generate && npm run build
 
