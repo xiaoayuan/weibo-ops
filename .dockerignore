@@ -15,6 +15,4 @@ eslint.config.mjs
 AGENTS.md
 CLAUDE.md
 README.md
-tailwind.config.*
-postcss.config.mjs
 .superpowers
