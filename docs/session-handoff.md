@@ -155,6 +155,12 @@ ss -lntp | grep 5432 || echo "OK: host not listening 5432"
 
 本地开发/构建环境下，`next build` 期间如果没有稳定数据库，可能会看到 Prisma 的 `ECONNREFUSED` 告警。这类告警多次出现在本地校验中，但并没有阻止构建完成。不要把这类本地构建期告警和线上真实运行错误混为一谈，除非运行日志里也出现同样的问题。
 
+## 技术债务记录
+
+### Turbopack 路径解析问题（已修复）
+
+Next.js 16 默认使用 Turbopack，但 Turbopack 在 Docker 构建环境（VPS）无法正确解析 `@/` 路径别名，导致大量 `Module not found` 错误。已修改 `package.json` 的 build 脚本为 `next build --webpack`，强制使用 Webpack 构建。提交 `cb10677`。如果后续升级 Next.js 版本后此问题被修复，可考虑切回 Turbopack 提升构建速度。
+
 ## 当前待办（接主线前必须完成）
 
 - 先在生产库确认 `admin` 的 `passwordHash` 为有效 bcrypt（长度通常约 60）。
