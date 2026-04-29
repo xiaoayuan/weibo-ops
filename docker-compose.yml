@@ -41,6 +41,7 @@ services:
       NODE_ID: ${NODE_ID:-main-1}
       ACTION_JOB_NODES: ${ACTION_JOB_NODES:-main-1:主服务器}
       NODE_ENV: production
+      HOST: 0.0.0.0
       PORT: 3000
     ports:
       - "${APP_PORT:-3007}:3000"
