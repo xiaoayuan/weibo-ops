@@ -3,6 +3,8 @@ import { hashPassword } from "@/src/lib/password";
 import { prisma } from "@/src/lib/prisma";
 import { registerSchema } from "@/src/lib/validators";
 
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
     const normalizedCode = parsed.data.inviteCode.trim().toUpperCase();
     const now = new Date();
 
-    const createdUser = await prisma.$transaction(async (tx) => {
+    const createdUser = await prisma.$transaction(async (tx: TransactionClient) => {
       const invite = await tx.inviteCode.findUnique({ where: { code: normalizedCode } });
 
       if (!invite) {
