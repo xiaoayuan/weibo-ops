@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
 const toneClassMap = {
-  neutral: "border-white/10 bg-white/5 text-app-text-soft",
-  success: "border-emerald-400/20 bg-emerald-400/12 text-emerald-200",
-  danger: "border-rose-400/20 bg-rose-400/12 text-rose-200",
-  warning: "border-amber-400/20 bg-amber-400/12 text-amber-200",
-  info: "border-cyan-400/20 bg-cyan-400/12 text-cyan-200",
-  accent: "border-teal-400/20 bg-teal-400/12 text-teal-100",
+  neutral: "border-app-line bg-app-panel-muted text-app-text-soft",
+  success: "border-emerald-300/10 bg-emerald-300/10 text-emerald-200",
+  danger: "border-rose-300/10 bg-rose-300/10 text-rose-200",
+  warning: "border-amber-200/12 bg-amber-200/10 text-amber-100",
+  info: "border-sky-300/10 bg-sky-300/10 text-sky-200",
+  accent: "border-teal-200/10 bg-teal-200/10 text-teal-100",
 } as const;
 
 export function StatusBadge({
@@ -19,7 +19,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium tracking-wide",
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.08em]",
         toneClassMap[tone],
       )}
     >

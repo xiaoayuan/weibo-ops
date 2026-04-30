@@ -28,7 +28,7 @@ export function ThemeToggle() {
         setTheme(nextTheme);
         applyTheme(nextTheme);
       }}
-      className="inline-flex h-11 items-center gap-2 rounded-full border border-app-line/70 bg-app-panel/80 px-4 text-sm text-app-text transition hover:border-app-accent/35 hover:text-app-text-strong"
+      className="inline-flex h-11 items-center gap-2 rounded-[14px] border border-app-line bg-app-panel-muted px-4 text-sm text-app-text-soft transition hover:border-app-line-strong hover:text-app-text-strong"
     >
       {theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
       <span>{theme === "dark" ? "浅色" : "深色"}</span>

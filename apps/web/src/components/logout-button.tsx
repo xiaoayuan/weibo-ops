@@ -24,7 +24,7 @@ export function LogoutButton() {
           setSubmitting(false);
         }
       }}
-      className="inline-flex h-11 items-center gap-2 rounded-full border border-app-line/70 bg-app-panel/80 px-4 text-sm text-app-text transition hover:border-app-danger/35 hover:text-app-text-strong disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-11 items-center gap-2 rounded-[14px] border border-app-line bg-app-panel-muted px-4 text-sm text-app-text-soft transition hover:border-app-line-strong hover:text-app-text-strong disabled:cursor-not-allowed disabled:opacity-60"
     >
       <LogOut className="h-4 w-4" />
       <span>{submitting ? "退出中" : "退出"}</span>
