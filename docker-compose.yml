@@ -50,6 +50,8 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        BACKEND_ORIGIN: http://api:3009
     container_name: weibo-ops-web
     restart: unless-stopped
     depends_on:
@@ -73,6 +75,10 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@db:5432/weibo_ops?schema=public}
+        JWT_SECRET: ${JWT_SECRET:-dev-secret}
+        ACCOUNT_SECRET_KEY: ${ACCOUNT_SECRET_KEY:-replace_with_a_32_plus_char_secret}
     container_name: weibo-ops-api
     restart: unless-stopped
     depends_on:

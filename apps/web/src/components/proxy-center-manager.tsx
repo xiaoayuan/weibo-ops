@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import type { ProxyBindingAccount, ProxyNode } from "@/lib/app-data";
+import { readJsonResponse } from "@/lib/http";
 import { getProxyProtocolText, getProxyRotationModeText } from "@/lib/text";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -91,7 +92,7 @@ export function ProxyCenterManager({
 
   async function reloadBindings() {
     const response = await fetch("/api/proxy-bindings", { cache: "no-store" });
-    const result = await response.json();
+    const result = await readJsonResponse<{ success: boolean; message?: string; data: { nodes: ProxyNode[]; accounts: ProxyBindingAccount[] } }>(response);
 
     if (!response.ok) {
       throw new Error(result.message || "刷新绑定失败");
@@ -112,7 +113,7 @@ export function ProxyCenterManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(nodeForm),
       });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string; data: ProxyNode }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || (editingNodeId ? "更新代理失败" : "创建代理失败"));
@@ -140,7 +141,7 @@ export function ProxyCenterManager({
       setNotice(null);
 
       const response = await fetch(`/api/proxy-nodes/${id}`, { method: "DELETE" });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "删除代理失败");
@@ -175,7 +176,7 @@ export function ProxyCenterManager({
           allowHostFallback: draft.allowHostFallback,
         }),
       });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string; data: ProxyBindingAccount }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "保存绑定失败");
@@ -197,7 +198,7 @@ export function ProxyCenterManager({
       setNotice(null);
 
       const response = await fetch("/api/proxy-bindings/auto-assign", { method: "POST" });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string; data: { total: number; updated: number } }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "自动绑定失败");

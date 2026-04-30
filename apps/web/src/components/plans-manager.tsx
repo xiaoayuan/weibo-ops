@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { AppNotice } from "@/components/app-notice";
 import type { CopywritingTemplate, Plan } from "@/lib/app-data";
 import { getBusinessDateText, toLocalDateTimeValue } from "@/lib/date";
+import { readJsonResponse } from "@/lib/http";
 import { getPlanStatusText } from "@/lib/text";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -70,7 +71,7 @@ export function PlansManager({
       setLoading(true);
       setError(null);
       const response = await fetch(`/api/plans?date=${targetDate}`, { cache: "no-store" });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string; data: Plan[] }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "获取计划失败");
@@ -96,7 +97,7 @@ export function PlansManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date }),
       });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string; data: Plan[] } & { meta?: { createdCount?: number } }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "生成计划失败");
@@ -118,14 +119,16 @@ export function PlansManager({
       setNotice(null);
 
       const response = await fetch(path, { method: "POST" });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string; data?: Plan }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "操作失败");
       }
 
-      if (result.data?.id) {
-        setPlans((current) => current.map((plan) => (plan.id === result.data.id ? result.data : plan)));
+      const nextPlan = result.data;
+
+      if (nextPlan?.id) {
+        setPlans((current) => current.map((plan) => (plan.id === nextPlan.id ? nextPlan : plan)));
       }
 
       setNotice(result.message || successMessage || "操作完成");
@@ -147,7 +150,7 @@ export function PlansManager({
       setNotice(null);
 
       const response = await fetch(`/api/plans/${id}`, { method: "DELETE" });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "删除计划失败");
@@ -176,7 +179,7 @@ export function PlansManager({
           contentId: contentId || null,
         }),
       });
-      const result = await response.json();
+      const result = await readJsonResponse<{ success: boolean; message?: string; data: Plan }>(response);
 
       if (!response.ok) {
         throw new Error(result.message || "更新计划失败");
