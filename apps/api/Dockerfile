@@ -3,9 +3,9 @@ WORKDIR /repo/apps/api
 COPY apps/api/package.json apps/api/package-lock.json ./
 RUN npm ci
 WORKDIR /repo
+COPY prisma ./prisma
 COPY apps/api ./apps/api
-COPY src/generated ./src/generated
-RUN mkdir -p apps/api/node_modules/.prisma/client && cp -r src/generated/prisma/* apps/api/node_modules/.prisma/client/ && cd apps/api && mkdir -p public && npm run build
+RUN cd apps/api && npx prisma generate --schema ../../prisma/schema.prisma && mkdir -p public && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -18,6 +18,6 @@ COPY --from=builder /repo/apps/api/public ./public
 COPY --from=builder /repo/apps/api/package.json ./package.json
 COPY --from=builder /repo/apps/api/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev && apk add --no-cache netcat-openbsd
-COPY --from=builder /repo/apps/api/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /repo/node_modules/.prisma ./node_modules/.prisma
 EXPOSE 3009
 CMD ["node", "server.js"]
