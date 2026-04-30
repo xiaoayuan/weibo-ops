@@ -8,9 +8,9 @@ ENV JWT_SECRET=$JWT_SECRET
 ENV ACCOUNT_SECRET_KEY=$ACCOUNT_SECRET_KEY
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY src/generated ./src/generated
+COPY prisma ./prisma
 COPY apps/api ./apps/api
-RUN mkdir -p apps/api/src/generated && cp -r src/generated/prisma apps/api/src/generated/ && mkdir -p node_modules/.prisma/client && cp -r src/generated/prisma/* node_modules/.prisma/client/ && cd apps/api && PATH="/repo/node_modules/.bin:$PATH" npm run build
+RUN npx prisma generate --schema prisma/schema.prisma && mkdir -p apps/api/src/generated && cp -r src/generated/prisma apps/api/src/generated/ && mkdir -p node_modules/.prisma/client && cp -r src/generated/prisma/* node_modules/.prisma/client/ && cd apps/api && PATH="/repo/node_modules/.bin:$PATH" npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
