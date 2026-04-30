@@ -3,10 +3,9 @@ WORKDIR /repo/apps/api
 COPY apps/api/package.json apps/api/package-lock.json ./
 RUN npm ci
 WORKDIR /repo
-COPY prisma ./prisma
-COPY prisma.config.ts ./prisma.config.ts
 COPY apps/api ./apps/api
-RUN npx prisma generate --schema prisma/schema.prisma && mkdir -p apps/api/node_modules/.prisma/client && cp -r src/generated/prisma/* apps/api/node_modules/.prisma/client/ && cd apps/api && mkdir -p public && npm run build
+COPY src/generated ./src/generated
+RUN mkdir -p apps/api/node_modules/.prisma/client && cp -r src/generated/prisma/* apps/api/node_modules/.prisma/client/ && cd apps/api && mkdir -p public && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
