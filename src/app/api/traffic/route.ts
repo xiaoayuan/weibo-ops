@@ -64,6 +64,14 @@ function actionKeySql() {
   `;
 }
 
+function serializeNumeric(value: bigint | number | string) {
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+
+  return value;
+}
+
 export async function GET() {
   const auth = await requireApiRole("VIEWER");
 
@@ -171,12 +179,21 @@ export async function GET() {
   return Response.json({
     success: true,
     data: {
-      oneDayBytes: oneDayRows[0]?.bytes || 0,
-      sevenDayBytes: sevenDayRows[0]?.bytes || 0,
-      thirtyDayBytes: thirtyDayRows[0]?.bytes || 0,
-      actionRows,
-      dailyRows,
-      recentRows,
+      oneDayBytes: serializeNumeric(oneDayRows[0]?.bytes || 0),
+      sevenDayBytes: serializeNumeric(sevenDayRows[0]?.bytes || 0),
+      thirtyDayBytes: serializeNumeric(thirtyDayRows[0]?.bytes || 0),
+      actionRows: actionRows.map((item) => ({
+        ...item,
+        bytes: serializeNumeric(item.bytes),
+      })),
+      dailyRows: dailyRows.map((item) => ({
+        ...item,
+        bytes: serializeNumeric(item.bytes),
+      })),
+      recentRows: recentRows.map((item) => ({
+        ...item,
+        bytes: serializeNumeric(item.bytes),
+      })),
     },
   });
 }
