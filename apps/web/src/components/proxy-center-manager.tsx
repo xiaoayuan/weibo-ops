@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from "react";
 
+import { AppNotice } from "@/components/app-notice";
 import type { ProxyBindingAccount, ProxyNode } from "@/lib/app-data";
 import { readJsonResponse } from "@/lib/http";
 import { getProxyProtocolText, getProxyRotationModeText } from "@/lib/text";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
+import { TableShell } from "@/components/table-shell";
 
 type NodeForm = {
   name: string;
@@ -47,6 +50,20 @@ type DraftState = {
   allowHostFallback: boolean;
 };
 
+type ProxyTestResult = {
+  success: boolean;
+  code?: string;
+  message?: string;
+  data?: {
+    nodeId: string;
+    nodeName: string;
+    ip?: string;
+    ipStatus?: number;
+    weiboStatus?: number;
+    weiboFinalUrl?: string;
+  };
+};
+
 function normalizeDraft(account: ProxyBindingAccount): DraftState {
   return {
     proxyNodeId: account.proxyNodeId || "",
@@ -72,6 +89,7 @@ export function ProxyCenterManager({
   const [keyword, setKeyword] = useState("");
   const [drafts, setDrafts] = useState<Record<string, DraftState>>(() => Object.fromEntries(initialAccounts.map((account) => [account.id, normalizeDraft(account)])));
   const [submitting, setSubmitting] = useState(false);
+  const [testingNodeId, setTestingNodeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -213,12 +231,36 @@ export function ProxyCenterManager({
     }
   }
 
+  async function testNode(id: string) {
+    try {
+      setTestingNodeId(id);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/proxy-nodes/${id}/test`, { method: "POST" });
+      const result = await readJsonResponse<ProxyTestResult>(response);
+
+      if (!response.ok) {
+        throw new Error(result.message || "代理测试失败");
+      }
+
+      const details = result.data?.ip
+        ? `出口 ${result.data.ip} / 微博 ${result.data.weiboStatus || "-"}`
+        : "连通性测试通过";
+      setNotice(`${result.message || "代理测试通过"}，${details}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "代理测试失败");
+    } finally {
+      setTestingNodeId(null);
+    }
+  }
+
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader eyebrow="代理中心" title="集中管理代理池和账号主备绑定" description="这一页已经把代理节点创建/更新/删除，以及账号主备代理绑定和自动分配都迁到了新前端。" />
 
       <SurfaceCard>
-        <h2 className="text-xl font-semibold text-app-text-strong">{editingNodeId ? "编辑代理节点" : "新增代理节点"}</h2>
+        <SectionHeader title={editingNodeId ? "编辑代理节点" : "新增代理节点"} description="这里可以直接维护代理节点并测试连通性。" />
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <input value={nodeForm.name} onChange={(event) => setNodeForm((current) => ({ ...current, name: event.target.value }))} className="app-input h-12" placeholder="代理名称" />
           <select value={nodeForm.protocol} onChange={(event) => setNodeForm((current) => ({ ...current, protocol: event.target.value as NodeForm["protocol"] }))} className="app-input h-12">
@@ -244,8 +286,8 @@ export function ProxyCenterManager({
           </label>
         </div>
 
-        {error ? <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</p> : null}
-        {notice ? <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">{notice}</p> : null}
+        {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
+        {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
 
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           {editingNodeId ? (
@@ -260,10 +302,13 @@ export function ProxyCenterManager({
       </SurfaceCard>
 
       <SurfaceCard>
+        <SectionHeader title="代理节点列表" description="支持直接编辑、删除和测试单个代理节点。" />
         {nodes.length === 0 ? (
-          <EmptyState title="暂无代理节点" description="先创建代理节点，再继续维护账号的主代理、备代理和自动分配策略。" />
+          <div className="mt-5">
+            <EmptyState title="暂无代理节点" description="先创建代理节点，再继续维护账号的主代理、备代理和自动分配策略。" />
+          </div>
         ) : (
-          <div className="overflow-x-auto rounded-[24px] border border-app-line">
+          <TableShell className="mt-5">
             <table className="app-table min-w-[1100px]">
               <thead>
                 <tr>
@@ -311,6 +356,9 @@ export function ProxyCenterManager({
                         >
                           编辑
                         </button>
+                        <button type="button" onClick={() => void testNode(node.id)} disabled={testingNodeId === node.id} className="app-button app-button-secondary h-10 px-4 text-xs">
+                          {testingNodeId === node.id ? "测试中" : "测试代理"}
+                        </button>
                         <button type="button" onClick={() => void removeNode(node.id)} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs text-app-danger hover:border-app-danger/30 hover:text-app-danger">
                           删除
                         </button>
@@ -320,24 +368,30 @@ export function ProxyCenterManager({
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableShell>
         )}
       </SurfaceCard>
 
       <SurfaceCard>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} className="app-input h-12 max-w-sm" placeholder="搜索账号昵称或分组" />
-          <button type="button" onClick={() => void autoAssign()} disabled={submitting} className="app-button app-button-secondary">
-            自动绑定（仅 AUTO 账号）
-          </button>
-        </div>
+        <SectionHeader
+          title="账号代理绑定"
+          description="维护主备代理绑定、模式切换和主机兜底。"
+          action={
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <input value={keyword} onChange={(event) => setKeyword(event.target.value)} className="app-input h-12 max-w-sm" placeholder="搜索账号昵称或分组" />
+              <button type="button" onClick={() => void autoAssign()} disabled={submitting} className="app-button app-button-secondary">
+                自动绑定（仅 AUTO 账号）
+              </button>
+            </div>
+          }
+        />
 
         {filteredAccounts.length === 0 ? (
           <div className="mt-5">
             <EmptyState title="没有可配置的账号" description="当前筛选下没有账号，或者后端还未返回账号绑定数据。" />
           </div>
         ) : (
-          <div className="mt-5 overflow-x-auto rounded-[24px] border border-app-line">
+          <TableShell className="mt-5">
             <table className="app-table min-w-[1380px]">
               <thead>
                 <tr>
@@ -414,7 +468,7 @@ export function ProxyCenterManager({
                 })}
               </tbody>
             </table>
-          </div>
+          </TableShell>
         )}
       </SurfaceCard>
     </div>
