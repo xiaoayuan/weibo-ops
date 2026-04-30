@@ -30,4 +30,4 @@ COPY --from=builder /repo/apps/api ./apps/api
 COPY --from=builder /repo/src/generated ./src/generated
 COPY --from=builder /repo/node_modules/.prisma ./node_modules/.prisma
 EXPOSE 3009
-CMD ["npx", "tsx", "apps/api/src/server.ts"]
+CMD ["npx", "tsx", "-C", "/app/apps/api", "src/server.ts"]
