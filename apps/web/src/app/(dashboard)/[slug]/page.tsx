@@ -23,7 +23,13 @@ export default async function PlaceholderPage({ params }: PlaceholderPageProps) 
     item.href === "/plans" ||
     item.href === "/topic-tasks" ||
     item.href === "/proxy-center" ||
-    item.href === "/users"
+    item.href === "/users" ||
+    item.href === "/super-topics" ||
+    item.href === "/copywriting" ||
+    item.href === "/ops" ||
+    item.href === "/scheduler" ||
+    item.href === "/interactions" ||
+    item.href === "/traffic"
   ) {
     notFound();
   }

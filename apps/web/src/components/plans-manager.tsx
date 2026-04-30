@@ -3,14 +3,17 @@
 import { CalendarDays, LoaderCircle, Play, ShieldCheck, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { AppNotice } from "@/components/app-notice";
 import type { CopywritingTemplate, Plan } from "@/lib/app-data";
 import { getBusinessDateText, toLocalDateTimeValue } from "@/lib/date";
 import { getPlanStatusText } from "@/lib/text";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { SectionHeader } from "@/components/section-header";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
+import { TableShell } from "@/components/table-shell";
 
 function getPlanTypeText(planType: string) {
   const map: Record<string, string> = {
@@ -220,35 +223,41 @@ export function PlansManager({
       </section>
 
       <SurfaceCard>
-        <div className="flex flex-wrap items-center gap-3">
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as PlanStatus)} className="app-input h-12 w-[180px]">
-            <option value="ALL">全部状态</option>
-            <option value="PENDING">待执行</option>
-            <option value="READY">待确认</option>
-            <option value="RUNNING">执行中</option>
-            <option value="SUCCESS">成功</option>
-            <option value="FAILED">失败</option>
-            <option value="CANCELLED">已取消</option>
-          </select>
-          <select value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)} className="app-input h-12 w-[220px]">
-            <option value="ALL">全部账号</option>
-            {accountOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SectionHeader
+          title="计划列表"
+          description="按日期、状态和账号快速切换视图，并在同一处完成高频处理。"
+          action={
+            <div className="flex flex-wrap gap-3">
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as PlanStatus)} className="app-input h-12 w-[180px]">
+                <option value="ALL">全部状态</option>
+                <option value="PENDING">待执行</option>
+                <option value="READY">待确认</option>
+                <option value="RUNNING">执行中</option>
+                <option value="SUCCESS">成功</option>
+                <option value="FAILED">失败</option>
+                <option value="CANCELLED">已取消</option>
+              </select>
+              <select value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)} className="app-input h-12 w-[220px]">
+                <option value="ALL">全部账号</option>
+                {accountOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+        />
 
-        {error ? <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</p> : null}
-        {notice ? <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">{notice}</p> : null}
+        {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
+        {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
 
         {filteredPlans.length === 0 ? (
           <div className="mt-5">
             <EmptyState title="当前筛选下没有计划" description="你可以切换业务日期、刷新列表，或者直接为当前日期生成一批计划。" />
           </div>
         ) : (
-          <div className="mt-5 overflow-x-auto rounded-[24px] border border-app-line">
+          <TableShell className="mt-5">
             <table className="app-table min-w-[1280px]">
               <thead>
                 <tr>
@@ -348,7 +357,7 @@ export function PlansManager({
                 })}
               </tbody>
             </table>
-          </div>
+          </TableShell>
         )}
       </SurfaceCard>
     </div>

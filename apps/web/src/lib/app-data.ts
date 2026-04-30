@@ -88,11 +88,131 @@ export type ExecutionLog = {
   } | null;
 };
 
+export type CommentPoolItem = {
+  id: string;
+  sourceUrl: string;
+  commentId: string;
+  note: string | null;
+  tags: string[];
+  isForcedDuplicate: boolean;
+  createdAt?: string;
+};
+
+export type ActionJobAccountRun = {
+  id: string;
+  accountId: string;
+  status: string;
+  currentStep: number;
+  totalSteps: number;
+  errorMessage: string | null;
+  account: {
+    id: string;
+    nickname: string;
+  };
+};
+
+export type ActionJob = {
+  id: string;
+  jobType: "COMMENT_LIKE_BATCH" | "REPOST_ROTATION";
+  status: "PENDING" | "RUNNING" | "SUCCESS" | "PARTIAL_FAILED" | "FAILED" | "CANCELLED";
+  createdAt: string;
+  createdBy: string | null;
+  config: Record<string, unknown> | null;
+  summary: Record<string, unknown> | null;
+  accountRuns: ActionJobAccountRun[];
+};
+
+export type TaskSchedulerQueueSnapshot = {
+  userId: string;
+  username: string | null;
+  taskConcurrency: number;
+  pendingCount: number;
+  runningCount: number;
+  pendingLabels: string[];
+  runningLabels: string[];
+};
+
+export type TaskSchedulerWorkerSnapshot = {
+  workerId: string;
+  queueCount: number;
+  users: TaskSchedulerQueueSnapshot[];
+};
+
+export type TaskSchedulerRateLimit = {
+  ownerUserId: string;
+  taskType: string;
+  effectiveTier: string;
+  earliestStartAt: string;
+  delayMs: number;
+  reasons: string[];
+};
+
+export type TaskSchedulerStatus = {
+  workerCount: number;
+  workers: TaskSchedulerWorkerSnapshot[];
+  rateLimit: TaskSchedulerRateLimit[];
+  updatedAt: string;
+};
+
+export type InteractionTarget = {
+  id: string;
+  targetUrl: string;
+  targetType: string;
+  parsedTargetId: string | null;
+  status: string;
+};
+
+export type InteractionTask = {
+  id: string;
+  actionType: "LIKE" | "POST" | "COMMENT";
+  status: "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
+  resultMessage: string | null;
+  createdAt: string;
+  isOwned: boolean;
+  account: {
+    id: string;
+    nickname: string;
+  };
+  target: InteractionTarget;
+  content: CopywritingTemplate | null;
+};
+
+export type TrafficActionRow = {
+  actionKey: string;
+  logCount: number;
+  bytes: bigint | number | string;
+};
+
+export type TrafficDailyRow = {
+  day: string;
+  bytes: bigint | number | string;
+};
+
+export type TrafficRecentRow = {
+  id: string;
+  accountNickname: string;
+  actionKey: string;
+  executedAt: string;
+  bytes: bigint | number | string;
+};
+
+export type TrafficSummary = {
+  oneDayBytes: bigint | number | string;
+  sevenDayBytes: bigint | number | string;
+  thirtyDayBytes: bigint | number | string;
+  actionRows: TrafficActionRow[];
+  dailyRows: TrafficDailyRow[];
+  recentRows: TrafficRecentRow[];
+};
+
 export type CopywritingTemplate = {
   id: string;
   title: string;
   content: string;
+  tags: string[];
   status: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type SuperTopic = {
@@ -246,6 +366,56 @@ export async function getInviteCodes() {
 
   if (!response.ok || !response.payload?.success) {
     return [];
+  }
+
+  return response.payload.data;
+}
+
+export async function getCommentPoolItems() {
+  const response = await fetchServerApi<CommentPoolItem[]>("/api/comment-pool");
+
+  if (!response.ok || !response.payload?.success) {
+    return [];
+  }
+
+  return response.payload.data;
+}
+
+export async function getActionJobs() {
+  const response = await fetchServerApi<ActionJob[]>("/api/action-jobs");
+
+  if (!response.ok || !response.payload?.success) {
+    return [];
+  }
+
+  return response.payload.data;
+}
+
+export async function getTaskSchedulerStatus() {
+  const response = await fetchServerApi<TaskSchedulerStatus>("/api/task-scheduler/status");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
+  }
+
+  return response.payload.data;
+}
+
+export async function getInteractionTasks() {
+  const response = await fetchServerApi<InteractionTask[]>("/api/interaction-tasks");
+
+  if (!response.ok || !response.payload?.success) {
+    return [];
+  }
+
+  return response.payload.data;
+}
+
+export async function getTrafficSummary() {
+  const response = await fetchServerApi<TrafficSummary>("/api/traffic");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
   }
 
   return response.payload.data;

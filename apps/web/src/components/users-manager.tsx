@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 
+import { AppNotice } from "@/components/app-notice";
 import type { InviteCode, UserListItem } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { getRoleText } from "@/lib/text";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
+import { TableShell } from "@/components/table-shell";
 
 type UserForm = {
   username: string;
@@ -179,7 +182,7 @@ export function UsersManager({
       <PageHeader eyebrow="用户管理" title="管理员在独立前端维护成员和邀请码" description="这一页已经接上用户和邀请码 API，后续可以继续扩展更细的权限说明和团队操作历史。" />
 
       <SurfaceCard>
-        <h2 className="text-xl font-semibold text-app-text-strong">注册码管理</h2>
+        <SectionHeader title="注册码管理" />
         <div className="mt-5 grid gap-4 md:grid-cols-4">
           <select value={inviteForm.role} onChange={(event) => setInviteForm((current) => ({ ...current, role: event.target.value as InviteForm["role"] }))} className="app-input h-12">
             <option value="VIEWER">只读</option>
@@ -192,15 +195,15 @@ export function UsersManager({
           </button>
         </div>
 
-        {error ? <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</p> : null}
-        {notice ? <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">{notice}</p> : null}
+        {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
+        {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
 
         {inviteCodes.length === 0 ? (
           <div className="mt-5">
             <EmptyState title="暂无注册码" description="先创建一条邀请码，给新的后台成员使用。" />
           </div>
         ) : (
-          <div className="mt-5 overflow-x-auto rounded-[24px] border border-app-line">
+          <TableShell className="mt-5">
             <table className="app-table min-w-[980px]">
               <thead>
                 <tr>
@@ -237,12 +240,12 @@ export function UsersManager({
                 })}
               </tbody>
             </table>
-          </div>
+          </TableShell>
         )}
       </SurfaceCard>
 
       <SurfaceCard>
-        <h2 className="text-xl font-semibold text-app-text-strong">新增用户</h2>
+        <SectionHeader title="新增用户" />
         <div className="mt-5 grid gap-4 md:grid-cols-4">
           <input value={form.username} onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))} className="app-input h-12" placeholder="用户名" />
           <input type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} className="app-input h-12" placeholder="密码至少 6 位" />
@@ -261,7 +264,7 @@ export function UsersManager({
         {users.length === 0 ? (
           <EmptyState title="暂无用户" description="当前后端没有返回用户数据。" />
         ) : (
-          <div className="overflow-x-auto rounded-[24px] border border-app-line">
+          <TableShell>
             <table className="app-table min-w-[1080px]">
               <thead>
                 <tr>
@@ -327,7 +330,7 @@ export function UsersManager({
                 })}
               </tbody>
             </table>
-          </div>
+          </TableShell>
         )}
       </SurfaceCard>
     </div>

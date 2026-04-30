@@ -2,11 +2,14 @@
 
 import { useMemo, useState } from "react";
 
+import { AppNotice } from "@/components/app-notice";
 import type { SuperTopic, TopicTask, WeiboAccount } from "@/lib/app-data";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
+import { TableShell } from "@/components/table-shell";
 
 type FormState = {
   accountIds: string[];
@@ -217,8 +220,7 @@ export function TopicTasksManager({
       <PageHeader eyebrow="任务配置" title="为账号批量绑定超话和执行规则" description="新前端先把高频配置流程迁过来，支持多账号创建、单条编辑、启停和删除。" />
 
       <SurfaceCard>
-        <h2 className="text-xl font-semibold text-app-text-strong">{editingId ? "编辑任务" : "新增任务"}</h2>
-        <p className="mt-2 text-sm text-app-text-muted">当前先覆盖签到、首评、点赞、转发、回复等核心参数，后续再继续补更细的执行说明。</p>
+        <SectionHeader title={editingId ? "编辑任务" : "新增任务"} description="当前先覆盖签到、首评、点赞、转发、回复等核心参数，后续再继续补更细的执行说明。" />
 
         {accounts.length === 0 || topics.length === 0 ? (
           <div className="mt-5">
@@ -307,8 +309,8 @@ export function TopicTasksManager({
           </div>
         )}
 
-        {error ? <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">{error}</p> : null}
-        {notice ? <p className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">{notice}</p> : null}
+        {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
+        {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
 
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           {editingId ? (
@@ -323,21 +325,26 @@ export function TopicTasksManager({
       </SurfaceCard>
 
       <SurfaceCard>
-        <div className="flex flex-wrap items-center gap-3">
-          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} className="app-input h-12 max-w-sm" placeholder="搜索账号昵称或超话" />
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | "ACTIVE" | "DISABLED")} className="app-input h-12 w-[180px]">
-            <option value="ALL">全部状态</option>
-            <option value="ACTIVE">启用</option>
-            <option value="DISABLED">停用</option>
-          </select>
-        </div>
+        <SectionHeader
+          title="任务配置列表"
+          action={
+            <div className="flex flex-wrap items-center gap-3">
+              <input value={keyword} onChange={(event) => setKeyword(event.target.value)} className="app-input h-12 max-w-sm" placeholder="搜索账号昵称或超话" />
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | "ACTIVE" | "DISABLED")} className="app-input h-12 w-[180px]">
+                <option value="ALL">全部状态</option>
+                <option value="ACTIVE">启用</option>
+                <option value="DISABLED">停用</option>
+              </select>
+            </div>
+          }
+        />
 
         {filteredTasks.length === 0 ? (
           <div className="mt-5">
             <EmptyState title="没有任务配置" description="你可以先创建一批配置，或者切换筛选条件查看已有任务。" />
           </div>
         ) : (
-          <div className="mt-5 overflow-x-auto rounded-[24px] border border-app-line">
+          <TableShell className="mt-5">
             <table className="app-table min-w-[1280px]">
               <thead>
                 <tr>
@@ -406,7 +413,7 @@ export function TopicTasksManager({
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableShell>
         )}
       </SurfaceCard>
     </div>
