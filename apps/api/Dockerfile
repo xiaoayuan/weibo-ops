@@ -6,7 +6,7 @@ WORKDIR /repo
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
 COPY apps/api ./apps/api
-RUN cd apps/api && npx prisma generate --schema ../prisma/schema.prisma && mkdir -p public && npm run build
+RUN cd apps/api && npx prisma generate --schema ../../prisma/schema.prisma && mkdir -p public && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
