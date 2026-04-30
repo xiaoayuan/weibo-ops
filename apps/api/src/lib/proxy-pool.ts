@@ -107,10 +107,11 @@ export async function getAutoAssignableProxyNode(ownerUserId: string, excludedNo
   if (nodes.length === 0) {
     throw new Error("暂无可用代理，请先在系统设置中添加并启用代理节点");
   }
+  type NodeRow = (typeof nodes)[number];
 
   const candidate = nodes
-    .filter((node) => node._count.accounts < node.maxAccounts)
-    .sort((a, b) => {
+    .filter((node: NodeRow) => node._count.accounts < node.maxAccounts)
+    .sort((a: NodeRow, b: NodeRow) => {
       if (a._count.accounts !== b._count.accounts) {
         return a._count.accounts - b._count.accounts;
       }
@@ -249,6 +250,7 @@ export async function reassignAccountsForProxyNode(
   });
 
   const totalFree = candidates.reduce((sum, item) => sum + Math.max(0, item.maxAccounts - item._count.accounts), 0);
+  type CandidateRow = (typeof candidates)[number];
 
   if (totalFree < accounts.length) {
     if (options?.allowUnbindWhenInsufficientCapacity) {
@@ -271,8 +273,8 @@ export async function reassignAccountsForProxyNode(
   await prisma.$transaction(async (tx) => {
     for (const account of accounts) {
       const sorted = candidates
-        .filter((candidate) => (loadMap.get(candidate.id) || 0) < candidate.maxAccounts)
-        .sort((a, b) => {
+        .filter((candidate: CandidateRow) => (loadMap.get(candidate.id) || 0) < candidate.maxAccounts)
+        .sort((a: CandidateRow, b: CandidateRow) => {
           const loadA = loadMap.get(a.id) || 0;
           const loadB = loadMap.get(b.id) || 0;
 

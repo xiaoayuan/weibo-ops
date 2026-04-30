@@ -20,15 +20,16 @@ export async function listVisibleActionJobs(session: SessionUser) {
     orderBy: { createdAt: "desc" },
     take: 40,
   });
+  type JobRow = (typeof jobs)[number];
 
   return jobs
-    .filter((job) => {
+    .filter((job: JobRow) => {
       const config = job.config as { executionMode?: string } | null;
       return config?.executionMode !== "MOBILE_ASSISTED";
     })
-    .map((job) => ({
+    .map((job: JobRow) => ({
       ...job,
-      accountRuns: job.accountRuns.map((run) => ({
+      accountRuns: job.accountRuns.map((run: JobRow["accountRuns"][number]) => ({
         ...run,
         account: {
           id: run.account.id,
