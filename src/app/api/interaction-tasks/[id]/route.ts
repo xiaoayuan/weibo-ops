@@ -24,10 +24,17 @@ export async function PATCH(request: Request, context: RouteContext<"/api/intera
 
     const existing = await prisma.interactionTask.findUnique({
       where: { id },
-      select: { id: true },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
     });
 
-    if (!existing) {
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 
@@ -40,7 +47,13 @@ export async function PATCH(request: Request, context: RouteContext<"/api/intera
         resultMessage: body.resultMessage || null,
       },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            nickname: true,
+            ownerUserId: true,
+          },
+        },
         target: true,
         content: true,
       },
@@ -71,10 +84,17 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/inte
   try {
     const existing = await prisma.interactionTask.findUnique({
       where: { id },
-      select: { id: true },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
     });
 
-    if (!existing) {
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 

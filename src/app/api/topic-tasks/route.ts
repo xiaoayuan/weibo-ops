@@ -16,7 +16,15 @@ export async function GET() {
       },
     },
     include: {
-      account: true,
+      account: {
+        select: {
+          id: true,
+          nickname: true,
+          status: true,
+          loginStatus: true,
+          ownerUserId: true,
+        },
+      },
       superTopic: true,
     },
     orderBy: { createdAt: "desc" },
@@ -105,7 +113,15 @@ export async function POST(request: Request) {
         },
       },
       include: {
-        account: true,
+        account: {
+        select: {
+          id: true,
+          nickname: true,
+          status: true,
+          loginStatus: true,
+          ownerUserId: true,
+        },
+      },
         superTopic: true,
       },
       orderBy: { createdAt: "desc" },

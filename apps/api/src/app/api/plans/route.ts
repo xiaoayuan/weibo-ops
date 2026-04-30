@@ -22,7 +22,15 @@ export async function GET(request: Request) {
   const plans = await prisma.dailyPlan.findMany({
     where,
     include: {
-      account: true,
+      account: {
+        select: {
+          id: true,
+          nickname: true,
+          status: true,
+          loginStatus: true,
+          ownerUserId: true,
+        },
+      },
       content: true,
       task: {
         include: {

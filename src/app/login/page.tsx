@@ -1,42 +1,13 @@
-"use client";
-
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+type LoginPageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    try {
-      setSubmitting(true);
-      setError(null);
-
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "登录失败");
-      }
-
-      router.replace("/");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = await searchParams;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
@@ -46,13 +17,14 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-slate-500">登录微博运营后台管理系统</p>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5" method="post" action="/api/auth/login?redirect=1">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">用户名</label>
             <input
               type="text"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              name="username"
+              required
+              autoComplete="username"
               placeholder="请输入用户名"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
             />
@@ -62,8 +34,9 @@ export default function LoginPage() {
             <label className="mb-2 block text-sm font-medium text-slate-700">密码</label>
             <input
               type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              name="password"
+              required
+              autoComplete="current-password"
               placeholder="请输入密码"
               className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
             />
@@ -73,10 +46,9 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
           >
-            {submitting ? "登录中..." : "登录"}
+            登录
           </button>
         </form>
 

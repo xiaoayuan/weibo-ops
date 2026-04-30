@@ -20,7 +20,15 @@ export async function listVisibleExecutionLogs(session: SessionUser, userId?: st
             },
           },
     include: {
-      account: true,
+      account: {
+        select: {
+          id: true,
+          nickname: true,
+          status: true,
+          loginStatus: true,
+          ownerUserId: true,
+        },
+      },
       plan: true,
     },
     orderBy: { executedAt: "desc" },

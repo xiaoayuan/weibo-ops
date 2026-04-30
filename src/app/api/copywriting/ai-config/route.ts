@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const auth = await requireApiRole("OPERATOR");
+  const auth = await requireApiRole("ADMIN");
 
   if (!auth.ok) {
     return auth.response;

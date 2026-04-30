@@ -8,6 +8,10 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
+generator runtimeClient {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
 }

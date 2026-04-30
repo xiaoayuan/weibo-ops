@@ -47,12 +47,33 @@ export const rewriteAiCopywritingSchema = z.object({
   constraints: z.array(z.string().trim().min(1).max(50)).max(10).default([]),
 });
 
+const allowedWeiboHosts = new Set(["weibo.com", "www.weibo.com", "m.weibo.cn", "weibo.cn"]);
+const allowedAiHosts = new Set(["api.openai.com"]);
+
+function getValidatedUrl(value: string) {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedWeiboUrl(value: string) {
+  const url = getValidatedUrl(value);
+  return Boolean(url && ["http:", "https:"].includes(url.protocol) && allowedWeiboHosts.has(url.hostname.toLowerCase()));
+}
+
+function isAllowedAiUrl(value: string) {
+  const url = getValidatedUrl(value);
+  return Boolean(url && url.protocol === "https:" && allowedAiHosts.has(url.hostname.toLowerCase()));
+}
+
 export const saveAiConfigSchema = z.object({
-  baseUrl: z.string().url("请填写有效的 AI 接口地址"),
+  baseUrl: z.string().url("请填写有效的 AI 接口地址").refine(isAllowedAiUrl, "AI 接口地址仅允许使用 OpenAI 官方 HTTPS 接口"),
   model: z.string().trim().min(1, "模型不能为空").max(100, "模型名称过长"),
   apiKey: z.string().trim().max(500, "API Key 过长").optional().or(z.literal("")),
 });
 
 export const fetchCopywritingLinkPreviewSchema = z.object({
-  targetUrl: z.string().url("请填写有效微博链接"),
+  targetUrl: z.string().url("请填写有效微博链接").refine(isAllowedWeiboUrl, "仅支持预览微博域名链接"),
 });

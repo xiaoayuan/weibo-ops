@@ -84,7 +84,15 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       const task = await prisma.interactionTask.findUnique({
         where: { id },
         include: {
-          account: true,
+          account: {
+            select: {
+              id: true,
+              nickname: true,
+              status: true,
+              loginStatus: true,
+              ownerUserId: true,
+            },
+          },
           target: true,
           content: true,
         },

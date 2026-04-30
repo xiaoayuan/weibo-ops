@@ -3,6 +3,16 @@ import { sendHttpRequest } from "@/server/executors/http-client";
 type SuggestedBusinessType = "DAILY_PLAN" | "QUICK_REPLY" | "COMMENT_CONTROL" | "REPOST_ROTATION";
 type SuggestedTone = "NATURAL" | "PASSERBY" | "SUPPORTIVE" | "DISCUSSIVE" | "LIVELY";
 
+const allowedWeiboHosts = new Set(["weibo.com", "www.weibo.com", "m.weibo.cn", "weibo.cn"]);
+
+function assertAllowedWeiboUrl(value: string) {
+  const url = new URL(value);
+
+  if (!["http:", "https:"].includes(url.protocol) || !allowedWeiboHosts.has(url.hostname.toLowerCase())) {
+    throw new Error("仅支持预览微博域名链接");
+  }
+}
+
 function decodeHtml(text: string) {
   return text
     .replaceAll("&amp;", "&")
@@ -106,6 +116,8 @@ function buildRecommendedContext(title: string, content: string) {
 }
 
 export async function fetchWeiboLinkPreview(targetUrl: string) {
+  assertAllowedWeiboUrl(targetUrl);
+
   const response = await sendHttpRequest({
     url: targetUrl,
     method: "GET",
@@ -118,6 +130,8 @@ export async function fetchWeiboLinkPreview(targetUrl: string) {
   if (!response.ok) {
     throw new Error(`链接抓取失败：${response.status}`);
   }
+
+  assertAllowedWeiboUrl(response.finalUrl);
 
   const title = readTitle(response.text);
   const content = extractContentFromHtml(response.text);

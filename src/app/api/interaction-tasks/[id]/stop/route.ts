@@ -4,7 +4,15 @@ import { writeExecutionLog } from "@/server/logs";
 import { cancelTask } from "@/server/task-scheduler";
 
 const interactionInclude = {
-  account: true,
+  account: {
+    select: {
+      id: true,
+      nickname: true,
+      status: true,
+      loginStatus: true,
+      ownerUserId: true,
+    },
+  },
   target: true,
   content: true,
 } as const;
@@ -31,7 +39,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       },
     });
 
-    if (!existing) {
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 

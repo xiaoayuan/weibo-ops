@@ -50,7 +50,15 @@ export async function PATCH(request: Request, context: RouteContext<"/api/plans/
               : parsed.data.contentId,
       },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            nickname: true,
+            status: true,
+            loginStatus: true,
+            ownerUserId: true,
+          },
+        },
         content: true,
         task: {
           include: {

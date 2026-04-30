@@ -8,13 +8,60 @@ function shouldUseSecureCookie() {
   return process.env.AUTH_COOKIE_SECURE === "true";
 }
 
+function buildAuthCookie(token: string) {
+  return serialize(AUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: shouldUseSecureCookie(),
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+}
+
+async function parseLoginBody(request: Request) {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return request.json();
+  }
+
+  const formData = await request.formData();
+
+  return {
+    username: String(formData.get("username") || ""),
+    password: String(formData.get("password") || ""),
+  };
+}
+
+function wantsRedirect(request: Request) {
+  return new URL(request.url).searchParams.get("redirect") === "1";
+}
+
+function buildRedirectResponse(location: string, headers?: Record<string, string>) {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      Location: location,
+      ...headers,
+    },
+  });
+}
+
+function buildFailureResponse(request: Request, message: string, status: number, errors?: unknown) {
+  if (wantsRedirect(request)) {
+    return buildRedirectResponse(`/login?error=${encodeURIComponent(message)}`);
+  }
+
+  return Response.json({ success: false, message, errors }, { status });
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await parseLoginBody(request);
     const parsed = loginSchema.safeParse(body);
 
     if (!parsed.success) {
-      return Response.json({ success: false, message: "参数校验失败", errors: parsed.error.flatten() }, { status: 400 });
+      return buildFailureResponse(request, "参数校验失败", 400, parsed.error.flatten());
     }
 
     const user = await prisma.user.findUnique({
@@ -22,13 +69,13 @@ export async function POST(request: Request) {
     });
 
     if (!user) {
-      return Response.json({ success: false, message: "用户名或密码错误" }, { status: 401 });
+      return buildFailureResponse(request, "用户名或密码错误", 401);
     }
 
     const matched = await comparePassword(parsed.data.password, user.passwordHash);
 
     if (!matched) {
-      return Response.json({ success: false, message: "用户名或密码错误" }, { status: 401 });
+      return buildFailureResponse(request, "用户名或密码错误", 401);
     }
 
     const token = signToken({
@@ -36,6 +83,12 @@ export async function POST(request: Request) {
       username: user.username,
       role: user.role,
     });
+
+    const authCookie = buildAuthCookie(token);
+
+    if (wantsRedirect(request)) {
+      return buildRedirectResponse("/", { "Set-Cookie": authCookie });
+    }
 
     return new Response(
       JSON.stringify({
@@ -50,17 +103,12 @@ export async function POST(request: Request) {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "Set-Cookie": serialize(AUTH_COOKIE_NAME, token, {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: shouldUseSecureCookie(),
-            path: "/",
-            maxAge: 60 * 60 * 24 * 7,
-          }),
+          "Set-Cookie": authCookie,
         },
       },
     );
-  } catch {
-    return Response.json({ success: false, message: "登录失败" }, { status: 500 });
+  } catch (error) {
+    console.error("auth login failed", error);
+    return buildFailureResponse(request, "登录失败", 500);
   }
 }

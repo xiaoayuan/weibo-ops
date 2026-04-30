@@ -1,9 +1,21 @@
 import crypto from "crypto";
 
-const ACCOUNT_SECRET_KEY = process.env.ACCOUNT_SECRET_KEY || "dev_account_secret_key_for_local_only";
+const ACCOUNT_SECRET_KEY = process.env.ACCOUNT_SECRET_KEY;
+
+function getAccountSecretKey() {
+  if (!ACCOUNT_SECRET_KEY || ACCOUNT_SECRET_KEY.length < 32) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ACCOUNT_SECRET_KEY 未配置或长度不足，生产环境拒绝启动");
+    }
+
+    return "dev_account_secret_key_for_local_only";
+  }
+
+  return ACCOUNT_SECRET_KEY;
+}
 
 function getKey() {
-  return crypto.createHash("sha256").update(ACCOUNT_SECRET_KEY).digest();
+  return crypto.createHash("sha256").update(getAccountSecretKey()).digest();
 }
 
 export function encryptText(value: string) {

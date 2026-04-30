@@ -13,6 +13,37 @@ export async function GET() {
   const accounts = await prisma.weiboAccount.findMany({
     where: { ownerUserId: auth.session.id },
     orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      nickname: true,
+      remark: true,
+      groupName: true,
+      status: true,
+      loginStatus: true,
+      riskLevel: true,
+      uid: true,
+      username: true,
+      cookieUpdatedAt: true,
+      lastCheckAt: true,
+      loginErrorMessage: true,
+      consecutiveFailures: true,
+      scheduleWindowEnabled: true,
+      executionWindowStart: true,
+      executionWindowEnd: true,
+      baseJitterSec: true,
+      proxyNodeId: true,
+      ownerUserId: true,
+      createdAt: true,
+      updatedAt: true,
+      proxyNode: {
+        select: {
+          id: true,
+          name: true,
+          countryCode: true,
+          rotationMode: true,
+        },
+      },
+    },
   });
 
   return Response.json({
@@ -75,9 +106,44 @@ export async function POST(request: Request) {
       await autoAssignProxyBindingsForAccount(account.id).catch(() => undefined);
     }
 
+    const created = await prisma.weiboAccount.findUnique({
+      where: { id: account.id },
+      select: {
+        id: true,
+        nickname: true,
+        remark: true,
+        groupName: true,
+        status: true,
+        loginStatus: true,
+        riskLevel: true,
+        uid: true,
+        username: true,
+        cookieUpdatedAt: true,
+        lastCheckAt: true,
+        loginErrorMessage: true,
+        consecutiveFailures: true,
+        scheduleWindowEnabled: true,
+        executionWindowStart: true,
+        executionWindowEnd: true,
+        baseJitterSec: true,
+        proxyNodeId: true,
+        ownerUserId: true,
+        createdAt: true,
+        updatedAt: true,
+        proxyNode: {
+          select: {
+            id: true,
+            name: true,
+            countryCode: true,
+            rotationMode: true,
+          },
+        },
+      },
+    });
+
     return Response.json({
       success: true,
-      data: account,
+      data: created,
       message: proxyNodeId ? "账号已创建并自动绑定代理" : "账号已创建，当前未绑定代理",
     });
   } catch (error) {

@@ -14,6 +14,37 @@ export async function GET(_request: Request, context: RouteContext<"/api/account
 
   const account = await prisma.weiboAccount.findUnique({
     where: { id },
+    select: {
+      id: true,
+      nickname: true,
+      remark: true,
+      groupName: true,
+      status: true,
+      loginStatus: true,
+      riskLevel: true,
+      uid: true,
+      username: true,
+      cookieUpdatedAt: true,
+      lastCheckAt: true,
+      loginErrorMessage: true,
+      consecutiveFailures: true,
+      scheduleWindowEnabled: true,
+      executionWindowStart: true,
+      executionWindowEnd: true,
+      baseJitterSec: true,
+      proxyNodeId: true,
+      ownerUserId: true,
+      createdAt: true,
+      updatedAt: true,
+      proxyNode: {
+        select: {
+          id: true,
+          name: true,
+          countryCode: true,
+          rotationMode: true,
+        },
+      },
+    },
   });
 
   if (!account) {
@@ -95,18 +126,51 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
       }
     }
 
-    const account = await prisma.weiboAccount.update({
+    await prisma.weiboAccount.update({
       where: { id },
       data: updateData,
     });
 
-    await autoAssignProxyBindingsForAccount(account.id).catch(() => undefined);
+    await autoAssignProxyBindingsForAccount(id).catch(() => undefined);
 
-    const refreshed = await prisma.weiboAccount.findUnique({ where: { id: account.id } });
+    const refreshed = await prisma.weiboAccount.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nickname: true,
+        remark: true,
+        groupName: true,
+        status: true,
+        loginStatus: true,
+        riskLevel: true,
+        uid: true,
+        username: true,
+        cookieUpdatedAt: true,
+        lastCheckAt: true,
+        loginErrorMessage: true,
+        consecutiveFailures: true,
+        scheduleWindowEnabled: true,
+        executionWindowStart: true,
+        executionWindowEnd: true,
+        baseJitterSec: true,
+        proxyNodeId: true,
+        ownerUserId: true,
+        createdAt: true,
+        updatedAt: true,
+        proxyNode: {
+          select: {
+            id: true,
+            name: true,
+            countryCode: true,
+            rotationMode: true,
+          },
+        },
+      },
+    });
 
     return Response.json({
       success: true,
-      data: refreshed || account,
+      data: refreshed,
     });
   } catch (error) {
     return Response.json(

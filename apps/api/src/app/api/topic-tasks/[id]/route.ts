@@ -70,7 +70,15 @@ export async function PATCH(request: Request, context: RouteContext<"/api/topic-
         status: parsed.data.status,
       },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            nickname: true,
+            status: true,
+            loginStatus: true,
+            ownerUserId: true,
+          },
+        },
         superTopic: true,
       },
     });

@@ -30,6 +30,18 @@ function getPlanTypeText(planType: string) {
 
 type PlanStatus = "ALL" | "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
+function summarizePlanRefreshMessage(actionLabel: string, nextPlan?: Plan) {
+  if (!nextPlan) {
+    return `${actionLabel}，列表已刷新。`;
+  }
+
+  if (nextPlan.status === "PENDING" || nextPlan.status === "RUNNING") {
+    return `${actionLabel}，但计划当前仍处于${getPlanStatusText(nextPlan.status)}，可能还在排队或执行中，请稍后刷新确认。`;
+  }
+
+  return `${actionLabel}，列表已刷新。`;
+}
+
 export function PlansManager({
   initialPlans,
   initialDate,
@@ -103,8 +115,8 @@ export function PlansManager({
         throw new Error(result.message || "生成计划失败");
       }
 
-      setPlans(result.data);
-      setNotice(result.message || "生成完成");
+      await reloadPlans(date);
+      setNotice(result.message || "生成完成，列表已刷新");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "生成计划失败");
     } finally {
@@ -131,7 +143,8 @@ export function PlansManager({
         setPlans((current) => current.map((plan) => (plan.id === nextPlan.id ? nextPlan : plan)));
       }
 
-      setNotice(result.message || successMessage || "操作完成");
+      await reloadPlans(date);
+      setNotice(result.message || summarizePlanRefreshMessage(successMessage || "操作完成", nextPlan));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "操作失败");
     } finally {
@@ -156,8 +169,8 @@ export function PlansManager({
         throw new Error(result.message || "删除计划失败");
       }
 
-      setPlans((current) => current.filter((plan) => plan.id !== id));
-      setNotice(result.message || "计划已删除");
+      await reloadPlans(date);
+      setNotice(result.message || "计划已删除，列表已刷新");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "删除计划失败");
     } finally {
@@ -185,11 +198,11 @@ export function PlansManager({
         throw new Error(result.message || "更新计划失败");
       }
 
-      setPlans((current) => current.map((plan) => (plan.id === id ? result.data : plan)));
+      await reloadPlans(date);
       setEditingId(null);
       setScheduledTime("");
       setContentId("");
-      setNotice("计划已更新");
+      setNotice("计划已更新，列表已刷新");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "更新计划失败");
     } finally {

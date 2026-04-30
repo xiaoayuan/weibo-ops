@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 export type ApiEnvelope<T> = {
   success: boolean;
   message?: string;
-  data: T;
+  data?: T;
 };
 
 export function getBackendOrigin() {
@@ -20,21 +20,34 @@ function toCookieHeader(values: Awaited<ReturnType<typeof cookies>>) {
 export async function fetchServerApi<T>(path: string, init?: RequestInit) {
   const cookieStore = await cookies();
   const cookieHeader = toCookieHeader(cookieStore);
-  const response = await fetch(new URL(path, getBackendOrigin()), {
-    ...init,
-    cache: "no-store",
-    headers: {
-      accept: "application/json",
-      ...(cookieHeader ? { cookie: cookieHeader } : {}),
-      ...(init?.headers || {}),
-    },
-  });
 
-  const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
+  try {
+    const response = await fetch(new URL(path, getBackendOrigin()), {
+      ...init,
+      cache: "no-store",
+      headers: {
+        accept: "application/json",
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+        ...(init?.headers || {}),
+      },
+    });
 
-  return {
-    ok: response.ok,
-    status: response.status,
-    payload,
-  };
+    const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "后端服务不可达";
+
+    return {
+      ok: false,
+      status: 0,
+      payload: null,
+      error: `后端服务不可达：${message}`,
+    };
+  }
 }

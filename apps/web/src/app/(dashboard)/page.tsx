@@ -8,10 +8,13 @@ import { SurfaceCard } from "@/components/surface-card";
 import { getAccounts, getLogs, getTodayPlans, getTopicTasks } from "@/lib/app-data";
 import { formatDateTime, formatTime, getBusinessDateText } from "@/lib/date";
 import { getActionTypeText, getPlanStatusText } from "@/lib/text";
+import { requireSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requireSession();
+
   const [accounts, plans, logs, topicTasks] = await Promise.all([getAccounts(), getTodayPlans(), getLogs(), getTopicTasks()]);
   const activeAccounts = accounts.filter((account) => account.status === "ACTIVE").length;
   const onlineAccounts = accounts.filter((account) => account.loginStatus === "ONLINE").length;

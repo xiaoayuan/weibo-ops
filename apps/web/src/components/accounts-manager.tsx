@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
 import { EmptyState } from "@/components/empty-state";
@@ -29,6 +30,16 @@ type FormState = {
   baseJitterSec: number;
 };
 
+type QrLoginState = "WAITING" | "SCANNED" | "CONFIRMED" | "EXPIRED" | "FAILED";
+
+type QrSession = {
+  sessionId: string;
+  state: QrLoginState;
+  qrImageDataUrl: string;
+  expiresAt: string;
+  message?: string;
+};
+
 const initialForm: FormState = {
   nickname: "",
   remark: "",
@@ -52,6 +63,31 @@ type CheckSessionResult = {
   };
 };
 
+type CreateAccountResult = {
+  success: boolean;
+  message?: string;
+  data: WeiboAccount;
+};
+
+type QrStartResult = {
+  success: boolean;
+  message?: string;
+  data?: QrSession;
+};
+
+type QrStatusResult = {
+  success: boolean;
+  message?: string;
+  data?: {
+    sessionId: string;
+    state: QrLoginState;
+    expiresAt: string;
+    message?: string;
+    persisted?: boolean;
+    account?: Pick<WeiboAccount, "id" | "nickname" | "uid" | "username" | "loginStatus" | "cookieUpdatedAt" | "lastCheckAt" | "loginErrorMessage" | "consecutiveFailures">;
+  };
+};
+
 function summarizeSessionCheckMessage(result: CheckSessionResult) {
   if (result.success) {
     return "登录态有效";
@@ -65,6 +101,9 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrAccountId, setQrAccountId] = useState<string | null>(null);
+  const [qrSession, setQrSession] = useState<QrSession | null>(null);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -73,7 +112,84 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
   const riskyCount = accounts.filter((account) => account.status === "RISKY" || account.loginStatus === "FAILED").length;
   const proxyBoundCount = accounts.filter((account) => Boolean(account.proxyNodeId)).length;
 
-  async function submitForm() {
+  useEffect(() => {
+    if (!qrAccountId || !qrSession || ["CONFIRMED", "EXPIRED", "FAILED"].includes(qrSession.state)) {
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/api/accounts/${qrAccountId}/session/qr/status?sessionId=${encodeURIComponent(qrSession.sessionId)}`, {
+          cache: "no-store",
+        });
+        const result = await readJsonResponse<QrStatusResult>(response);
+
+        if (!response.ok || !result.data) {
+          throw new Error(result.message || "查询扫码状态失败");
+        }
+
+        setQrSession((current) =>
+          current
+            ? {
+                ...current,
+                state: result.data?.state || current.state,
+                expiresAt: result.data?.expiresAt || current.expiresAt,
+                message: result.data?.message || current.message,
+              }
+            : current,
+        );
+
+        if (result.data.state === "CONFIRMED" && result.data.account) {
+          setAccounts((current) => current.map((item) => (item.id === qrAccountId ? { ...item, ...result.data?.account } : item)));
+          setNotice(result.message || "扫码登录完成并已保存 Cookie");
+          setQrAccountId(null);
+          setQrSession(null);
+          setForm(initialForm);
+        }
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "查询扫码状态失败");
+      }
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [qrAccountId, qrSession]);
+
+  async function startQrLogin(accountId: string) {
+    try {
+      setQrLoading(true);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/accounts/${accountId}/session/qr/start`, { method: "POST" });
+      const result = await readJsonResponse<QrStartResult>(response);
+
+      if (!response.ok) {
+        throw new Error(result.message || "生成扫码二维码失败");
+      }
+
+      if (!result.data) {
+        throw new Error("生成扫码二维码失败");
+      }
+
+      setQrAccountId(accountId);
+      setQrSession({
+        sessionId: result.data.sessionId,
+        state: result.data.state,
+        qrImageDataUrl: result.data.qrImageDataUrl,
+        expiresAt: result.data.expiresAt,
+        message: "等待扫码",
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "生成扫码二维码失败");
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
+  async function submitForm(startQrAfterCreate = false) {
+    const isCreating = !editingId;
+    const createNickname = form.nickname.trim() || "未命名账号";
+
     try {
       setSubmitting(true);
       setError(null);
@@ -82,23 +198,42 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
       const response = await fetch(editingId ? `/api/accounts/${editingId}` : "/api/accounts", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          nickname: isCreating ? createNickname : form.nickname,
+        }),
       });
-      const result = await readJsonResponse<{ success: boolean; message?: string; data: WeiboAccount }>(response);
+      const result = await readJsonResponse<CreateAccountResult>(response);
 
       if (!response.ok) {
         throw new Error(result.message || (editingId ? "更新账号失败" : "新增账号失败"));
       }
 
       setAccounts((current) => (editingId ? current.map((item) => (item.id === editingId ? result.data : item)) : [result.data, ...current]));
-      setNotice(result.message || (editingId ? "账号已更新" : "账号已创建"));
+      setNotice(result.message || (editingId ? "账号已更新" : startQrAfterCreate ? "账号已创建，等待扫码登录" : "账号已创建"));
       setEditingId(null);
+
+      if (isCreating && startQrAfterCreate) {
+        await startQrLogin(result.data.id);
+        return;
+      }
+
       setForm(initialForm);
+      setQrAccountId(null);
+      setQrSession(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : editingId ? "更新账号失败" : "新增账号失败");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(initialForm);
+    setQrAccountId(null);
+    setQrSession(null);
+    setError(null);
   }
 
   async function checkSession(id: string) {
@@ -140,7 +275,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
       <PageHeader
         eyebrow="账号管理"
         title="账号状态、编辑和登录态检测已接入独立前端"
-        description="这里现在不只是读取视图。你可以直接新增账号、编辑账号信息，并触发登录态检测，后续再继续补齐扫码登录和批量管理。"
+        description="这里现在不只是读取视图。你可以直接新增账号、编辑账号信息、触发登录态检测，并在新增时进入扫码登录流程。"
       />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -150,9 +285,9 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
       </section>
 
       <SurfaceCard>
-        <SectionHeader title={editingId ? "编辑账号" : "新增账号"} description="先补最常用的账号维护入口，避免新前端只能看不能管。" />
+        <SectionHeader title={editingId ? "编辑账号" : "新增账号"} description="先补最常用的账号维护入口，避免新前端只能看不能管。新增账号时也可以直接进入扫码登录。" />
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <input value={form.nickname} onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))} className="app-input" placeholder="账号昵称" />
+          <input value={form.nickname} onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))} className="app-input" placeholder="账号昵称，留空则自动用未命名账号占位" />
           <input value={form.groupName} onChange={(event) => setForm((current) => ({ ...current, groupName: event.target.value }))} className="app-input" placeholder="分组名称" />
           <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as AccountStatus }))} className="app-input">
             <option value="ACTIVE">正常</option>
@@ -166,14 +301,44 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
 
         {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
         {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
+        {qrSession ? (
+          <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-app-text-strong">扫码登录进行中</p>
+                <p className="mt-2 text-sm leading-6 text-app-text-soft">{qrSession.message || "等待扫码"}</p>
+                <p className="mt-2 text-xs text-app-text-soft">二维码有效期至 {formatDateTime(qrSession.expiresAt)}</p>
+                {qrSession.state === "SCANNED" ? <AppNotice tone="info" className="mt-3">已扫码，请在手机上确认登录。</AppNotice> : null}
+                {qrSession.state === "EXPIRED" ? <AppNotice tone="error" className="mt-3">二维码已过期，请重新生成。</AppNotice> : null}
+                {qrSession.state === "FAILED" ? <AppNotice tone="error" className="mt-3">{qrSession.message || "扫码登录失败，请重新生成二维码。"}</AppNotice> : null}
+              </div>
+              <div className="overflow-hidden rounded-[20px] border border-white/10 bg-white p-3">
+                <Image src={qrSession.qrImageDataUrl} alt="微博扫码二维码" width={180} height={180} className="h-[180px] w-[180px]" unoptimized />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button type="button" onClick={() => qrAccountId && void startQrLogin(qrAccountId)} disabled={qrLoading} className="app-button app-button-secondary">
+                {qrLoading ? "生成中" : "重新生成二维码"}
+              </button>
+              <button type="button" onClick={() => { setQrAccountId(null); setQrSession(null); }} className="app-button app-button-secondary">
+                收起扫码面板
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           {editingId ? (
-            <button type="button" onClick={() => { setEditingId(null); setForm(initialForm); }} className="app-button app-button-secondary">
+            <button type="button" onClick={cancelEdit} className="app-button app-button-secondary">
               取消编辑
             </button>
           ) : null}
-          <button type="button" onClick={() => void submitForm()} disabled={submitting} className="app-button app-button-primary">
+          {!editingId ? (
+            <button type="button" onClick={() => void submitForm(true)} disabled={submitting || qrLoading} className="app-button app-button-secondary">
+              {submitting ? "处理中" : "新增并扫码登录"}
+            </button>
+          ) : null}
+          <button type="button" onClick={() => void submitForm()} disabled={submitting || qrLoading} className="app-button app-button-primary">
             {editingId ? "保存账号" : "新增账号"}
           </button>
         </div>
@@ -211,7 +376,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
                     </td>
                     <td>
                       <p>{account.groupName || "未分组"}</p>
-                      <p className="mt-1 font-mono text-xs text-app-text-soft">{account.uid || "-"}</p>
+                      <p className="mt-1 font-mono text-xs text-app-text-soft">{account.uid || account.proxyNode?.name || account.proxyNodeId || "-"}</p>
                     </td>
                     <td>
                       <StatusBadge tone={account.status === "ACTIVE" ? "success" : account.status === "RISKY" ? "warning" : account.status === "EXPIRED" ? "danger" : "neutral"}>

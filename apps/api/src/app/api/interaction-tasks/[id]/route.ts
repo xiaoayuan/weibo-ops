@@ -22,9 +22,19 @@ export async function PATCH(request: Request, context: RouteContext<"/api/intera
       return Response.json({ success: false, message: "状态参数无效" }, { status: 400 });
     }
 
-    const existing = await prisma.interactionTask.findUnique({ where: { id }, select: { id: true } });
+    const existing = await prisma.interactionTask.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
 
-    if (!existing) {
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 
@@ -35,7 +45,15 @@ export async function PATCH(request: Request, context: RouteContext<"/api/intera
         resultMessage: body.resultMessage || null,
       },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            nickname: true,
+            status: true,
+            loginStatus: true,
+            ownerUserId: true,
+          },
+        },
         target: true,
         content: true,
       },
@@ -64,9 +82,19 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/inte
   const { id } = await context.params;
 
   try {
-    const existing = await prisma.interactionTask.findUnique({ where: { id }, select: { id: true } });
+    const existing = await prisma.interactionTask.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        account: {
+          select: {
+            ownerUserId: true,
+          },
+        },
+      },
+    });
 
-    if (!existing) {
+    if (!existing || existing.account.ownerUserId !== auth.session.id) {
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 

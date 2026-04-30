@@ -143,7 +143,15 @@ export async function POST(request: Request) {
         },
       },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            nickname: true,
+            status: true,
+            loginStatus: true,
+            ownerUserId: true,
+          },
+        },
         target: true,
         content: true,
       },

@@ -35,7 +35,15 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
         resultMessage: "已人工确认，可进入执行阶段",
       },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            nickname: true,
+            status: true,
+            loginStatus: true,
+            ownerUserId: true,
+          },
+        },
         content: true,
         task: {
           include: {

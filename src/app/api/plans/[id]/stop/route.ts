@@ -4,7 +4,15 @@ import { writeExecutionLog } from "@/server/logs";
 import { cancelTask } from "@/server/task-scheduler";
 
 const planInclude = {
-  account: true,
+  account: {
+    select: {
+      id: true,
+      nickname: true,
+      status: true,
+      loginStatus: true,
+      ownerUserId: true,
+    },
+  },
   content: true,
   task: {
     include: {

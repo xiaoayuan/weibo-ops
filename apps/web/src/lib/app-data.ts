@@ -12,13 +12,23 @@ export type WeiboAccount = {
   executionWindowEnd: string | null;
   baseJitterSec: number;
   loginStatus: "UNKNOWN" | "ONLINE" | "EXPIRED" | "FAILED";
-  loginErrorMessage: string | null;
-  lastCheckAt: string | null;
-  cookieUpdatedAt: string | null;
-  proxyNodeId: string | null;
-  username: string | null;
+  riskLevel: number;
   uid: string | null;
+  username: string | null;
+  cookieUpdatedAt: string | null;
+  lastCheckAt: string | null;
+  loginErrorMessage: string | null;
   consecutiveFailures: number;
+  proxyNodeId: string | null;
+  ownerUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  proxyNode?: {
+    id: string;
+    name: string;
+    countryCode: string | null;
+    rotationMode: string;
+  } | null;
 };
 
 export type TopicTask = {
@@ -72,7 +82,11 @@ export type Plan = {
     content: string;
   } | null;
   account: {
+    id: string;
     nickname: string;
+    status: string;
+    loginStatus: string;
+    ownerUserId: string;
   };
   task: {
     superTopic: {
@@ -88,7 +102,11 @@ export type ExecutionLog = {
   errorMessage: string | null;
   executedAt: string;
   account: {
+    id: string;
     nickname: string;
+    status: string;
+    loginStatus: string;
+    ownerUserId: string;
   } | null;
 };
 
@@ -295,120 +313,120 @@ export async function getAccounts() {
   const response = await fetchServerApi<WeiboAccount[]>("/api/accounts");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as WeiboAccount[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getTodayPlans() {
   const response = await fetchServerApi<Plan[]>(`/api/plans?date=${getBusinessDateText()}`);
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as Plan[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getLogs() {
   const response = await fetchServerApi<ExecutionLog[]>("/api/logs");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as ExecutionLog[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getTopicTasks() {
   const response = await fetchServerApi<TopicTask[]>("/api/topic-tasks");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as TopicTask[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getCopywritingTemplates() {
   const response = await fetchServerApi<CopywritingTemplate[]>("/api/copywriting");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as CopywritingTemplate[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getSuperTopics() {
   const response = await fetchServerApi<SuperTopic[]>("/api/super-topics");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as SuperTopic[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getProxyBindings() {
   const response = await fetchServerApi<{ nodes: ProxyNode[]; accounts: ProxyBindingAccount[] }>("/api/proxy-bindings");
 
   if (!response.ok || !response.payload?.success) {
-    return { nodes: [], accounts: [] };
+    return { nodes: [] as ProxyNode[], accounts: [] as ProxyBindingAccount[] };
   }
 
-  return response.payload.data;
+  return response.payload.data ?? { nodes: [], accounts: [] };
 }
 
 export async function getProxyNodes() {
   const response = await fetchServerApi<ProxyNode[]>("/api/proxy-nodes");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as ProxyNode[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getUsers() {
   const response = await fetchServerApi<UserListItem[]>("/api/users");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as UserListItem[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getInviteCodes() {
   const response = await fetchServerApi<InviteCode[]>("/api/invite-codes");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as InviteCode[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getCommentPoolItems() {
   const response = await fetchServerApi<CommentPoolItem[]>("/api/comment-pool");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as CommentPoolItem[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getActionJobs() {
   const response = await fetchServerApi<ActionJob[]>("/api/action-jobs");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as ActionJob[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getTaskSchedulerStatus() {
@@ -418,17 +436,17 @@ export async function getTaskSchedulerStatus() {
     return null;
   }
 
-  return response.payload.data;
+  return response.payload.data ?? null;
 }
 
 export async function getInteractionTasks() {
   const response = await fetchServerApi<InteractionTask[]>("/api/interaction-tasks");
 
   if (!response.ok || !response.payload?.success) {
-    return [];
+    return [] as InteractionTask[];
   }
 
-  return response.payload.data;
+  return response.payload.data ?? [];
 }
 
 export async function getTrafficSummary() {
@@ -438,5 +456,5 @@ export async function getTrafficSummary() {
     return null;
   }
 
-  return response.payload.data;
+  return response.payload.data ?? null;
 }

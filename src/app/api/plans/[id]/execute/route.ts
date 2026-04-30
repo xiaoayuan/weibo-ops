@@ -75,7 +75,15 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       const plan = await prisma.dailyPlan.findUnique({
         where: { id },
         include: {
-          account: true,
+          account: {
+            select: {
+              id: true,
+              nickname: true,
+              status: true,
+              loginStatus: true,
+              ownerUserId: true,
+            },
+          },
           content: true,
           task: {
             include: {

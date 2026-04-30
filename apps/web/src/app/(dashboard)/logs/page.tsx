@@ -8,10 +8,13 @@ import { SurfaceCard } from "@/components/surface-card";
 import { getLogs } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { getActionTypeText } from "@/lib/text";
+import { requireSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function LogsPage() {
+  await requireSession();
+
   const logs = await getLogs();
   const failedCount = logs.filter((log) => !log.success).length;
   const successCount = logs.length - failedCount;
