@@ -246,12 +246,12 @@ export function InteractionsManager({
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <textarea value={targetInput} onChange={(event) => setTargetInput(event.target.value)} className="app-input min-h-[150px] resize-y py-3" placeholder={actionType === "COMMENT" ? "每行一个微博链接" : "目标链接"} />
-          <div className="space-y-4 rounded-[20px] border border-app-line bg-app-panel-muted p-5">
+          <div className="app-subpanel space-y-4">
             <div>
               <p className="text-sm text-app-text-muted">选择账号</p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 {accounts.map((account) => (
-                  <label key={account.id} className={`flex items-center gap-3 rounded-[16px] border px-4 py-3 text-sm ${selectedAccounts.includes(account.id) ? "border-app-line-strong bg-app-accent-soft text-app-text-strong" : "border-app-line bg-app-panel text-app-text-muted"}`}>
+                  <label key={account.id} className={`app-option-card ${selectedAccounts.includes(account.id) ? "app-option-card-active" : ""}`}>
                     <input type="checkbox" checked={selectedAccounts.includes(account.id)} onChange={() => setSelectedAccounts((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} />
                     <span>{account.nickname}</span>
                   </label>
@@ -264,7 +264,7 @@ export function InteractionsManager({
                 <p className="text-sm text-app-text-muted">选择文案</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {contents.map((item) => (
-                    <label key={item.id} className={`flex items-center gap-3 rounded-[16px] border px-4 py-3 text-sm ${selectedContentIds.includes(item.id) ? "border-app-line-strong bg-app-accent-soft text-app-text-strong" : "border-app-line bg-app-panel text-app-text-muted"}`}>
+                    <label key={item.id} className={`app-option-card ${selectedContentIds.includes(item.id) ? "app-option-card-active" : ""}`}>
                       <input type="checkbox" checked={selectedContentIds.includes(item.id)} onChange={() => setSelectedContentIds((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id])} />
                       <span>{item.title}</span>
                     </label>

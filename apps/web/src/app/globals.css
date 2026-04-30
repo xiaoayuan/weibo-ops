@@ -143,6 +143,18 @@ body {
     @apply inline-flex items-center rounded-full border border-app-line bg-app-panel-muted px-3 py-1.5 text-xs text-app-text-soft;
   }
 
+  .app-option-card {
+    @apply flex items-center gap-3 rounded-[16px] border border-app-line bg-app-panel px-4 py-3 text-sm text-app-text-muted transition;
+  }
+
+  .app-option-card-active {
+    @apply border-app-line-strong bg-app-accent-soft text-app-text-strong;
+  }
+
+  .app-subpanel {
+    @apply rounded-[18px] border border-app-line bg-app-panel-muted p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)];
+  }
+
   .app-table {
     @apply w-full min-w-[760px] border-separate border-spacing-0 text-left text-sm;
   }

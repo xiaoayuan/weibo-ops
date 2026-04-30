@@ -237,7 +237,7 @@ export function TopicTasksManager({
                 ))}
               </select>
             ) : (
-              <div className="rounded-[24px] border border-app-line bg-app-panel-strong/70 p-4 md:col-span-2 xl:col-span-4">
+              <div className="app-subpanel md:col-span-2 xl:col-span-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="font-medium text-app-text-strong">选择账号（可多选）</p>
                   <div className="flex gap-2 text-xs">
@@ -254,7 +254,7 @@ export function TopicTasksManager({
                     const selected = form.accountIds.includes(account.id);
 
                     return (
-                      <label key={account.id} className={`flex items-center gap-3 rounded-[18px] border px-4 py-3 text-sm transition ${selected ? "border-app-accent/30 bg-app-accent-soft text-app-text-strong" : "border-app-line bg-app-panel/50 text-app-text-muted"}`}>
+                      <label key={account.id} className={`app-option-card ${selected ? "app-option-card-active" : ""}`}>
                         <input
                           type="checkbox"
                           checked={selected}
@@ -285,15 +285,15 @@ export function TopicTasksManager({
             <input type="time" value={form.startTime} onChange={(event) => setForm((current) => ({ ...current, startTime: event.target.value }))} className="app-input h-12" />
             <input type="time" value={form.endTime} onChange={(event) => setForm((current) => ({ ...current, endTime: event.target.value }))} className="app-input h-12" />
 
-            <label className="flex items-center gap-3 rounded-[20px] border border-app-line bg-app-panel-strong/70 px-4 py-3 text-sm text-app-text-soft">
+            <label className="app-option-card">
               <input type="checkbox" checked={form.signEnabled} onChange={(event) => setForm((current) => ({ ...current, signEnabled: event.target.checked }))} />
               签到启用
             </label>
-            <label className="flex items-center gap-3 rounded-[20px] border border-app-line bg-app-panel-strong/70 px-4 py-3 text-sm text-app-text-soft">
+            <label className="app-option-card">
               <input type="checkbox" checked={form.firstCommentEnabled} onChange={(event) => setForm((current) => ({ ...current, firstCommentEnabled: event.target.checked }))} />
               首评启用
             </label>
-            <label className="flex items-center gap-3 rounded-[20px] border border-app-line bg-app-panel-strong/70 px-4 py-3 text-sm text-app-text-soft">
+            <label className="app-option-card">
               <input type="checkbox" checked={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.checked }))} />
               配置启用
             </label>

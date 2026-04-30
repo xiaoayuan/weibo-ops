@@ -383,7 +383,7 @@ export function OpsManager({
         {activeTab === "POOL" ? (
           <div className="mt-5 space-y-6">
             <div className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-3 rounded-[20px] border border-app-line bg-app-panel-muted p-5">
+              <div className="app-subpanel space-y-3">
                 <h2 className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">单条加入控评池</h2>
                 <input value={singleUrl} onChange={(event) => setSingleUrl(event.target.value)} className="app-input" placeholder="评论链接" />
                 <input value={singleNote} onChange={(event) => setSingleNote(event.target.value)} className="app-input" placeholder="备注" />
@@ -391,7 +391,7 @@ export function OpsManager({
                 <button type="button" onClick={() => void createSinglePoolItem()} disabled={submitting} className="app-button app-button-primary">加入控评池</button>
               </div>
 
-              <div className="space-y-3 rounded-[20px] border border-app-line bg-app-panel-muted p-5">
+              <div className="app-subpanel space-y-3">
                 <h2 className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">批量导入评论链接</h2>
                 <textarea value={batchText} onChange={(event) => setBatchText(event.target.value)} className="app-input min-h-[140px] resize-y py-3" placeholder="每行一条评论链接" />
                 <input value={batchNote} onChange={(event) => setBatchNote(event.target.value)} className="app-input" placeholder="备注" />
@@ -400,7 +400,7 @@ export function OpsManager({
               </div>
             </div>
 
-            <div className="space-y-3 rounded-[20px] border border-app-line bg-app-panel-muted p-5">
+            <div className="app-subpanel space-y-3">
               <h2 className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">提取热门评论</h2>
               <div className="grid gap-4 lg:grid-cols-4">
                 <input value={hotCommentTargetUrl} onChange={(event) => setHotCommentTargetUrl(event.target.value)} className="app-input lg:col-span-2" placeholder="目标微博链接" />
@@ -467,11 +467,11 @@ export function OpsManager({
                     </table>
                   </TableShell>
 
-                  <div className="rounded-[20px] border border-app-line bg-app-panel-muted p-5">
+                  <div className="app-subpanel">
                     <p className="text-sm text-app-text-muted">选择执行账号</p>
                     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       {accounts.map((account) => (
-                        <label key={account.id} className={`flex items-center gap-3 rounded-[16px] border px-4 py-3 text-sm ${selectedPoolAccountIds.includes(account.id) ? "border-app-line-strong bg-app-accent-soft text-app-text-strong" : "border-app-line bg-app-panel text-app-text-muted"}`}>
+                        <label key={account.id} className={`app-option-card ${selectedPoolAccountIds.includes(account.id) ? "app-option-card-active" : ""}`}>
                           <input
                             type="checkbox"
                             checked={selectedPoolAccountIds.includes(account.id)}
@@ -495,7 +495,7 @@ export function OpsManager({
           </div>
         ) : (
           <div className="mt-5 space-y-5">
-            <div className="rounded-[20px] border border-app-line bg-app-panel-muted p-5">
+            <div className="app-subpanel">
               <h2 className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">创建轮转转发任务</h2>
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <input value={rotationTargetUrl} onChange={(event) => setRotationTargetUrl(event.target.value)} className="app-input lg:col-span-2" placeholder="目标微博链接" />
@@ -513,7 +513,7 @@ export function OpsManager({
                 <p className="text-sm text-app-text-muted">选择执行账号</p>
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {accounts.map((account) => (
-                    <label key={account.id} className={`flex items-center gap-3 rounded-[16px] border px-4 py-3 text-sm ${selectedRotationAccountIds.includes(account.id) ? "border-app-line-strong bg-app-accent-soft text-app-text-strong" : "border-app-line bg-app-panel text-app-text-muted"}`}>
+                    <label key={account.id} className={`app-option-card ${selectedRotationAccountIds.includes(account.id) ? "app-option-card-active" : ""}`}>
                       <input
                         type="checkbox"
                         checked={selectedRotationAccountIds.includes(account.id)}
