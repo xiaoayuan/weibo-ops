@@ -1,7 +1,7 @@
 import { parse } from "cookie";
 
-import { AUTH_COOKIE_NAME, type SessionUser, verifyToken } from "@/src/lib/auth";
-import { hasRequiredRole } from "@/src/lib/permission-rules";
+import { AUTH_COOKIE_NAME, type SessionUser, verifyToken } from "../lib/auth";
+import { hasRequiredRole } from "../lib/permission-rules";
 
 export function getSessionFromRequest(request: Request) {
   const cookieHeader = request.headers.get("cookie") || "";

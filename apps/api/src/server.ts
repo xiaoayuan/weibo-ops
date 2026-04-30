@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
-import { proxyToLegacyBackend } from "@/src/http/proxy";
+import { proxyToLegacyBackend } from "./http/proxy";
 
 const app = new Hono();
 

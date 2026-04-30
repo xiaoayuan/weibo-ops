@@ -1,4 +1,4 @@
-import { getLegacyBackendOrigin } from "@/src/lib/legacy-backend";
+import { getLegacyBackendOrigin } from "../lib/legacy-backend";
 
 const excludedRequestHeaders = new Set(["connection", "content-length", "host"]);
 const excludedResponseHeaders = new Set(["content-encoding", "content-length", "transfer-encoding"]);
