@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const existedIds = new Set(existed.map((item) => item.accountId));
+    const existedIds = new Set(existed.map((item: (typeof existed)[number]) => item.accountId));
     const createAccountIds = parsed.data.accountIds.filter((id) => !existedIds.has(id));
 
     if (createAccountIds.length > 0) {

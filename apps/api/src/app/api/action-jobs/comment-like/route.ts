@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       },
       orderBy: { createdAt: "desc" },
     });
+    type PoolItem = (typeof poolItems)[number];
 
     if (poolItems.length === 0) {
       return Response.json({ success: false, message: "未找到可执行的控评链接" }, { status: 400 });
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
         status: "PENDING",
         config: {
           accountIds: parsed.data.accountIds,
-          poolItemIds: poolItems.map((item) => item.id),
+          poolItemIds: poolItems.map((item: PoolItem) => item.id),
           targetNodeId,
           urgency: scheduleDecision.effectiveTier,
           earliestStartAt,
@@ -88,8 +89,8 @@ export async function POST(request: Request) {
     });
 
     await prisma.actionJobStep.createMany({
-      data: parsed.data.accountIds.flatMap((accountId) =>
-        poolItems.map((item, index) => ({
+      data: parsed.data.accountIds.flatMap((accountId: string) =>
+        poolItems.map((item: PoolItem, index: number) => ({
           jobId: job.id,
           accountId,
           stepType: "COMMENT_LIKE" as const,

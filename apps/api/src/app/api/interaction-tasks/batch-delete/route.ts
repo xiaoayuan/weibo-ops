@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as { taskIds?: string[] };
-    const taskIds = Array.from(new Set((body.taskIds || []).map((item) => item.trim()).filter(Boolean)));
+    const taskIds = Array.from(new Set((body.taskIds || []).map((item: string) => item.trim()).filter(Boolean)));
 
     if (taskIds.length === 0) {
       return Response.json({ success: false, message: "请至少选择一条互动任务" }, { status: 400 });

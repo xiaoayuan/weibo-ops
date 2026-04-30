@@ -79,8 +79,8 @@ export async function POST(request: Request) {
     });
 
     await prisma.actionJobStep.createMany({
-      data: parsed.data.accountIds.flatMap((accountId) =>
-        Array.from({ length: parsed.data.times }).map((_, index) => ({
+      data: parsed.data.accountIds.flatMap((accountId: string) =>
+        Array.from({ length: parsed.data.times }).map((_: unknown, index: number) => ({
           jobId: job.id,
           accountId,
           stepType: "REPOST" as const,
