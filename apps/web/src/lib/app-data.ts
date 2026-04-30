@@ -143,18 +143,34 @@ export type TaskSchedulerWorkerSnapshot = {
 };
 
 export type TaskSchedulerRateLimit = {
-  ownerUserId: string;
-  taskType: string;
-  effectiveTier: string;
-  earliestStartAt: string;
-  delayMs: number;
-  reasons: string[];
+  global: {
+    key: string;
+    nextAvailableAt: string | null;
+    waitMs: number;
+    active: boolean;
+  } | null;
+  taskTypes: Array<{
+    key: string;
+    taskType: string;
+    nextAvailableAt: string | null;
+    waitMs: number;
+    active: boolean;
+  }>;
+  users: Array<{
+    key: string;
+    userId: string;
+    username: string | null;
+    nextAvailableAt: string | null;
+    waitMs: number;
+    active: boolean;
+  }>;
+  updatedAt: string;
 };
 
 export type TaskSchedulerStatus = {
   workerCount: number;
   workers: TaskSchedulerWorkerSnapshot[];
-  rateLimit: TaskSchedulerRateLimit[];
+  rateLimit: TaskSchedulerRateLimit;
   updatedAt: string;
 };
 

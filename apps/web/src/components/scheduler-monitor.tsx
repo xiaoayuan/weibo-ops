@@ -114,7 +114,7 @@ export function SchedulerMonitor({ data }: { data: TaskSchedulerStatus | null })
       <SurfaceCard>
         <SectionHeader title="限流与延后决策" description="这一块展示当前调度器为不同任务类型做出的延后和档位决策。" />
 
-        {data.rateLimit.length === 0 ? (
+        {data.rateLimit.users.length === 0 && data.rateLimit.taskTypes.length === 0 ? (
           <div className="mt-5">
             <EmptyState title="当前没有限流快照" description="说明最近没有产生需要延后的任务，或当前用户还没有命中限流窗口。" />
           </div>
@@ -123,23 +123,30 @@ export function SchedulerMonitor({ data }: { data: TaskSchedulerStatus | null })
             <table className="app-table min-w-[1080px]">
               <thead>
                 <tr>
-                  <th>用户</th>
+                  <th>维度</th>
                   <th>任务类型</th>
-                  <th>档位</th>
-                  <th>最早执行时间</th>
                   <th>延后</th>
-                  <th>原因</th>
+                  <th>最早可用时间</th>
+                  <th>状态</th>
                 </tr>
               </thead>
               <tbody>
-                {data.rateLimit.map((item) => (
-                  <tr key={`${item.ownerUserId}-${item.taskType}-${item.earliestStartAt}`}>
-                    <td className="font-mono text-xs text-app-text-soft">{item.ownerUserId}</td>
+                {data.rateLimit.taskTypes.map((item) => (
+                  <tr key={`task-type-${item.taskType}`}>
+                    <td className="text-xs text-app-text-soft">任务类型</td>
                     <td>{item.taskType}</td>
-                    <td>{item.effectiveTier}</td>
-                    <td>{formatDateTime(item.earliestStartAt)}</td>
-                    <td>{item.delayMs <= 0 ? "未延后" : `${Math.ceil(item.delayMs / 1000)} 秒`}</td>
-                    <td className="max-w-[320px] text-xs leading-6 text-app-text-soft">{item.reasons.join(" / ") || "正常调度"}</td>
+                    <td>{item.waitMs <= 0 ? "未延后" : `${Math.ceil(item.waitMs / 1000)} 秒`}</td>
+                    <td>{item.nextAvailableAt ? formatDateTime(item.nextAvailableAt) : "-"}</td>
+                    <td>{item.active ? "限流中" : "空闲"}</td>
+                  </tr>
+                ))}
+                {data.rateLimit.users.map((item) => (
+                  <tr key={`user-${item.userId}`}>
+                    <td className="font-mono text-xs text-app-text-soft">{item.username || item.userId}</td>
+                    <td>用户级限制</td>
+                    <td>{item.waitMs <= 0 ? "未延后" : `${Math.ceil(item.waitMs / 1000)} 秒`}</td>
+                    <td>{item.nextAvailableAt ? formatDateTime(item.nextAvailableAt) : "-"}</td>
+                    <td>{item.active ? "限流中" : "空闲"}</td>
                   </tr>
                 ))}
               </tbody>
