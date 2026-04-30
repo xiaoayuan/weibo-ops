@@ -53,7 +53,7 @@ services:
     container_name: weibo-ops-web
     restart: unless-stopped
     depends_on:
-      app:
+      api:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 3008"]
@@ -65,9 +65,41 @@ services:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 3008
-      BACKEND_ORIGIN: http://app:3000
+      BACKEND_ORIGIN: http://api:3009
     ports:
       - "${WEB_APP_PORT:-3008}:3008"
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: weibo-ops-api
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3009"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3009
+      LEGACY_BACKEND_ORIGIN: http://app:3000
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@db:5432/weibo_ops?schema=public}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      ACCOUNT_SECRET_KEY: ${ACCOUNT_SECRET_KEY:-replace_with_a_32_plus_char_secret}
+      NODE_ROLE: ${NODE_ROLE:-controller}
+      NODE_ID: ${NODE_ID:-main-1}
+      ACTION_JOB_NODES: ${ACTION_JOB_NODES:-main-1:主服务器}
+    ports:
+      - "${API_APP_PORT:-3009}:3009"
 
 volumes:
   postgres_data:
