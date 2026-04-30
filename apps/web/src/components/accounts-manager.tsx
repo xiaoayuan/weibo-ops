@@ -52,6 +52,14 @@ type CheckSessionResult = {
   };
 };
 
+function summarizeSessionCheckMessage(result: CheckSessionResult) {
+  if (result.success) {
+    return "登录态有效";
+  }
+
+  return result.message || "检测登录态失败";
+}
+
 export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAccount[] }) {
   const [accounts, setAccounts] = useState(initialAccounts);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -119,7 +127,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
         );
       }
 
-      setNotice(result.message || "登录态检测完成");
+      setNotice(summarizeSessionCheckMessage(result));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "检测登录态失败");
     } finally {
