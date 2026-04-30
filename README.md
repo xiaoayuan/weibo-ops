@@ -93,15 +93,45 @@ npm run seed
 
 ```bash
 npm run dev
+npm run dev:web
 npm run build
+npm run build:web
 npm run start
+npm run start:web
 npm run lint
+npm run lint:web
 npm run db:generate
 npm run db:push
 npm run db:migrate
 npm run db:studio
 npm run seed
 ```
+
+## 独立前端开发
+
+当前仓库已经开始引入独立前端应用：`apps/web`
+
+- 后端管理服务仍使用当前根目录应用
+- 独立前端使用 `apps/web`
+- 默认建议后端跑在 `http://127.0.0.1:3007`
+- 独立前端默认跑在 `http://127.0.0.1:3008`
+- Docker 部署时前端也会单独以 `web` 服务运行
+
+启动方式：
+
+1. 启动后端
+
+```bash
+npm run dev
+```
+
+2. 启动独立前端
+
+```bash
+npm run dev:web
+```
+
+前端会通过 `apps/web/.env.example` 中的 `BACKEND_ORIGIN` 代理到后端 API。
 
 ## 环境变量
 

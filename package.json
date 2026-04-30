@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:web": "npm --prefix apps/web run dev",
     "build": "next build --webpack",
+    "build:web": "npm --prefix apps/web run build",
     "start": "next start",
+    "start:web": "npm --prefix apps/web run start",
     "lint": "eslint",
+    "lint:web": "npm --prefix apps/web run lint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

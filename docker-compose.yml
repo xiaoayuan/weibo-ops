@@ -46,5 +46,28 @@ services:
     ports:
       - "${APP_PORT:-3007}:3000"
 
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: weibo-ops-web
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3008"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3008
+      BACKEND_ORIGIN: http://app:3000
+    ports:
+      - "${WEB_APP_PORT:-3008}:3008"
+
 volumes:
   postgres_data:

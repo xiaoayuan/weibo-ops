@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+  --font-mono-ui: "SFMono-Regular", "IBM Plex Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --bg: #07111b;
+  --bg-elevated: #0d1827;
+  --panel: rgba(15, 26, 42, 0.82);
+  --panel-strong: #142033;
+  --line: rgba(148, 163, 184, 0.18);
+  --text-strong: #f4f8ff;
+  --text: #dbe5f4;
+  --text-soft: #a2b1c8;
+  --text-muted: #8192ad;
+  --accent: #2dd4bf;
+  --accent-soft: rgba(45, 212, 191, 0.14);
+  --success: #4ade80;
+  --danger: #fb7185;
+  --warning: #fbbf24;
+  --info: #38bdf8;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #edf3fb;
+  --bg-elevated: #f8fbff;
+  --panel: rgba(255, 255, 255, 0.88);
+  --panel-strong: #ffffff;
+  --line: rgba(15, 23, 42, 0.08);
+  --text-strong: #0f172a;
+  --text: #1e293b;
+  --text-soft: #475569;
+  --text-muted: #64748b;
+  --accent: #0f9b8a;
+  --accent-soft: rgba(15, 155, 138, 0.1);
+  --success: #15803d;
+  --danger: #e11d48;
+  --warning: #b45309;
+  --info: #0369a1;
+}
+
+@theme inline {
+  --color-app-bg: var(--bg);
+  --color-app-bg-elevated: var(--bg-elevated);
+  --color-app-panel: var(--panel);
+  --color-app-panel-strong: var(--panel-strong);
+  --color-app-line: var(--line);
+  --color-app-text-strong: var(--text-strong);
+  --color-app-text: var(--text);
+  --color-app-text-soft: var(--text-soft);
+  --color-app-text-muted: var(--text-muted);
+  --color-app-accent: var(--accent);
+  --color-app-accent-soft: var(--accent-soft);
+  --color-app-success: var(--success);
+  --color-app-danger: var(--danger);
+  --color-app-warning: var(--warning);
+  --color-app-info: var(--info);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono-ui);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.08), transparent 24%),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 20%),
+    linear-gradient(180deg, var(--bg-elevated), var(--bg));
+  color: var(--text);
+  font-family: var(--font-body), sans-serif;
+}
+
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(circle at top left, rgba(15, 155, 138, 0.08), transparent 24%),
+    linear-gradient(180deg, #f6fbff, var(--bg));
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+::selection {
+  background: rgba(45, 212, 191, 0.24);
+}
+
+@layer components {
+  .app-surface {
+    @apply rounded-[30px] border border-app-line bg-app-panel/86 p-6 shadow-[0_24px_80px_rgba(2,8,20,0.18)] backdrop-blur;
+  }
+
+  .app-input {
+    @apply h-13 w-full rounded-[20px] border border-app-line bg-app-panel-strong px-4 text-sm text-app-text-strong outline-none transition placeholder:text-app-text-soft/70 focus:border-app-accent/45 focus:ring-2 focus:ring-app-accent/15;
+  }
+
+  .app-button {
+    @apply inline-flex h-12 items-center rounded-full px-5 text-sm font-medium transition;
+  }
+
+  .app-button-primary {
+    @apply bg-app-accent text-slate-950 shadow-[0_16px_32px_rgba(45,212,191,0.18)] hover:brightness-105;
+  }
+
+  .app-button-secondary {
+    @apply border border-app-line bg-app-panel-strong text-app-text-strong hover:border-app-accent/30 hover:text-app-accent;
+  }
+
+  .app-chip {
+    @apply inline-flex items-center rounded-full border border-app-line bg-app-panel-strong px-3 py-1.5 text-xs text-app-text-soft;
+  }
+
+  .app-table {
+    @apply w-full min-w-[760px] border-separate border-spacing-0 text-left text-sm;
+  }
+
+  .app-table thead th {
+    @apply border-b border-app-line px-4 py-3 font-medium text-app-text-soft;
+  }
+
+  .app-table tbody td {
+    @apply border-b border-app-line/70 px-4 py-4 align-top text-app-text;
+  }
+}
