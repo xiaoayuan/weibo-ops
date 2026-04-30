@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         accountId: true,
       },
     });
+    type TaskRow = (typeof tasks)[number];
 
     if (tasks.length === 0) {
       return Response.json({ success: false, message: "未找到可删除的互动任务" }, { status: 404 });
@@ -37,13 +38,13 @@ export async function POST(request: Request) {
     await prisma.interactionTask.deleteMany({
       where: {
         id: {
-          in: tasks.map((task) => task.id),
+          in: tasks.map((task: TaskRow) => task.id),
         },
       },
     });
 
     await Promise.all(
-      tasks.map((task) =>
+      tasks.map((task: TaskRow) =>
         writeExecutionLog({
           accountId: task.accountId,
           actionType: "INTERACTION_TASK_BATCH_DELETED",
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       data: {
-        deletedIds: tasks.map((task) => task.id),
+        deletedIds: tasks.map((task: TaskRow) => task.id),
         deletedCount: tasks.length,
         skippedCount: taskIds.length - tasks.length,
       },
