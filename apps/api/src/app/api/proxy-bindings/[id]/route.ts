@@ -40,12 +40,13 @@ export async function PATCH(request: Request, context: RouteContext<"/api/proxy-
         },
         select: { id: true, enabled: true },
       });
+      type NodeRow = (typeof nodes)[number];
 
       if (nodes.length !== candidateIds.length) {
         return Response.json({ success: false, message: "包含无效代理节点" }, { status: 400 });
       }
 
-      const disabledNode = nodes.find((node) => !node.enabled);
+      const disabledNode = nodes.find((node: NodeRow) => !node.enabled);
 
       if (disabledNode) {
         return Response.json({ success: false, message: "不能绑定已停用代理节点" }, { status: 400 });

@@ -13,7 +13,7 @@ export async function GET() {
 
   return Response.json({
     success: true,
-    data: nodes.map((node) => ({
+    data: nodes.map((node: (typeof nodes)[number]) => ({
       id: node.id,
       name: node.name,
       protocol: node.protocol,
