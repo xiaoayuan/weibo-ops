@@ -111,10 +111,14 @@ npm run seed
 
 当前仓库已经开始引入独立前端应用：`apps/web`
 
+同时也新增了独立 API 应用骨架：`apps/api`
+
 - 后端管理服务仍使用当前根目录应用
 - 独立前端使用 `apps/web`
+- 独立 API 骨架使用 `apps/api`
 - 默认建议后端跑在 `http://127.0.0.1:3007`
 - 独立前端默认跑在 `http://127.0.0.1:3008`
+- 独立 API 默认跑在 `http://127.0.0.1:3009`
 - Docker 部署时前端也会单独以 `web` 服务运行
 
 启动方式：
@@ -131,7 +135,31 @@ npm run dev
 npm run dev:web
 ```
 
+3. 启动独立 API 骨架
+
+```bash
+npm run dev:api
+```
+
 前端会通过 `apps/web/.env.example` 中的 `BACKEND_ORIGIN` 代理到后端 API。
+
+如果你要验证前后端进一步拆分后的调用路径，可以让 `apps/web` 指向 `apps/api`：
+
+- `apps/web/.env.local`
+
+```env
+BACKEND_ORIGIN="http://127.0.0.1:3009"
+```
+
+- `apps/api/.env.local`
+
+```env
+LEGACY_BACKEND_ORIGIN="http://127.0.0.1:3007"
+```
+
+这样调用路径会变成：
+
+`apps/web -> apps/api -> 当前根项目后端`
 
 ## 环境变量
 

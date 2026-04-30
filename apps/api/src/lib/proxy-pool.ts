@@ -1,0 +1,305 @@
+import { encryptText } from "@/src/lib/encrypt";
+import { prisma } from "@/src/lib/prisma";
+
+const DEFAULT_MAX_ACCOUNTS = 100;
+
+export type ProxyNodeInput = {
+  name: string;
+  protocol: "HTTP" | "HTTPS" | "SOCKS5";
+  rotationMode?: "STICKY" | "M1" | "M5" | "M10";
+  countryCode?: string;
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  enabled?: boolean;
+  maxAccounts?: number;
+};
+
+export async function listProxyNodes(ownerUserId: string) {
+  return prisma.proxyNode.findMany({
+    where: { ownerUserId },
+    include: {
+      _count: {
+        select: { accounts: true },
+      },
+    },
+    orderBy: [{ enabled: "desc" }, { createdAt: "asc" }],
+  });
+}
+
+function toCreatePayload(ownerUserId: string, input: ProxyNodeInput) {
+  return {
+    ownerUserId,
+    name: input.name.trim(),
+    protocol: input.protocol,
+    rotationMode: input.rotationMode ?? "M5",
+    countryCode: input.countryCode?.trim() ? input.countryCode.trim().toUpperCase() : null,
+    host: input.host.trim(),
+    port: input.port,
+    username: input.username?.trim() ? input.username.trim() : null,
+    passwordEncrypted: input.password?.trim() ? encryptText(input.password.trim()) : null,
+    enabled: input.enabled ?? true,
+    maxAccounts: input.maxAccounts ?? DEFAULT_MAX_ACCOUNTS,
+  };
+}
+
+function toUpdatePayload(input: Partial<ProxyNodeInput>) {
+  return {
+    name: input.name !== undefined ? input.name.trim() : undefined,
+    protocol: input.protocol,
+    rotationMode: input.rotationMode,
+    countryCode: input.countryCode !== undefined ? (input.countryCode.trim() ? input.countryCode.trim().toUpperCase() : null) : undefined,
+    host: input.host !== undefined ? input.host.trim() : undefined,
+    port: input.port,
+    username: input.username !== undefined ? (input.username.trim() ? input.username.trim() : null) : undefined,
+    passwordEncrypted:
+      input.password !== undefined ? (input.password.trim() ? encryptText(input.password.trim()) : null) : undefined,
+    enabled: input.enabled,
+    maxAccounts: input.maxAccounts,
+  };
+}
+
+export async function createProxyNode(ownerUserId: string, input: ProxyNodeInput) {
+  return prisma.proxyNode.create({
+    data: toCreatePayload(ownerUserId, input),
+  });
+}
+
+export async function updateProxyNode(ownerUserId: string, id: string, input: Partial<ProxyNodeInput>) {
+  const existing = await prisma.proxyNode.findFirst({ where: { id, ownerUserId } });
+
+  if (!existing) {
+    throw new Error("代理节点不存在");
+  }
+
+  return prisma.proxyNode.update({
+    where: { id },
+    data: toUpdatePayload(input),
+  });
+}
+
+export async function deleteProxyNode(ownerUserId: string, id: string) {
+  const existing = await prisma.proxyNode.findFirst({ where: { id, ownerUserId } });
+
+  if (!existing) {
+    throw new Error("代理节点不存在");
+  }
+
+  await prisma.proxyNode.delete({ where: { id } });
+}
+
+export async function getAutoAssignableProxyNode(ownerUserId: string, excludedNodeIds: string[] = []) {
+  const nodes = await prisma.proxyNode.findMany({
+    where: {
+      ownerUserId,
+      enabled: true,
+      ...(excludedNodeIds.length > 0 ? { id: { notIn: excludedNodeIds } } : {}),
+    },
+    include: {
+      _count: {
+        select: { accounts: true },
+      },
+    },
+    orderBy: [{ createdAt: "asc" }],
+  });
+
+  if (nodes.length === 0) {
+    throw new Error("暂无可用代理，请先在系统设置中添加并启用代理节点");
+  }
+
+  const candidate = nodes
+    .filter((node) => node._count.accounts < node.maxAccounts)
+    .sort((a, b) => {
+      if (a._count.accounts !== b._count.accounts) {
+        return a._count.accounts - b._count.accounts;
+      }
+
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    })[0];
+
+  if (!candidate) {
+    throw new Error("代理节点容量已满（每个IP最多100账号），请新增代理节点后再创建账号");
+  }
+
+  return candidate;
+}
+
+export async function autoAssignProxyBindingsForAccount(accountId: string) {
+  const account = await prisma.weiboAccount.findUnique({
+    where: { id: accountId },
+    select: {
+      id: true,
+      ownerUserId: true,
+      proxyNodeId: true,
+      backupProxyNodeId: true,
+      fallbackProxyNodeId: true,
+      proxyBindingMode: true,
+      proxyBindingLocked: true,
+    },
+  });
+
+  if (!account?.ownerUserId) {
+    throw new Error("账号不存在或未绑定所属用户");
+  }
+
+  if (account.proxyBindingLocked || account.proxyBindingMode !== "AUTO") {
+    return {
+      updated: false,
+      reason: "locked_or_manual",
+    };
+  }
+
+  const nextPrimaryId = account.proxyNodeId || (await getAutoAssignableProxyNode(account.ownerUserId)).id;
+  const nextBackupId = account.backupProxyNodeId || (await getAutoAssignableProxyNode(account.ownerUserId, [nextPrimaryId])).id;
+  const nextFallbackId = account.fallbackProxyNodeId || (await getAutoAssignableProxyNode(account.ownerUserId, [nextPrimaryId, nextBackupId])).id;
+
+  if (
+    nextPrimaryId === account.proxyNodeId &&
+    nextBackupId === account.backupProxyNodeId &&
+    nextFallbackId === account.fallbackProxyNodeId
+  ) {
+    return {
+      updated: false,
+      reason: "no_change",
+    };
+  }
+
+  await prisma.weiboAccount.update({
+    where: { id: account.id },
+    data: {
+      proxyNodeId: nextPrimaryId,
+      backupProxyNodeId: nextBackupId,
+      fallbackProxyNodeId: nextFallbackId,
+    },
+  });
+
+  return {
+    updated: true,
+    reason: "updated",
+  };
+}
+
+export async function autoAssignProxyBindingsForOwner(ownerUserId: string) {
+  const accounts = await prisma.weiboAccount.findMany({
+    where: { ownerUserId },
+    select: {
+      id: true,
+      proxyBindingMode: true,
+      proxyBindingLocked: true,
+    },
+  });
+
+  let updatedCount = 0;
+
+  for (const account of accounts) {
+    if (account.proxyBindingLocked || account.proxyBindingMode !== "AUTO") {
+      continue;
+    }
+
+    try {
+      const result = await autoAssignProxyBindingsForAccount(account.id);
+
+      if (result.updated) {
+        updatedCount += 1;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return {
+    total: accounts.length,
+    updated: updatedCount,
+  };
+}
+
+export async function reassignAccountsForProxyNode(
+  ownerUserId: string,
+  proxyNodeId: string,
+  options?: { allowUnbindWhenInsufficientCapacity?: boolean },
+) {
+  const node = await prisma.proxyNode.findFirst({ where: { id: proxyNodeId, ownerUserId } });
+
+  if (!node) {
+    throw new Error("代理节点不存在");
+  }
+
+  const accounts = await prisma.weiboAccount.findMany({
+    where: { ownerUserId, proxyNodeId },
+    select: { id: true },
+  });
+
+  if (accounts.length === 0) {
+    return;
+  }
+
+  const candidates = await prisma.proxyNode.findMany({
+    where: {
+      ownerUserId,
+      enabled: true,
+      id: { not: proxyNodeId },
+    },
+    include: {
+      _count: {
+        select: { accounts: true },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const totalFree = candidates.reduce((sum, item) => sum + Math.max(0, item.maxAccounts - item._count.accounts), 0);
+
+  if (totalFree < accounts.length) {
+    if (options?.allowUnbindWhenInsufficientCapacity) {
+      await prisma.weiboAccount.updateMany({
+        where: { ownerUserId, proxyNodeId },
+        data: { proxyNodeId: null },
+      });
+
+      return {
+        reassignedCount: 0,
+        unboundCount: accounts.length,
+      };
+    }
+
+    throw new Error("其余代理容量不足，无法迁移绑定账号，请先新增代理或释放容量");
+  }
+
+  const loadMap = new Map(candidates.map((item) => [item.id, item._count.accounts]));
+
+  await prisma.$transaction(async (tx) => {
+    for (const account of accounts) {
+      const sorted = candidates
+        .filter((candidate) => (loadMap.get(candidate.id) || 0) < candidate.maxAccounts)
+        .sort((a, b) => {
+          const loadA = loadMap.get(a.id) || 0;
+          const loadB = loadMap.get(b.id) || 0;
+
+          if (loadA !== loadB) {
+            return loadA - loadB;
+          }
+
+          return a.createdAt.getTime() - b.createdAt.getTime();
+        });
+
+      const targetNode = sorted[0];
+
+      if (!targetNode) {
+        throw new Error("代理自动重分配失败，请重试");
+      }
+
+      await tx.weiboAccount.update({
+        where: { id: account.id },
+        data: { proxyNodeId: targetNode.id },
+      });
+
+      loadMap.set(targetNode.id, (loadMap.get(targetNode.id) || 0) + 1);
+    }
+  });
+
+  return {
+    reassignedCount: accounts.length,
+    unboundCount: 0,
+  };
+}
