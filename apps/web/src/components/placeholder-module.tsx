@@ -13,7 +13,7 @@ export function PlaceholderModule({ title, description }: { title: string; descr
         <div>
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-app-text-strong">这一页已经切入新壳层</h2>
           <p className="mt-3 text-sm leading-7 text-app-text-muted">
-            当前模块已经使用新的前端导航、主题系统和卡片语言，但具体业务交互仍在逐步迁移。下一步会把筛选、列表、表单和批量操作接到独立前端里。
+            当前模块已经使用新的前端导航、主题系统和卡片语言，但具体业务交互仍在逐步迁移。这里不代表后端未接入，而是该页面的完整操作流还在补齐中。
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <span className="app-chip">深色主视觉已就位</span>
@@ -34,7 +34,7 @@ export function PlaceholderModule({ title, description }: { title: string; descr
         </div>
       </SurfaceCard>
 
-      <EmptyState title="业务交互正在接线" description="这一页的视觉框架已经准备好，具体接口与表单行为会在后续迁移阶段补齐。" />
+      <EmptyState title="该页面仍在补齐完整操作流" description="视觉框架已经就位，后续会继续把这个模块的真实增删改查和批量动作补进独立前端。" />
     </div>
   );
 }

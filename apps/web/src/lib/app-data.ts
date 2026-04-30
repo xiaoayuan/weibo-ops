@@ -7,6 +7,10 @@ export type WeiboAccount = {
   remark: string | null;
   groupName: string | null;
   status: "ACTIVE" | "DISABLED" | "RISKY" | "EXPIRED";
+  scheduleWindowEnabled: boolean;
+  executionWindowStart: string | null;
+  executionWindowEnd: string | null;
+  baseJitterSec: number;
   loginStatus: "UNKNOWN" | "ONLINE" | "EXPIRED" | "FAILED";
   loginErrorMessage: string | null;
   lastCheckAt: string | null;
