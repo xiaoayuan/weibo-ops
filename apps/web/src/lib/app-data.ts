@@ -202,7 +202,7 @@ export type InteractionTarget = {
 
 export type InteractionTask = {
   id: string;
-  actionType: "LIKE" | "POST" | "COMMENT";
+  actionType: "LIKE" | "POST" | "COMMENT" | "REPOST";
   status: "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
   resultMessage: string | null;
   createdAt: string;
@@ -307,6 +307,51 @@ export type InviteCode = {
   expiresAt: string | null;
   disabled: boolean;
   createdAt: string;
+};
+
+export type ExecutionStrategy = {
+  actionJob: {
+    maxRetry: number;
+    commentLikeConcurrency: { S: number; A: number; B: number };
+    repostConcurrency: { S: number; A: number; B: number };
+    urgency: {
+      S: { waveRatios: [number, number, number]; waveWindowsSec: [number, number, number]; cooldownSecRange: [number, number]; retryDelaySecRange: [number, number]; targetSlaSec: number; limitSlaSec: number };
+      A: { waveRatios: [number, number, number]; waveWindowsSec: [number, number, number]; cooldownSecRange: [number, number]; retryDelaySecRange: [number, number]; targetSlaSec: number; limitSlaSec: number };
+      B: { waveRatios: [number, number, number]; waveWindowsSec: [number, number, number]; cooldownSecRange: [number, number]; retryDelaySecRange: [number, number]; targetSlaSec: number; limitSlaSec: number };
+    };
+  };
+  circuitBreaker: {
+    accountFailureThreshold: number;
+    accountPauseMinutes: number;
+    proxyWindowMinutes: number;
+    proxyMinSamples: number;
+    proxyFailureRatio: number;
+    proxyPauseMinutes: number;
+  };
+};
+
+export type RiskRules = {
+  keywords: {
+    targetIssue: string[];
+    contentIssue: string[];
+    transientNetwork: string[];
+    platformBusy: string[];
+    accountRisk: string[];
+  };
+  score: {
+    success: number;
+    targetIssue: number;
+    contentIssue: number;
+    transientNetwork: number;
+    platformBusy: number;
+    accountRisk: number;
+    unknownFailure: number;
+  };
+  threshold: {
+    markRiskyAt: number;
+    recoverActiveAt: number;
+    maxRiskLevel: number;
+  };
 };
 
 export async function getAccounts() {
@@ -451,6 +496,26 @@ export async function getInteractionTasks() {
 
 export async function getTrafficSummary() {
   const response = await fetchServerApi<TrafficSummary>("/api/traffic");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
+  }
+
+  return response.payload.data ?? null;
+}
+
+export async function getExecutionStrategy() {
+  const response = await fetchServerApi<ExecutionStrategy>("/api/strategy-config");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
+  }
+
+  return response.payload.data ?? null;
+}
+
+export async function getRiskRules() {
+  const response = await fetchServerApi<RiskRules>("/api/risk-rules");
 
   if (!response.ok || !response.payload?.success) {
     return null;

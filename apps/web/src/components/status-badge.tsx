@@ -2,11 +2,11 @@ import { cn } from "@/lib/utils";
 
 const toneClassMap = {
   neutral: "border-app-line bg-app-panel-muted text-app-text-soft",
-  success: "border-emerald-300/10 bg-emerald-300/10 text-emerald-200",
-  danger: "border-rose-300/10 bg-rose-300/10 text-rose-200",
-  warning: "border-amber-200/12 bg-amber-200/10 text-amber-100",
-  info: "border-sky-300/10 bg-sky-300/10 text-sky-200",
-  accent: "border-teal-200/10 bg-teal-200/10 text-teal-100",
+  success: "border-app-success/15 bg-app-success/10 text-app-success",
+  danger: "border-app-danger/15 bg-app-danger/10 text-app-danger",
+  warning: "border-app-warning/15 bg-app-warning/10 text-app-warning",
+  info: "border-app-info/15 bg-app-info/10 text-app-info",
+  accent: "border-app-accent/15 bg-app-accent/10 text-app-accent",
 } as const;
 
 export function StatusBadge({

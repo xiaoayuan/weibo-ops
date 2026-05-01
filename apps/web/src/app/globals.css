@@ -161,7 +161,7 @@ body {
 
   .app-table thead th {
     background: color-mix(in srgb, var(--panel-muted) 100%, transparent 0%);
-    @apply border-b border-app-line px-4 py-3.5 font-medium text-app-text-soft;
+    @apply border-b border-app-line px-4 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-app-text-soft;
   }
 
   .app-table tbody tr {

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { AppNotice } from "@/components/app-notice";
 import type { CopywritingTemplate, InteractionTask, WeiboAccount } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
+import { readJsonResponse } from "@/lib/http";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { SectionHeader } from "@/components/section-header";
@@ -17,6 +18,7 @@ function getActionText(actionType: InteractionTask["actionType"]) {
     LIKE: "点赞",
     POST: "转发",
     COMMENT: "回复",
+    REPOST: "转发",
   };
 
   return map[actionType] || actionType;
@@ -74,14 +76,19 @@ export function InteractionsManager({
   }, [actionFilter, keyword, statusFilter, tasks]);
 
   async function refreshTasks() {
-    const response = await fetch("/api/interaction-tasks", { cache: "no-store" });
-    const result = await response.json();
+    try {
+      setError(null);
+      const response = await fetch("/api/interaction-tasks", { cache: "no-store" });
+      const result = await readJsonResponse<{ success: boolean; message?: string; data: InteractionTask[] }>(response);
 
-    if (!response.ok) {
-      throw new Error(result.message || "刷新互动任务失败");
+      if (!response.ok) {
+        throw new Error(result.message || "刷新互动任务失败");
+      }
+
+      setTasks(result.data);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "刷新互动任务失败");
     }
-
-    setTasks(result.data);
   }
 
   async function createBatch() {

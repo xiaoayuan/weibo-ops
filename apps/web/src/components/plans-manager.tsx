@@ -20,7 +20,8 @@ function getPlanTypeText(planType: string) {
   const map: Record<string, string> = {
     CHECK_IN: "签到",
     FIRST_COMMENT: "首评",
-    POST: "转发",
+    POST: "发帖",
+    REPOST: "转发",
     COMMENT: "回复",
     LIKE: "点赞",
   };
