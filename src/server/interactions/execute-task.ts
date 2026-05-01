@@ -110,9 +110,12 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     return { ok: true as const, success: false, data: updated, message: updated.resultMessage || "互动任务已暂停" };
   }
 
+  const interactionActionType = task.actionType === "REPOST" || task.actionType === "POST" ? "POST" : task.actionType;
+  const interactionContent = task.content?.content || null;
+
   const scheduleDecision = await reserveRateLimitedExecution({
     ownerUserId,
-    taskType: resolveInteractionTaskType(task.actionType),
+    taskType: resolveInteractionTaskType(interactionActionType),
     baseTier: "A",
   });
 
@@ -144,9 +147,10 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     accountId: executionAccount.id,
     accountNickname: executionAccount.nickname,
     accountLoginStatus: executionAccount.loginStatus,
-    actionType: task.actionType,
+    actionType: interactionActionType,
     targetUrl: task.target.targetUrl,
-    commentText: task.content?.content || null,
+    repostContent: task.actionType === "REPOST" || task.actionType === "POST" ? interactionContent : undefined,
+    commentText: task.actionType === "COMMENT" ? interactionContent : undefined,
   });
 
   let retryCount = 0;
@@ -166,9 +170,10 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
       accountId: executionAccount.id,
       accountNickname: executionAccount.nickname,
       accountLoginStatus: executionAccount.loginStatus,
-      actionType: task.actionType,
+      actionType: interactionActionType,
       targetUrl: task.target.targetUrl,
-      commentText: task.content?.content || null,
+      repostContent: task.actionType === "REPOST" || task.actionType === "POST" ? interactionContent : undefined,
+      commentText: task.actionType === "COMMENT" ? interactionContent : undefined,
     });
   }
 

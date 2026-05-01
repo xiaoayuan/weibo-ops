@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import { AUTH_COOKIE_NAME, type SessionUser, verifyToken } from "@/lib/auth";
 import { hasRequiredRole as hasRequiredRoleRule } from "@/lib/permission-rules";
+import { prisma } from "@/lib/prisma";
 
 export async function getSessionUserFromCookies() {
   const cookieStore = await cookies();
@@ -29,7 +30,19 @@ export async function requireApiRole(requiredRole: SessionUser["role"]) {
     };
   }
 
-  if (!hasRequiredRole(session.role, requiredRole)) {
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { id: true, username: true, role: true },
+  });
+
+  if (!user) {
+    return {
+      ok: false as const,
+      response: Response.json({ success: false, message: "登录已失效，请重新登录" }, { status: 401 }),
+    };
+  }
+
+  if (!hasRequiredRole(user.role, requiredRole)) {
     return {
       ok: false as const,
       response: Response.json({ success: false, message: "权限不足" }, { status: 403 }),
@@ -38,7 +51,7 @@ export async function requireApiRole(requiredRole: SessionUser["role"]) {
 
   return {
     ok: true as const,
-    session,
+    session: user,
   };
 }
 
@@ -49,9 +62,18 @@ export async function requirePageRole(requiredRole: SessionUser["role"]) {
     redirect("/login");
   }
 
-  if (!hasRequiredRole(session.role, requiredRole)) {
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { id: true, username: true, role: true },
+  });
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (!hasRequiredRole(user.role, requiredRole)) {
     redirect("/");
   }
 
-  return session;
+  return user;
 }

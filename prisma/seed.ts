@@ -25,7 +25,7 @@ async function main() {
     hashPassword("demo123456"),
   ]);
 
-  await prisma.user.upsert({
+  const adminUser = await prisma.user.upsert({
     where: { username: "admin" },
     update: {
       passwordHash: adminPasswordHash,
@@ -57,9 +57,9 @@ async function main() {
   }
 
   const accountSeeds = [
-    { nickname: "账号A", remark: "娱乐组主号", groupName: "娱乐组", status: "ACTIVE" as const },
-    { nickname: "账号B", remark: "娱乐组备用", groupName: "娱乐组", status: "ACTIVE" as const },
-    { nickname: "账号C", remark: "控评组", groupName: "互动组", status: "ACTIVE" as const },
+    { nickname: "账号A", remark: "娱乐组主号", groupName: "娱乐组", status: "ACTIVE" as const, ownerUserId: adminUser.id },
+    { nickname: "账号B", remark: "娱乐组备用", groupName: "娱乐组", status: "ACTIVE" as const, ownerUserId: adminUser.id },
+    { nickname: "账号C", remark: "控评组", groupName: "互动组", status: "ACTIVE" as const, ownerUserId: adminUser.id },
   ];
 
   const topicSeeds = [
@@ -84,6 +84,7 @@ async function main() {
         remark: seed.remark,
         groupName: seed.groupName,
         status: seed.status,
+        ownerUserId: seed.ownerUserId,
       },
       create: {
         id: `seed-account-${seed.nickname}`,
@@ -91,6 +92,7 @@ async function main() {
         remark: seed.remark,
         groupName: seed.groupName,
         status: seed.status,
+        ownerUserId: seed.ownerUserId,
       },
     });
 

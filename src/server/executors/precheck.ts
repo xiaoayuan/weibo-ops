@@ -55,6 +55,13 @@ export function validatePlanPrecheck(input: ExecutePlanInput, executor: Executor
     });
   }
 
+  if (input.planType === "REPOST" && !input.targetUrl?.trim()) {
+    return buildBlockedResult("转发计划缺少目标帖子链接，无法进入真实执行阶段。", executor, "MISSING_TARGET_URL", {
+      planId: input.planId,
+      planType: input.planType,
+    });
+  }
+
   return null;
 }
 

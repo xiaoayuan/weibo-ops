@@ -108,6 +108,9 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [batchChecking, setBatchChecking] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [batchStatusUpdating, setBatchStatusUpdating] = useState(false);
+  const [batchStatusFormVisible, setBatchStatusFormVisible] = useState(false);
+  const [batchStatusForm, setBatchStatusForm] = useState<AccountStatus>("ACTIVE");
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -541,6 +544,63 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
     setSelectedAccountIds([]);
   }
 
+  function getSelectedOrFilteredAccounts() {
+    const candidateIds = new Set(selectedAccountIds);
+
+    return selectedAccountIds.length > 0
+      ? filteredAccounts.filter((account) => candidateIds.has(account.id))
+      : filteredAccounts;
+  }
+
+  async function handleBatchStatusUpdate() {
+    const candidates = getSelectedOrFilteredAccounts();
+
+    if (candidates.length === 0) {
+      setError("当前筛选下没有可修改账号");
+      return;
+    }
+
+    if (!window.confirm(`确认将 ${candidates.length} 个账号状态改为「${statusText[batchStatusForm]}」吗？`)) {
+      return;
+    }
+
+    try {
+      setBatchStatusUpdating(true);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch("/api/accounts/batch-update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          accountIds: candidates.map((account) => account.id),
+          patch: {
+            status: batchStatusForm,
+          },
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "批量修改账号状态失败");
+      }
+
+      const updatedAccounts = result.data.updatedAccounts as WeiboAccount[];
+      const updatedMap = new Map(updatedAccounts.map((account) => [account.id, account]));
+
+      setAccounts((current) => current.map((account) => updatedMap.get(account.id) || account));
+      setSelectedAccountIds((current) => current.filter((id) => !updatedMap.has(id)));
+      setNotice(result.message || `已批量更新 ${updatedAccounts.length} 个账号`);
+      setBatchStatusFormVisible(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "批量修改账号状态失败");
+    } finally {
+      setBatchStatusUpdating(false);
+    }
+  }
+
   async function handleDelete(id: string) {
     const confirmed = window.confirm("确认删除这个账号吗？");
 
@@ -568,11 +628,7 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
   }
 
   async function handleBatchDelete() {
-    const candidateIds = new Set(selectedAccountIds);
-    const candidates =
-      selectedAccountIds.length > 0
-        ? filteredAccounts.filter((account) => candidateIds.has(account.id))
-        : filteredAccounts;
+    const candidates = getSelectedOrFilteredAccounts();
 
     if (candidates.length === 0) {
       setError("当前筛选下没有可删除账号");
@@ -920,6 +976,37 @@ export function AccountsManager({ currentUserRole, initialAccounts }: { currentU
                   {batchChecking ? "检测中..." : selectedAccountIds.length > 0 ? `检测选中账号 (${selectedAccountIds.length})` : "一键检测当前筛选"}
                 </button>
               ) : null}
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={() => setBatchStatusFormVisible((v) => !v)}
+                  className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
+                >
+                  {batchStatusFormVisible ? "收起批量改状态" : "批量改状态"}
+                </button>
+              ) : null}
+              {canManage && batchStatusFormVisible && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={batchStatusForm}
+                    onChange={(event) => setBatchStatusForm(event.target.value as AccountStatus)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400"
+                  >
+                    <option value="ACTIVE">正常</option>
+                    <option value="DISABLED">停用</option>
+                    <option value="RISKY">风险</option>
+                    <option value="EXPIRED">失效</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleBatchStatusUpdate}
+                    disabled={batchStatusUpdating}
+                    className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {batchStatusUpdating ? "更新中..." : `确认修改 ${selectedAccountIds.length > 0 ? `(${selectedAccountIds.length})` : "(当前筛选)"}`}
+                  </button>
+                </div>
+              )}
               {canManage ? (
                 <button
                   type="button"

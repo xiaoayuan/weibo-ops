@@ -51,6 +51,7 @@ enum PlanType {
   POST
   LIKE
   COMMENT
+  REPOST
 }
 
 enum ActionJobType {

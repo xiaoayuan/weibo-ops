@@ -1,3 +1,5 @@
+export type AccountLoginStatus = "UNKNOWN" | "ONLINE" | "EXPIRED" | "FAILED";
+
 export type ExecutorActionResult = {
   success: boolean;
   status: "READY" | "SUCCESS" | "FAILED";
@@ -10,23 +12,26 @@ export type ExecutePlanInput = {
   planId: string;
   accountId: string;
   accountNickname: string;
-  accountLoginStatus: string;
-  planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT";
-  targetUrl?: string | null;
-  content?: string | null;
-  topicName?: string | null;
-  topicUrl?: string | null;
+  accountLoginStatus: AccountLoginStatus;
+  planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
+  topicName: string;
+  topicUrl: string;
+  content?: string;
+  mediaAssetUrl?: string;
+  targetUrl?: string;
+  retryCount?: number;
 };
 
 export type ExecuteInteractionInput = {
   interactionTaskId: string;
   accountId: string;
   accountNickname: string;
-  accountLoginStatus: string;
-  actionType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT";
+  accountLoginStatus: AccountLoginStatus;
+  actionType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
   targetUrl: string;
   repostContent?: string | null;
   commentText?: string | null;
+  superTopicId?: string;
 };
 
 export interface SocialExecutor {

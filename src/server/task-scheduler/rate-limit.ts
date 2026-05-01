@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import type { ScheduledTaskLane } from "@/server/task-scheduler/types";
 
-type PlanType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT";
+type PlanType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
 type ActionJobType = "COMMENT_LIKE_BATCH" | "REPOST_ROTATION";
-type InteractionActionType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT";
+type InteractionActionType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
 
 export type TaskTier = "S" | "A" | "B";
 

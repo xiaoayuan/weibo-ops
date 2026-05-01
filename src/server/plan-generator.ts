@@ -167,7 +167,7 @@ export async function generateDailyPlansWithSummary(
       accountId: string;
       contentId?: string;
       planDate: Date;
-      planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT";
+      planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
       scheduledTime: Date;
       status: "PENDING";
       targetUrl?: string;
@@ -247,12 +247,32 @@ export async function generateDailyPlansWithSummary(
       }
     }
 
-    const repostTargetByNewRule = Math.max(0, task.repostPerDay || 0);
-    const repostTargetByLegacyRule = task.postEnabled
+    const repostTarget = Math.max(0, task.repostPerDay || 0);
+    const repostCount = existingPlans.filter((plan) => plan.planType === "REPOST").length;
+    const missingRepost = Math.max(0, repostTarget - repostCount);
+
+    if (missingRepost > 0) {
+      const times = randomTimesWithInterval(planDate, startTime, endTime, missingRepost, task.repostIntervalSec || 1800);
+
+      for (const scheduledTime of times) {
+        createPayload.push({
+          taskId: task.id,
+          accountId: task.accountId,
+          planDate,
+          planType: "REPOST",
+          targetUrl: topicUrl,
+          contentId: pickRandomId(contentIds),
+          scheduledTime,
+          status: "PENDING",
+        });
+      }
+    }
+
+    const postTarget = task.postEnabled
       ? randomInt(task.minPostsPerDay || 0, Math.max(task.minPostsPerDay || 0, task.maxPostsPerDay || 0))
       : 0;
-    const postTarget = repostTargetByNewRule > 0 ? repostTargetByNewRule : repostTargetByLegacyRule;
-    const missingPost = Math.max(0, postTarget - postCount);
+    const postCountToCheck = existingPlans.filter((plan) => plan.planType === "POST").length;
+    const missingPost = Math.max(0, postTarget - postCountToCheck);
 
     if (missingPost > 0) {
       const times = randomTimesWithInterval(planDate, startTime, endTime, missingPost, task.repostIntervalSec || 1800);

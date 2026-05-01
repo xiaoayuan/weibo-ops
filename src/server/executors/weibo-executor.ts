@@ -1837,6 +1837,43 @@ export class WeiboExecutor implements SocialExecutor {
         });
       }
 
+      if (input.planType === "REPOST" && input.targetUrl) {
+        const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.content || null, proxyConfig);
+        const summaryPayload =
+          repostResult.summary && typeof repostResult.summary === "object" && "responseSummary" in repostResult.summary
+            ? (repostResult.summary as { responseSummary?: unknown }).responseSummary
+            : repostResult.summary;
+        const businessOk = tryExtractBusinessOk(summaryPayload);
+        const repostConfirmed = isPostConfirmed(summaryPayload);
+
+        if (!repostResult.ok || businessOk === false || !repostConfirmed) {
+          return blockedResult("转发请求未通过，请检查目标链接和账号登录态。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "REPOST_REQUEST_FAILED",
+            summary: summarizePayload(repostResult.summary),
+            planType: input.planType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            traffic: mergeTraffic(probe.traffic, repostResult.traffic),
+            probe,
+            repostResult,
+          });
+        }
+
+        return successResult(`已发起转发请求：${input.accountNickname}`, "SUCCESS", {
+          executor: "weibo",
+          action: "REPOST",
+          summary: summarizePayload(repostResult.summary),
+          planType: input.planType,
+          targetUrl: input.targetUrl,
+          loginStatus: account.loginStatus,
+          traffic: mergeTraffic(probe.traffic, repostResult.traffic),
+          probe,
+          repostResult,
+        });
+      }
+
       return pendingActionResult(
         `weibo executor 骨架已就绪：账号 ${input.accountNickname} 的 ${input.planType} 计划通过了基础连通性探测，但尚未实现具体平台请求。`,
         {
@@ -1955,6 +1992,43 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.actionType === "POST") {
+        const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.repostContent, proxyConfig);
+        const summaryPayload =
+          repostResult.summary && typeof repostResult.summary === "object" && "responseSummary" in repostResult.summary
+            ? (repostResult.summary as { responseSummary?: unknown }).responseSummary
+            : repostResult.summary;
+        const businessOk = tryExtractBusinessOk(summaryPayload);
+        const repostConfirmed = isPostConfirmed(summaryPayload);
+
+        if (!repostResult.ok || businessOk === false || !repostConfirmed) {
+          return blockedResult("转发请求未通过，请检查目标链接和账号登录态。", {
+            executor: "weibo",
+            precheck: "blocked",
+            reason: "REPOST_REQUEST_FAILED",
+            summary: summarizePayload(repostResult.summary),
+            actionType: input.actionType,
+            targetUrl: input.targetUrl,
+            loginStatus: account.loginStatus,
+            traffic: mergeTraffic(probe.traffic, repostResult.traffic),
+            probe,
+            repostResult,
+          });
+        }
+
+        return successResult(`已发起转发请求：${input.accountNickname}`, "SUCCESS", {
+          executor: "weibo",
+          action: "REPOST",
+          summary: summarizePayload(repostResult.summary),
+          actionType: input.actionType,
+          targetUrl: input.targetUrl,
+          loginStatus: account.loginStatus,
+          traffic: mergeTraffic(probe.traffic, repostResult.traffic),
+          probe,
+          repostResult,
+        });
+      }
+
+      if (input.actionType === "REPOST") {
         const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.repostContent, proxyConfig);
         const summaryPayload =
           repostResult.summary && typeof repostResult.summary === "object" && "responseSummary" in repostResult.summary

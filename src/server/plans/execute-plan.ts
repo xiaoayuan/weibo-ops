@@ -543,7 +543,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
   const executor = getExecutor();
   let resolvedTargetUrl = plan.targetUrl || null;
 
-  if ((plan.planType === "LIKE" || plan.planType === "COMMENT") && !extractStatusIdFromUrl(resolvedTargetUrl || "")) {
+  if ((plan.planType === "LIKE" || plan.planType === "COMMENT" || plan.planType === "REPOST") && !extractStatusIdFromUrl(resolvedTargetUrl || "")) {
     const topicUrl = plan.task?.superTopic.topicUrl || "https://weibo.com/";
 
     if (plan.account.cookieEncrypted) {
@@ -571,16 +571,26 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           targetUrl: resolvedTargetUrl || plan.targetUrl || plan.task?.superTopic.topicUrl || "https://weibo.com/",
           commentText: plan.content?.content || null,
         })
-      : await executor.executePlan({
+      : plan.planType === "REPOST"
+        ? await executor.executeInteraction({
+            interactionTaskId: plan.id,
+            accountId: plan.accountId,
+            accountNickname: plan.account.nickname,
+            accountLoginStatus: plan.account.loginStatus,
+            actionType: "REPOST",
+            targetUrl: resolvedTargetUrl || plan.targetUrl || plan.task?.superTopic.topicUrl || "https://weibo.com/",
+            repostContent: plan.content?.content || null,
+          })
+        : await executor.executePlan({
           planId: plan.id,
           accountId: plan.accountId,
           accountNickname: plan.account.nickname,
           accountLoginStatus: plan.account.loginStatus,
           planType: plan.planType,
-          targetUrl: resolvedTargetUrl,
-          content: plan.content?.content || null,
-          topicName: plan.task?.superTopic.name || null,
-          topicUrl: plan.task?.superTopic.topicUrl || null,
+          targetUrl: resolvedTargetUrl || undefined,
+          content: plan.content?.content ?? undefined,
+          topicName: plan.task?.superTopic.name ?? "",
+          topicUrl: plan.task?.superTopic.topicUrl ?? "",
         });
 
   const riskRules = await getRiskRules();
