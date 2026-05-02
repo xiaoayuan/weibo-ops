@@ -5,13 +5,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  BarChart3,
+  Bell,
   CalendarDays,
+  CalendarRange,
+  ClipboardList,
   FileText,
   Home,
+  LayoutDashboard,
   Menu,
+  MessageCircleHeart,
   MessageSquare,
+  RefreshCw,
   Settings,
+  Shield,
   Tag,
+  Tags,
   Ticket,
   Users,
   X,
