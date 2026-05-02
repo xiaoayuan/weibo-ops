@@ -9,6 +9,7 @@
     "lint": "eslint --config ../../eslint.config.mjs ."
   },
   "dependencies": {
+    "browser-image-compression": "^2.0.2",
     "clsx": "^2.1.1",
     "lucide-react": "^1.8.0",
     "next": "16.2.4",
