@@ -1,79 +1,85 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif;
   --font-mono-ui: "SFMono-Regular", "IBM Plex Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   
-  /* 深色主题 - 梦幻紫粉色系 */
-  --bg: #1a0e2e;
-  --bg-elevated: #251640;
-  --bg-depth: #2d1b4e;
-  --panel: rgba(45, 27, 78, 0.75);
-  --panel-strong: rgba(55, 35, 95, 0.88);
-  --panel-muted: rgba(35, 20, 60, 0.68);
-  --line: rgba(200, 150, 255, 0.12);
-  --line-strong: rgba(220, 180, 255, 0.18);
-  --text-strong: #f8f0ff;
-  --text: #e8d5ff;
-  --text-soft: #c8a8e8;
-  --text-muted: #a888c8;
+  /* 多巴胺配色 - 明亮活泼但高级 */
+  --bg: #fefbf6;
+  --bg-elevated: #ffffff;
+  --bg-depth: #fff8f0;
+  --panel: rgba(255, 255, 255, 0.95);
+  --panel-strong: #ffffff;
+  --panel-muted: rgba(255, 250, 245, 0.92);
+  --line: rgba(0, 0, 0, 0.06);
+  --line-strong: rgba(0, 0, 0, 0.1);
+  --text-strong: #1a1a1a;
+  --text: #2d2d2d;
+  --text-soft: #666666;
+  --text-muted: #999999;
   
-  /* 主色调 - 粉紫渐变 */
-  --accent: #e879f9;
-  --accent-strong: #f0abfc;
-  --accent-soft: rgba(232, 121, 249, 0.12);
+  /* 多巴胺主色 - 明亮但不刺眼 */
+  --accent: #ff6b9d;
+  --accent-strong: #ff4d88;
+  --accent-soft: rgba(255, 107, 157, 0.08);
   
-  /* 辅助色 */
-  --success: #a78bfa;
-  --danger: #fb7185;
-  --warning: #fbbf24;
-  --info: #60a5fa;
+  /* 辅助色 - 活泼多彩 */
+  --success: #00d4aa;
+  --danger: #ff5757;
+  --warning: #ffb800;
+  --info: #4d9fff;
+  --purple: #a78bfa;
+  --orange: #ff8c42;
   
-  /* 阴影 */
-  --shadow-soft: 0 18px 40px rgba(88, 28, 135, 0.25);
-  --shadow-panel: 0 32px 80px rgba(88, 28, 135, 0.35);
+  /* 阴影 - 柔和自然 */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
   
-  /* 特殊渐变 */
-  --gradient-primary: linear-gradient(135deg, #e879f9 0%, #c084fc 50%, #a78bfa 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(232, 121, 249, 0.15) 0%, rgba(192, 132, 252, 0.1) 100%);
+  /* 渐变 */
+  --gradient-primary: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(255, 107, 157, 0.05) 0%, rgba(255, 143, 171, 0.03) 100%);
 }
 
-:root[data-theme="light"] {
-  color-scheme: light;
+:root[data-theme="dark"] {
+  color-scheme: dark;
   
-  /* 浅色主题 - 柔和粉紫色系 */
-  --bg: #fdf4ff;
-  --bg-elevated: #fefbff;
-  --bg-depth: #f5e8ff;
-  --panel: rgba(255, 250, 255, 0.92);
-  --panel-strong: #ffffff;
-  --panel-muted: rgba(250, 245, 255, 0.95);
-  --line: rgba(147, 51, 234, 0.08);
-  --line-strong: rgba(147, 51, 234, 0.15);
-  --text-strong: #4a1d6f;
-  --text: #6b2d9e;
-  --text-soft: #8b5ab8;
-  --text-muted: #a87dc8;
+  /* 深色模式 - 柔和不刺眼 */
+  --bg: #1a1a1a;
+  --bg-elevated: #222222;
+  --bg-depth: #151515;
+  --panel: rgba(40, 40, 40, 0.85);
+  --panel-strong: rgba(50, 50, 50, 0.92);
+  --panel-muted: rgba(30, 30, 30, 0.75);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --text-strong: #f5f5f5;
+  --text: #e0e0e0;
+  --text-soft: #a0a0a0;
+  --text-muted: #707070;
   
-  /* 主色调 */
-  --accent: #c026d3;
-  --accent-strong: #a21caf;
-  --accent-soft: rgba(192, 38, 211, 0.08);
+  /* 深色模式主色 */
+  --accent: #ff6b9d;
+  --accent-strong: #ff8fab;
+  --accent-soft: rgba(255, 107, 157, 0.12);
   
-  /* 辅助色 */
-  --success: #7c3aed;
-  --danger: #e11d48;
-  --warning: #d97706;
-  --info: #2563eb;
+  /* 深色模式辅助色 */
+  --success: #00d4aa;
+  --danger: #ff5757;
+  --warning: #ffb800;
+  --info: #4d9fff;
+  --purple: #a78bfa;
+  --orange: #ff8c42;
   
-  /* 阴影 */
-  --shadow-soft: 0 12px 28px rgba(147, 51, 234, 0.12);
-  --shadow-panel: 0 24px 60px rgba(147, 51, 234, 0.15);
+  /* 深色模式阴影 */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.5);
   
-  /* 特殊渐变 */
-  --gradient-primary: linear-gradient(135deg, #e879f9 0%, #c026d3 50%, #a21caf 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(232, 121, 249, 0.08) 0%, rgba(192, 38, 211, 0.05) 100%);
+  /* 深色模式渐变 */
+  --gradient-primary: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(255, 107, 157, 0.08) 0%, rgba(255, 143, 171, 0.05) 100%);
 }
 
 @theme inline {
@@ -105,51 +111,39 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(circle at 20% 10%, rgba(232, 121, 249, 0.15), transparent 25%),
-    radial-gradient(circle at 80% 20%, rgba(192, 132, 252, 0.12), transparent 30%),
-    radial-gradient(circle at 40% 80%, rgba(167, 139, 250, 0.1), transparent 35%),
-    linear-gradient(180deg, var(--bg-depth) 0%, var(--bg-elevated) 30%, var(--bg) 100%);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-body), sans-serif;
   letter-spacing: 0.01em;
 }
 
-:root[data-theme="light"] body {
+:root[data-theme="dark"] body {
   background:
-    radial-gradient(circle at 20% 10%, rgba(232, 121, 249, 0.08), transparent 30%),
-    radial-gradient(circle at 80% 20%, rgba(192, 132, 252, 0.06), transparent 35%),
-    linear-gradient(180deg, #fefbff, var(--bg));
+    radial-gradient(circle at 20% 10%, rgba(255, 107, 157, 0.03), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(77, 159, 255, 0.02), transparent 40%),
+    var(--bg);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(232, 121, 249, 0.4) transparent;
+  scrollbar-color: rgba(255, 107, 157, 0.3) transparent;
 }
 
 ::selection {
-  background: rgba(232, 121, 249, 0.3);
+  background: rgba(255, 107, 157, 0.2);
   color: var(--text-strong);
 }
 
 @layer components {
   .app-surface {
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--panel-strong) 92%, white 8%), color-mix(in srgb, var(--panel) 100%, transparent 0%));
-    box-shadow:
-      inset 0 1px 0 rgba(232, 121, 249, 0.08),
-      inset 0 0 0 1px rgba(232, 121, 249, 0.05),
-      0 20px 50px rgba(88, 28, 135, 0.25),
-      0 0 0 1px rgba(232, 121, 249, 0.1);
+    background: var(--panel);
+    box-shadow: var(--shadow-panel);
     @apply rounded-[24px] border border-app-line p-6 backdrop-blur transition-all duration-300;
   }
 
   .app-input {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--panel-strong) 92%, white 8%), color-mix(in srgb, var(--panel-muted) 100%, transparent 0%));
-    box-shadow: 
-      inset 0 1px 0 rgba(232, 121, 249, 0.05),
-      0 0 0 1px rgba(232, 121, 249, 0.1);
-    @apply h-12 w-full rounded-[16px] border border-app-line px-4 text-sm text-app-text-strong outline-none transition placeholder:text-app-text-soft/70 focus:border-app-accent/40 focus:ring-2 focus:ring-app-accent/15 focus:shadow-[0_0_20px_rgba(232,121,249,0.2)];
+    background: var(--panel-muted);
+    @apply h-12 w-full rounded-[16px] border border-app-line px-4 text-sm text-app-text-strong outline-none transition placeholder:text-app-text-soft/70 focus:border-app-accent focus:ring-2 focus:ring-app-accent/10;
   }
 
   .app-button {
@@ -157,26 +151,20 @@ body {
   }
 
   .app-button-primary {
-    background: linear-gradient(135deg, #e879f9 0%, #c084fc 50%, #a78bfa 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.35),
-      0 10px 30px rgba(232, 121, 249, 0.35),
-      0 0 0 1px rgba(232, 121, 249, 0.2);
-    @apply text-white hover:brightness-[1.08] hover:shadow-[0_12px_35px_rgba(232,121,249,0.45)] active:scale-[0.98];
+    background: var(--gradient-primary);
+    box-shadow: 0 2px 8px rgba(255, 107, 157, 0.25);
+    @apply text-white hover:shadow-[0_4px_12px_rgba(255,107,157,0.35)] active:scale-[0.98];
   }
 
   .app-button-secondary {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--panel-strong) 92%, white 8%), color-mix(in srgb, var(--panel-muted) 100%, transparent 0%));
-    box-shadow: 0 0 0 1px rgba(232, 121, 249, 0.15);
+    background: var(--panel-muted);
     @apply border border-app-line text-app-text-strong hover:border-app-accent/30 hover:bg-app-panel-strong hover:text-app-accent active:scale-[0.98];
   }
   
   .app-button-danger {
-    background: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.25),
-      0 10px 24px rgba(251, 113, 133, 0.3);
-    @apply text-white hover:brightness-[1.08] active:scale-[0.98];
+    background: linear-gradient(135deg, #ff5757 0%, #ff6b6b 100%);
+    box-shadow: 0 2px 8px rgba(255, 87, 87, 0.25);
+    @apply text-white hover:shadow-[0_4px_12px_rgba(255,87,87,0.35)] active:scale-[0.98];
   }
 
   .app-chip {
