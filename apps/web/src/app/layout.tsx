@@ -7,7 +7,16 @@ const themeBootScript = `(() => {
   try {
     const stored = window.localStorage.getItem("weibo-ops-theme");
     const systemPrefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-    const theme = stored === "light" || stored === "dark" ? stored : systemPrefersLight ? "light" : "dark";
+    
+    let theme;
+    if (stored === "light" || stored === "dark") {
+      theme = stored;
+    } else if (stored === "system" || !stored) {
+      theme = systemPrefersLight ? "light" : "dark";
+    } else {
+      theme = "dark";
+    }
+    
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
   } catch {
