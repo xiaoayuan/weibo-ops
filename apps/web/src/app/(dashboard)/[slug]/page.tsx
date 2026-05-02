@@ -29,7 +29,8 @@ export default async function PlaceholderPage({ params }: PlaceholderPageProps) 
     item.href === "/ops" ||
     item.href === "/scheduler" ||
     item.href === "/interactions" ||
-    item.href === "/traffic"
+    item.href === "/traffic" ||
+    item.href === "/performance"
   ) {
     notFound();
   }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  Activity,
   BarChart3,
   Bell,
   CalendarDays,
@@ -34,6 +35,7 @@ import { navItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
+  activity: Activity,
   bell: Bell,
   "bar-chart-3": BarChart3,
   "calendar-range": CalendarRange,

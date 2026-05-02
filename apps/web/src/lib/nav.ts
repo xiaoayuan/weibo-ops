@@ -12,7 +12,8 @@ export type NavIconName =
   | "bell"
   | "bar-chart-3"
   | "settings"
-  | "shield";
+  | "shield"
+  | "activity";
 
 export type NavItem = {
   href: string;
@@ -34,6 +35,7 @@ export const navItems: NavItem[] = [
   { href: "/logs", label: "执行日志", description: "按时间线查看执行结果和失败原因。", icon: "bell" },
   { href: "/traffic", label: "流量监控", description: "观察整体任务量和趋势变化。", icon: "bar-chart-3" },
   { href: "/scheduler", label: "调度监控", description: "查看调度器、worker 和排队状态。", icon: "refresh-cw" },
+  { href: "/performance", label: "性能监控", description: "实时监控 API 响应时间和慢查询。", icon: "activity", minRole: "ADMIN" },
   { href: "/proxy-center", label: "代理中心", description: "维护代理节点与自动分配状态。", icon: "settings", minRole: "ADMIN" },
   { href: "/users", label: "用户管理", description: "管理角色、邀请码和团队账号。", icon: "shield", minRole: "ADMIN" },
   { href: "/settings", label: "系统设置", description: "维护风险规则、个人资料和系统策略。", icon: "settings", minRole: "ADMIN" },
