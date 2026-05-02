@@ -257,7 +257,7 @@ export function ProxyCenterManager({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="代理中心" title="集中管理代理池和账号主备绑定" description="这一页已经把代理节点创建/更新/删除，以及账号主备代理绑定和自动分配都迁到了新前端。" />
+      <PageHeader eyebrow="代理中心" title="代理池管理" description="管理代理节点，配置账号主备代理绑定和自动分配。" />
 
       <SurfaceCard>
         <SectionHeader title={editingNodeId ? "编辑代理节点" : "新增代理节点"} description="这里可以直接维护代理节点并测试连通性。" />

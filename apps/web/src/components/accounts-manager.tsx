@@ -432,7 +432,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
       </section>
 
       <SurfaceCard>
-        <SectionHeader title={editingId ? "编辑账号" : "新增账号"} description="先补最常用的账号维护入口，避免新前端只能看不能管。新增账号时也可以直接进入扫码登录。" />
+        <SectionHeader title={editingId ? "编辑账号" : "新增账号"} description="填写账号信息，新增账号后可直接进入扫码登录流程。" />
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <input value={form.nickname} onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))} className="app-input" placeholder="账号昵称，留空则自动用未命名账号占位" />
           <input value={form.groupName} onChange={(event) => setForm((current) => ({ ...current, groupName: event.target.value }))} className="app-input" placeholder="分组名称" />
@@ -523,7 +523,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
 
         {accounts.length === 0 ? (
           <div className="mt-5">
-            <EmptyState title="暂时没有账号" description="后端当前没有返回账号数据。你现在可以直接用上面的表单新增账号。" />
+            <EmptyState title="暂无账号" description="还没有账号数据，请使用上方表单新增账号。" />
           </div>
         ) : (
           <TableShell className="mt-5">

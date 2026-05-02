@@ -29,7 +29,7 @@ export default async function DashboardPage() {
       <PageHeader
         eyebrow="总览驾驶舱"
         title="围绕任务执行、账号健康和异常告警建立第一屏"
-        description="这版控制台不再只是简单的数字堆叠，而是把今日计划、账号状态、异常日志和任务配置统一到一套深色商务化的信息层级里。"
+        description="统一查看今日计划、账号状态、异常日志和任务配置。"
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold tracking-[-0.02em] text-app-text-strong">今日计划</h2>
-              <p className="mt-2 text-sm leading-relaxed text-app-text-muted">从现有后端计划接口读取当日数据，先在新前端展示统一态势。</p>
+              <p className="mt-2 text-sm leading-relaxed text-app-text-muted">查看当日执行计划和任务状态。</p>
             </div>
             <StatusBadge tone={failedPlans > 0 ? "warning" : "success"}>{failedPlans > 0 ? `${failedPlans} 条失败` : "运行稳定"}</StatusBadge>
           </div>
@@ -89,7 +89,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold tracking-[-0.02em] text-app-text-strong">最近异常</h2>
-              <p className="mt-2 text-sm leading-relaxed text-app-text-muted">先聚焦失败日志，方便后续继续接执行详情和节点信息。</p>
+              <p className="mt-2 text-sm leading-relaxed text-app-text-muted">查看最近的失败日志，快速定位问题。</p>
             </div>
             <div className="rounded-full border border-app-danger/20 bg-app-danger/10 p-2.5 shadow-[0_0_12px_rgba(243,154,167,0.2)]">
               <Activity className="h-5 w-5 text-app-danger" />

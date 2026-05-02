@@ -217,10 +217,10 @@ export function TopicTasksManager({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="任务配置" title="为账号批量绑定超话和执行规则" description="新前端先把高频配置流程迁过来，支持多账号创建、单条编辑、启停和删除。" />
+      <PageHeader eyebrow="任务配置" title="账号与超话任务配置" description="为账号批量绑定超话和执行规则，支持创建、编辑、启停和删除。" />
 
       <SurfaceCard>
-        <SectionHeader title={editingId ? "编辑任务" : "新增任务"} description="当前先覆盖签到、首评、点赞、转发、回复等核心参数，后续再继续补更细的执行说明。" />
+        <SectionHeader title={editingId ? "编辑任务" : "新增任务"} description="配置签到、首评、点赞、转发、回复等任务参数。" />
 
         {accounts.length === 0 || topics.length === 0 ? (
           <div className="mt-5">

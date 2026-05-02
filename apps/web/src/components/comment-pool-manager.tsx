@@ -295,7 +295,7 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
       <PageHeader
         eyebrow="评论池管理"
         title="评论池维护与批量导入"
-        description="从微博评论链接批量导入到评论池，支持热评提取补充，是后续互动执行的数据基础。"
+        description="从微博评论链接批量导入到评论池，支持热评提取，为互动任务提供数据基础。"
       />
 
       <section className="grid gap-4 md:grid-cols-3">

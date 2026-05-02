@@ -262,7 +262,7 @@ export function UsersManager({
 
       <SurfaceCard>
         {users.length === 0 ? (
-          <EmptyState title="暂无用户" description="当前后端没有返回用户数据。" />
+          <EmptyState title="暂无用户" description="还没有用户数据。" />
         ) : (
           <TableShell>
             <table className="app-table min-w-[1080px]">

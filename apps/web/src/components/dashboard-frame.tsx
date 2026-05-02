@@ -110,13 +110,6 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
               );
             })}
           </nav>
-
-          <div className="border-t border-app-line px-6 py-5">
-            <div className="rounded-[18px] border border-app-line bg-app-panel-muted p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-app-text-soft">部署模式</p>
-              <p className="mt-3 text-sm leading-6 text-app-text-muted">当前前端已经独立为 `apps/web`，后端继续复用现有 API 与执行服务。</p>
-            </div>
-          </div>
         </aside>
 
         <div className="flex min-w-0 flex-col gap-5 lg:gap-6">

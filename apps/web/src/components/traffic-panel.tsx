@@ -55,7 +55,7 @@ export function TrafficPanel({ data }: { data: TrafficSummary | null }) {
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="流量监控" title="按真实执行日志统计流量消耗与动作占比" description="这页先迁流量监控的核心只读视图，包括近 24 小时、近 7 天、近 30 天流量，以及动作占比和最近明细。" />
+      <PageHeader eyebrow="流量监控" title="流量消耗与动作统计" description="查看近期流量消耗、动作占比和执行明细。" />
 
       <section className="grid gap-4 md:grid-cols-3">
         <SurfaceCard className="rounded-[20px] p-5"><p className="text-xs uppercase tracking-[0.18em] text-app-text-soft">近 24 小时</p><p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-app-text-strong">{formatBytes(toNumber(data.oneDayBytes))}</p></SurfaceCard>

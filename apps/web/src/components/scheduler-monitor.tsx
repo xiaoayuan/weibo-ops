@@ -43,7 +43,7 @@ export function SchedulerMonitor({ data }: { data: TaskSchedulerStatus | null })
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="调度快照" title="查看 worker、用户队列和限流快照" description="这页先把调度系统最关键的三层信息迁过来：worker 负载、用户并发队列，以及当前限流和延后决策。" />
+      <PageHeader eyebrow="调度快照" title="调度系统监控" description="查看 worker 负载、用户队列和限流状态。" />
 
       <section className="grid gap-4 md:grid-cols-4">
         <SurfaceCard className="rounded-[20px] p-5"><p className="text-xs uppercase tracking-[0.18em] text-app-text-soft">Worker 数量</p><p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-app-text-strong">{data.workerCount}</p></SurfaceCard>

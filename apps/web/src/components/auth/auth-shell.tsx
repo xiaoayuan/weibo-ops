@@ -25,10 +25,10 @@ export function AuthShell({
               田曦薇应援站
             </div>
             <h1 className="mt-8 max-w-2xl text-[3.35rem] font-semibold leading-[1.02] tracking-[-0.06em] text-app-text-strong">
-              更像成熟控制台，而不是默认后台模板。
+              田曦薇应援站运营管理系统
             </h1>
             <p className="mt-6 max-w-xl text-[15px] leading-8 text-app-text-muted">
-              新前端和后端 API 独立运行，保留你现有的执行能力、账号体系和日志链路，同时把整个管理台统一到更稳定、更专业的视觉语言里。
+              专业的微博运营管理平台，统一管理账号、任务、互动和数据分析。
             </p>
           </div>
 
@@ -38,12 +38,12 @@ export function AuthShell({
               <p className="mt-3 text-base font-medium text-app-text-strong">深浅双主题</p>
             </div>
             <div className="rounded-[20px] border border-app-line bg-app-panel-muted p-5">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-app-text-soft">架构</p>
-              <p className="mt-3 text-base font-medium text-app-text-strong">前后端解耦</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-app-text-soft">功能</p>
+              <p className="mt-3 text-base font-medium text-app-text-strong">全流程管理</p>
             </div>
             <div className="rounded-[20px] border border-app-line bg-app-panel-muted p-5">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-app-text-soft">目标</p>
-              <p className="mt-3 text-base font-medium text-app-text-strong">统一运营台体验</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-app-text-soft">体验</p>
+              <p className="mt-3 text-base font-medium text-app-text-strong">专业运营台</p>
             </div>
           </div>
         </section>
