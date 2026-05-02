@@ -30,6 +30,7 @@ import {
 
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { getRoleText, hasRequiredRole, type SessionUser } from "@/lib/auth-shared";
 import { navItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -221,6 +222,9 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
           </div>
         </div>
       ) : null}
+
+      {/* 键盘快捷键帮助 */}
+      <KeyboardShortcutsHelp />
     </div>
   );
 }
