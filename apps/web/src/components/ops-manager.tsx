@@ -129,6 +129,18 @@ export function OpsManager({
     void refreshPool();
   };
 
+  function toggleAllPoolItems() {
+    setSelectedPoolIds((current) =>
+      current.length === filteredPoolItems.length ? [] : filteredPoolItems.map((item) => item.id),
+    );
+  }
+
+  function toggleAllJobs() {
+    setSelectedJobIds((current) =>
+      current.length === filteredJobs.length ? [] : filteredJobs.map((job) => job.id),
+    );
+  }
+
   async function createSinglePoolItem() {
     try {
       setSubmitting(true);
@@ -504,6 +516,9 @@ export function OpsManager({
                 title="控评池与任务创建"
                 action={
                   <div className="flex gap-3">
+                    <button type="button" onClick={toggleAllPoolItems} disabled={filteredPoolItems.length === 0} className="app-button app-button-secondary">
+                      {selectedPoolIds.length === filteredPoolItems.length && filteredPoolItems.length > 0 ? "取消全选" : "全选"}
+                    </button>
                     <button type="button" onClick={() => void deleteSelectedPoolItems()} disabled={submitting || selectedPoolIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
                       批量删除
                     </button>
@@ -641,6 +656,9 @@ export function OpsManager({
           description="控评点赞和轮转转发的批次任务列表，支持查看状态和停止批次。"
           action={
             <div className="flex gap-3">
+              <button type="button" onClick={toggleAllJobs} disabled={filteredJobs.length === 0} className="app-button app-button-secondary">
+                {selectedJobIds.length === filteredJobs.length && filteredJobs.length > 0 ? "取消全选" : "全选"}
+              </button>
               <button type="button" onClick={() => void deleteSelectedJobs()} disabled={submitting || selectedJobIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
                 批量删除
               </button>
