@@ -14,21 +14,21 @@ export default function PerformancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">性能监控</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
+        <h1 className="text-3xl font-bold text-app-text-strong">性能监控</h1>
+        <p className="text-app-text-soft mt-2">
           实时监控系统性能，追踪 API 响应时间和慢查询
         </p>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
+      <div className="border-b border-app-line">
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab("overview")}
             className={`px-4 py-2 border-b-2 transition-colors ${
               activeTab === "overview"
-                ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                ? "border-app-accent text-app-accent"
+                : "border-transparent text-app-text-soft hover:text-app-text-strong"
             }`}
           >
             概览
@@ -37,8 +37,8 @@ export default function PerformancePage() {
             onClick={() => setActiveTab("slow-queries")}
             className={`px-4 py-2 border-b-2 transition-colors ${
               activeTab === "slow-queries"
-                ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                ? "border-app-accent text-app-accent"
+                : "border-transparent text-app-text-soft hover:text-app-text-strong"
             }`}
           >
             慢查询
@@ -47,8 +47,8 @@ export default function PerformancePage() {
             onClick={() => setActiveTab("errors")}
             className={`px-4 py-2 border-b-2 transition-colors ${
               activeTab === "errors"
-                ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                ? "border-app-accent text-app-accent"
+                : "border-transparent text-app-text-soft hover:text-app-text-strong"
             }`}
           >
             错误日志
@@ -57,8 +57,8 @@ export default function PerformancePage() {
             onClick={() => setActiveTab("charts")}
             className={`px-4 py-2 border-b-2 transition-colors ${
               activeTab === "charts"
-                ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                ? "border-app-accent text-app-accent"
+                : "border-transparent text-app-text-soft hover:text-app-text-strong"
             }`}
           >
             性能图表

@@ -32,7 +32,7 @@ export function PerformanceOverview() {
   }, [timeRange]);
 
   if (!stats) {
-    return <div className="text-gray-600 dark:text-gray-400">加载中...</div>;
+    return <div className="text-app-text-soft">加载中...</div>;
   }
 
   const statCards = [
@@ -40,31 +40,31 @@ export function PerformanceOverview() {
       title: "总请求数",
       value: stats.totalRequests,
       icon: Activity,
-      color: "text-blue-600",
+      color: "text-app-info",
     },
     {
       title: "成功率",
       value: `${stats.totalRequests > 0 ? Math.round((stats.successRequests / stats.totalRequests) * 100) : 0}%`,
       icon: CheckCircle,
-      color: "text-green-600",
+      color: "text-app-success",
     },
     {
       title: "平均响应时间",
       value: `${stats.averageResponseTime}ms`,
       icon: Zap,
-      color: "text-yellow-600",
+      color: "text-app-warning",
     },
     {
       title: "缓存命中率",
       value: `${stats.cacheHitRate}%`,
       icon: TrendingUp,
-      color: "text-purple-600",
+      color: "text-purple-500",
     },
     {
       title: "错误率",
       value: `${stats.errorRate}%`,
       icon: AlertCircle,
-      color: stats.errorRate > 5 ? "text-red-600" : "text-gray-600",
+      color: stats.errorRate > 5 ? "text-app-danger" : "text-app-text-soft",
     },
   ];
 
@@ -81,11 +81,11 @@ export function PerformanceOverview() {
           <button
             key={option.value}
             onClick={() => setTimeRange(option.value)}
-            className={`px-3 py-1 rounded text-sm ${
+            className={
               timeRange === option.value
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
+                ? "app-button app-button-primary text-sm h-9"
+                : "app-button app-button-secondary text-sm h-9"
+            }
           >
             {option.label}
           </button>
@@ -95,12 +95,12 @@ export function PerformanceOverview() {
       {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {statCards.map((card) => (
-          <div key={card.title} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div key={card.title} className="app-subpanel">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">{card.title}</h3>
+              <h3 className="text-xs font-medium uppercase tracking-wider text-app-text-soft">{card.title}</h3>
               <card.icon className={`h-4 w-4 ${card.color}`} />
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{card.value}</div>
+            <div className="text-2xl font-bold text-app-text-strong">{card.value}</div>
           </div>
         ))}
       </div>
@@ -108,24 +108,24 @@ export function PerformanceOverview() {
       {/* 最快/最慢请求 */}
       <div className="grid gap-4 md:grid-cols-2">
         {stats.fastestRequest && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="app-subpanel">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingDown className="h-4 w-4 text-green-600" />
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">最快请求</h3>
+              <TrendingDown className="h-4 w-4 text-app-success" />
+              <h3 className="text-xs font-medium uppercase tracking-wider text-app-text-soft">最快请求</h3>
             </div>
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">{stats.fastestRequest.name}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{stats.fastestRequest.duration}ms</div>
+            <div className="text-lg font-semibold text-app-text-strong">{stats.fastestRequest.name}</div>
+            <div className="text-sm text-app-text-muted">{stats.fastestRequest.duration}ms</div>
           </div>
         )}
 
         {stats.slowestRequest && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="app-subpanel">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-red-600" />
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">最慢请求</h3>
+              <TrendingUp className="h-4 w-4 text-app-danger" />
+              <h3 className="text-xs font-medium uppercase tracking-wider text-app-text-soft">最慢请求</h3>
             </div>
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">{stats.slowestRequest.name}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{stats.slowestRequest.duration}ms</div>
+            <div className="text-lg font-semibold text-app-text-strong">{stats.slowestRequest.name}</div>
+            <div className="text-sm text-app-text-muted">{stats.slowestRequest.duration}ms</div>
           </div>
         )}
       </div>
