@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CalendarDays, LoaderCircle, Play, ShieldCheck, Square, Trash2 } from "lucide-react";
+import { AlertCircle, CalendarDays, LoaderCircle, Play, RefreshCw, ShieldCheck, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
