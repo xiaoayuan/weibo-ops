@@ -56,8 +56,9 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
       <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-1 gap-5 px-4 py-4 lg:grid-cols-[286px_minmax(0,1fr)] lg:px-6 lg:py-6 xl:gap-6">
         <aside className="app-surface sticky top-6 hidden h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-[26px] p-0 lg:flex">
           <div className="flex items-center gap-4 border-b border-app-line px-6 py-6">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-gradient-to-br from-coral-400 to-coral-500 text-xl font-bold text-white shadow-sm" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
-              薇
+            <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-[18px] shadow-sm" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
+              <span className="relative z-10 text-xl font-black text-white">薇</span>
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
             </div>
             <div>
               <p className="text-lg font-bold tracking-tight text-app-text-strong">田曦薇应援站</p>
