@@ -30,7 +30,14 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       accountId: plan.account.id,
       planId: id,
       actionType: "PLAN_SCHEDULED",
-      requestPayload: { planId: id, ownerUserId: auth.session.id, workerId: scheduled.workerId, userConcurrency: scheduled.userConcurrency, queueDepth: scheduled.queueDepth },
+      requestPayload: {
+        planId: id,
+        ownerUserId: auth.session.id,
+        workerId: scheduled.workerId,
+        userConcurrency: scheduled.userConcurrency,
+        queueDepth: scheduled.queueDepth,
+        queueState: "QUEUED",
+      },
       success: true,
     });
 

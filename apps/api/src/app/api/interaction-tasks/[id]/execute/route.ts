@@ -37,7 +37,15 @@ export async function POST(request: Request, context: RouteContext<"/api/interac
     await writeExecutionLog({
       accountId: task.account.id,
       actionType: "INTERACTION_SCHEDULED",
-      requestPayload: { taskId: id, ownerUserId: auth.session.id, executorAccountId, workerId: scheduled.workerId, userConcurrency: scheduled.userConcurrency, queueDepth: scheduled.queueDepth },
+      requestPayload: {
+        taskId: id,
+        ownerUserId: auth.session.id,
+        executorAccountId,
+        workerId: scheduled.workerId,
+        userConcurrency: scheduled.userConcurrency,
+        queueDepth: scheduled.queueDepth,
+        queueState: "QUEUED",
+      },
       success: true,
     });
 

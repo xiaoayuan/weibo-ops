@@ -59,6 +59,20 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
   const scheduleDecision = await reserveRateLimitedExecution({ ownerUserId, taskType: resolveInteractionTaskType(interactionActionType), baseTier: "A" });
   if (scheduleDecision.delayMs > 0) {
     await prisma.interactionTask.update({ where: { id }, data: { resultMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行` } });
+    await writeExecutionLog({
+      accountId: executionAccount.id,
+      actionType: "INTERACTION_DELAYED",
+      requestPayload: {
+        interactionTaskId: task.id,
+        actionType: interactionActionType,
+        delayMs: scheduleDecision.delayMs,
+        delaySeconds: Math.ceil(scheduleDecision.delayMs / 1000),
+        scheduleDecision,
+        queueState: "DELAYED",
+      },
+      success: true,
+      errorMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行`,
+    });
     await sleep(scheduleDecision.delayMs);
   }
 

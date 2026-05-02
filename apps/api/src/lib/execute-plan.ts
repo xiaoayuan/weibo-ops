@@ -1,5 +1,6 @@
 import { classifyAndApplyAccountRisk, attachRiskMetaToPayload } from "@/src/lib/account-risk";
 import { waitForAccountExecutionWindow } from "@/src/lib/account-timing";
+import { getBusinessDateText } from "@/src/lib/business-date";
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/src/lib/circuit-breaker";
 import { decryptText, getDecryptErrorMessage } from "@/src/lib/encrypt";
 import { getExecutor } from "@/src/lib/executor-index";
@@ -34,13 +35,6 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function toDateText(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 export async function executePlanById(id: string, ownerUserId?: string) {
   const plan = await prisma.dailyPlan.findUnique({ where: { id }, include: planInclude });
   if (!plan) return { ok: false as const, status: 404, message: "计划不存在" };
@@ -67,6 +61,20 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
   if (scheduleDecision.delayMs > 0) {
     await prisma.dailyPlan.update({ where: { id }, data: { resultMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行` } });
+    await writeExecutionLog({
+      accountId: plan.accountId,
+      planId: plan.id,
+      actionType: "PLAN_DELAYED",
+      requestPayload: {
+        planType: plan.planType,
+        delayMs: scheduleDecision.delayMs,
+        delaySeconds: Math.ceil(scheduleDecision.delayMs / 1000),
+        scheduleDecision,
+        queueState: "DELAYED",
+      },
+      success: true,
+      errorMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行`,
+    });
     await sleep(scheduleDecision.delayMs);
   }
 
@@ -81,7 +89,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
   if (cancelledAfterWait) return toCancelledResult(cancelledAfterWait);
 
   if (plan.planType === "FIRST_COMMENT") {
-    const planDateText = toDateText(plan.planDate);
+    const planDateText = getBusinessDateText(plan.planDate);
 
     if (!plan.task) {
       const updated = await prisma.dailyPlan.update({ where: { id }, data: { status: "FAILED", resultMessage: "首评计划未绑定任务配置" }, include: planInclude });

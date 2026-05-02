@@ -29,6 +29,28 @@ export function getBusinessDateText(date = new Date()) {
   return formatBusinessDate(date);
 }
 
+export function formatBusinessDateTime(date: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+export function formatBusinessHm(date: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: BUSINESS_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 export function toBusinessDateTime(dateText: string, timeText: string) {
   const matched = timeText.match(/^(\d{2}):(\d{2})$/);
 
@@ -39,6 +61,16 @@ export function toBusinessDateTime(dateText: string, timeText: string) {
   return new Date(`${dateText}T${matched[1]}:${matched[2]}:00+08:00`);
 }
 
-export function toBusinessDate(input: string) {
-  return new Date(`${input}T00:00:00+08:00`);
+export function toBusinessDate(dateText: string) {
+  const matched = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!matched) {
+    throw new Error("业务日期格式不正确");
+  }
+
+  const year = Number(matched[1]);
+  const month = Number(matched[2]);
+  const day = Number(matched[3]);
+
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 }

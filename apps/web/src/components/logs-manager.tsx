@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
 import type { ExecutionLog } from "@/lib/app-data";
+import { formatDateTime } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";
 
 type UserOption = { id: string; username: string };
@@ -66,6 +67,14 @@ function getActionText(log: ExecutionLog) {
     return payload?.jobType === "REPOST_ROTATION" ? "轮转任务入队" : "控评任务入队";
   }
 
+  if (log.actionType === "PLAN_DELAYED") {
+    return "计划延后执行";
+  }
+
+  if (log.actionType === "INTERACTION_DELAYED") {
+    return "互动任务延后执行";
+  }
+
   if (log.actionType === "INTERACTION_EXECUTE_PRECHECKED" || log.actionType === "INTERACTION_EXECUTE_BLOCKED") {
     const actionType = payload?.actionType;
     if (actionType === "LIKE") return "互动点赞";
@@ -86,6 +95,14 @@ function getDetailText(log: ExecutionLog) {
 
   if (typeof payload?.targetUrl === "string") {
     return payload.targetUrl;
+  }
+
+  if (typeof payload?.delaySeconds === "number") {
+    return `已延后 ${payload.delaySeconds} 秒执行`;
+  }
+
+  if (typeof payload?.earliestStartAt === "string") {
+    return `最早执行时间：${formatDateTime(payload.earliestStartAt)}`;
   }
 
   if (typeof responsePayload?.summary === "string") {
@@ -109,6 +126,33 @@ function getStageText(stage: LogStage) {
 function getResultTone(log: ExecutionLog): "success" | "danger" | "warning" {
   if (!log.success) return "danger";
   return getLogStage(log) === "PRECHECK_BLOCKED" ? "warning" : "success";
+}
+
+function getOutcomeMeta(log: ExecutionLog) {
+  const detail = getDetailText(log);
+  const actionText = getActionText(log);
+
+  if (log.actionType === "PLAN_DELAYED" || log.actionType === "INTERACTION_DELAYED") {
+    return { label: "延后执行", tone: "warning" as const };
+  }
+
+  if (actionText.includes("入队") || log.actionType === "PLAN_SCHEDULED" || log.actionType === "INTERACTION_SCHEDULED" || log.actionType === "ACTION_JOB_SCHEDULED") {
+    const payload = log.requestPayload && typeof log.requestPayload === "object" ? (log.requestPayload as Record<string, unknown>) : null;
+    if (payload?.queueState === "DELAYED" || detail.includes("最早执行时间") || detail.includes("延后")) {
+      return { label: "延后执行", tone: "warning" as const };
+    }
+    return { label: "已入队", tone: "info" as const };
+  }
+
+  if (getLogStage(log) === "PRECHECK_BLOCKED") {
+    return { label: "预检拦截", tone: "warning" as const };
+  }
+
+  if (log.success) {
+    return { label: "执行成功", tone: "success" as const };
+  }
+
+  return { label: "执行失败", tone: "danger" as const };
 }
 
 function buildSummaryRows(logs: ExecutionLog[]) {
@@ -308,7 +352,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
                         <td>{row.failed}</td>
                         <td>{row.blocked}</td>
                         <td className="max-w-[320px] text-xs text-app-text-soft">{row.details.join(" / ") || "-"}</td>
-                        <td>{new Date(row.latestExecutedAt).toLocaleString("zh-CN")}</td>
+                        <td>{formatDateTime(row.latestExecutedAt)}</td>
                         <td>
                           <button type="button" onClick={() => void fetchAiSummary(row.id, row.actionText, row.details.join(" / ") || row.actionText)} className="text-xs text-app-accent hover:text-app-text-strong">AI 总结</button>
                           {aiSummaryMap[row.id] ? <p className="mt-2 max-w-[240px] text-xs text-app-text-soft">{aiSummaryMap[row.id].summary}</p> : null}
@@ -324,7 +368,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
                                   <div key={accountRow.id} className="rounded-[18px] border border-app-line bg-app-panel p-4">
                                     <div className="flex items-center justify-between gap-3">
                                       <p className="font-medium text-app-text-strong">{accountRow.accountText}</p>
-                                      <span className="text-xs text-app-text-soft">{new Date(accountRow.latestExecutedAt).toLocaleString("zh-CN")}</span>
+                                      <span className="text-xs text-app-text-soft">{formatDateTime(accountRow.latestExecutedAt)}</span>
                                     </div>
                                     <div className="mt-3 flex flex-wrap gap-2">
                                       <StatusBadge tone="info">总数 {accountRow.total}</StatusBadge>
@@ -362,10 +406,10 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
                       {isAdmin ? <td>{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
                       <td className="font-medium text-app-text-strong">{getActionText(log)}</td>
                       <td>{log.account?.nickname || "系统"}</td>
-                      <td><StatusBadge tone={getResultTone(log)}>{log.success ? "成功" : "失败"}</StatusBadge></td>
+                      <td><StatusBadge tone={getOutcomeMeta(log).tone}>{getOutcomeMeta(log).label}</StatusBadge></td>
                       <td>{getStageText(getLogStage(log))}</td>
                       <td className="max-w-[360px] text-xs text-app-text-soft">{getDetailText(log)} {aiSummaryMap[summaryKey] ? ` | ${aiSummaryMap[summaryKey].summary}` : ""}<button type="button" onClick={() => void fetchAiSummary(summaryKey, getActionText(log), getDetailText(log), log.errorMessage)} className="ml-2 text-xs text-app-accent hover:text-app-text-strong">AI</button></td>
-                      <td>{new Date(log.executedAt).toLocaleString("zh-CN")}</td>
+                      <td>{formatDateTime(log.executedAt)}</td>
                     </tr>
                   );
                 })}

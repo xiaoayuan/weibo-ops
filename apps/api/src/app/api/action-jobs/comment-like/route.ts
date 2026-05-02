@@ -110,6 +110,7 @@ export async function POST(request: Request) {
         targetNodeId,
         earliestStartAt,
         scheduleDecision,
+        queueState: scheduleDecision.delayMs > 0 ? "DELAYED" : "QUEUED",
         aiRisk: parsed.data.aiRisk,
       },
       success: true,
