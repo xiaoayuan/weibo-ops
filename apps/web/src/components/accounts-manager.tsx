@@ -12,6 +12,8 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
+import { ExportButtonWithFields } from "@/components/export-button";
+import { ACCOUNT_EXPORT_FIELDS, DataExporter } from "@/lib/data-exporter";
 import type { WeiboAccount } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";
@@ -417,11 +419,39 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
     }
   }
 
+  // 准备导出数据
+  const exportData = accounts.map((account) => ({
+    nickname: account.nickname || "未命名",
+    weiboUid: account.weiboUid || "",
+    status: DataExporter.formatStatus(account.status),
+    groupName: account.groupName || "",
+    remark: account.remark || "",
+    loginStatus: getLoginStatusText(account.loginStatus),
+    createdAt: DataExporter.formatDate(account.createdAt),
+    updatedAt: DataExporter.formatDate(account.updatedAt),
+  }));
+
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
         title="微博账号管理"
         description="管理微博账号、检测登录状态、配置代理绑定。"
+        action={
+          <ExportButtonWithFields
+            data={exportData}
+            filename={`微博账号_${new Date().toLocaleDateString()}`}
+            availableFields={{
+              nickname: "昵称",
+              weiboUid: "微博 UID",
+              status: "状态",
+              groupName: "分组",
+              remark: "备注",
+              loginStatus: "登录状态",
+              createdAt: "创建时间",
+              updatedAt: "更新时间",
+            }}
+          />
+        }
       />
 
       <section className="grid gap-4 md:grid-cols-3">
