@@ -355,32 +355,68 @@ export function PlansManager({
                             </>
                           ) : (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingId(plan.id);
-                                  setScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
-                                  setContentId(plan.contentId || "");
-                                }}
-                                className="app-button app-button-secondary h-10 px-4 text-xs"
-                              >
-                                编辑
-                              </button>
-                              <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
-                                <Play className="mr-1.5 h-3.5 w-3.5" />执行
-                              </button>
-                              <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/approve`, "计划已确认")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
-                                通过
-                              </button>
-                              <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/reject`, "计划已驳回")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
-                                驳回
-                              </button>
-                              <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/stop`, "计划已停止")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
-                                <Square className="mr-1.5 h-3.5 w-3.5" />停止
-                              </button>
-                              <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
-                                <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
-                              </button>
+                              {/* 待确认状态：显示编辑、通过、驳回、删除 */}
+                              {plan.status === "READY" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingId(plan.id);
+                                      setScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
+                                      setContentId(plan.contentId || "");
+                                    }}
+                                    className="app-button app-button-secondary h-10 px-4 text-xs"
+                                  >
+                                    编辑
+                                  </button>
+                                  <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/approve`, "计划已确认")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                    通过
+                                  </button>
+                                  <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/reject`, "计划已驳回")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                    驳回
+                                  </button>
+                                  <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
+                                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
+                                  </button>
+                                </>
+                              )}
+
+                              {/* 待执行状态：显示编辑、执行、删除 */}
+                              {plan.status === "PENDING" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingId(plan.id);
+                                      setScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
+                                      setContentId(plan.contentId || "");
+                                    }}
+                                    className="app-button app-button-secondary h-10 px-4 text-xs"
+                                  >
+                                    编辑
+                                  </button>
+                                  <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                    <Play className="mr-1.5 h-3.5 w-3.5" />执行
+                                  </button>
+                                  <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
+                                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
+                                  </button>
+                                </>
+                              )}
+
+                              {/* 执行中状态：显示停止 */}
+                              {plan.status === "RUNNING" && (
+                                <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/stop`, "计划已停止")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                  <Square className="mr-1.5 h-3.5 w-3.5" />停止
+                                </button>
+                              )}
+
+                              {/* 已完成/失败/取消状态：只显示删除 */}
+                              {(plan.status === "SUCCESS" || plan.status === "FAILED" || plan.status === "CANCELLED") && (
+                                <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
+                                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
