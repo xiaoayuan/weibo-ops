@@ -60,6 +60,7 @@ export function PlansManager({
   const [scheduledTime, setScheduledTime] = useState("");
   const [contentId, setContentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submittingPlanIds, setSubmittingPlanIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -135,9 +136,9 @@ export function PlansManager({
     }
   }
 
-  async function runPlanAction(path: string, successMessage?: string) {
+  async function runPlanAction(planId: string, path: string, successMessage?: string) {
     try {
-      setSubmitting(true);
+      setSubmittingPlanIds((prev) => new Set(prev).add(planId));
       setError(null);
       setNotice(null);
 
@@ -154,12 +155,15 @@ export function PlansManager({
         setPlans((current) => current.map((plan) => (plan.id === nextPlan.id ? nextPlan : plan)));
       }
 
-      await reloadPlans(date);
       setNotice(result.message || summarizePlanRefreshMessage(successMessage || "操作完成", nextPlan));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "操作失败");
     } finally {
-      setSubmitting(false);
+      setSubmittingPlanIds((prev) => {
+        const next = new Set(prev);
+        next.delete(planId);
+        return next;
+      });
     }
   }
 
@@ -169,7 +173,7 @@ export function PlansManager({
     }
 
     try {
-      setSubmitting(true);
+      setSubmittingPlanIds((prev) => new Set(prev).add(id));
       setError(null);
       setNotice(null);
 
@@ -180,18 +184,22 @@ export function PlansManager({
         throw new Error(result.message || "删除计划失败");
       }
 
-      await reloadPlans(date);
-      setNotice(result.message || "计划已删除，列表已刷新");
+      setPlans((current) => current.filter((plan) => plan.id !== id));
+      setNotice(result.message || "计划已删除");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "删除计划失败");
     } finally {
-      setSubmitting(false);
+      setSubmittingPlanIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
   async function savePlanEdit(id: string) {
     try {
-      setSubmitting(true);
+      setSubmittingPlanIds((prev) => new Set(prev).add(id));
       setError(null);
       setNotice(null);
 
@@ -209,15 +217,19 @@ export function PlansManager({
         throw new Error(result.message || "更新计划失败");
       }
 
-      await reloadPlans(date);
+      setPlans((current) => current.map((plan) => (plan.id === result.data.id ? result.data : plan)));
       setEditingId(null);
       setScheduledTime("");
       setContentId("");
-      setNotice("计划已更新，列表已刷新");
+      setNotice("计划已更新");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "更新计划失败");
     } finally {
-      setSubmitting(false);
+      setSubmittingPlanIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -345,11 +357,11 @@ export function PlansManager({
                         <div className="flex flex-wrap gap-2">
                           {isEditing ? (
                             <>
-                              <button type="button" onClick={() => void savePlanEdit(plan.id)} disabled={submitting} className="app-button app-button-primary h-10 px-4 text-xs">
-                                {submitting ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                              <button type="button" onClick={() => void savePlanEdit(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-primary h-10 px-4 text-xs">
+                                {submittingPlanIds.has(plan.id) ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
                                 保存
                               </button>
-                              <button type="button" onClick={() => setEditingId(null)} className="app-button app-button-secondary h-10 px-4 text-xs">
+                              <button type="button" onClick={() => setEditingId(null)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                 取消
                               </button>
                             </>
@@ -365,17 +377,18 @@ export function PlansManager({
                                       setScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
                                       setContentId(plan.contentId || "");
                                     }}
+                                    disabled={submittingPlanIds.has(plan.id)}
                                     className="app-button app-button-secondary h-10 px-4 text-xs"
                                   >
                                     编辑
                                   </button>
-                                  <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/approve`, "计划已确认")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                  <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/approve`, "计划已确认")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                     通过
                                   </button>
-                                  <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/reject`, "计划已驳回")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                  <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/reject`, "计划已驳回")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                     驳回
                                   </button>
-                                  <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
+                                  <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-danger h-10 px-4 text-xs">
                                     <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
                                   </button>
                                 </>
@@ -391,14 +404,15 @@ export function PlansManager({
                                       setScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
                                       setContentId(plan.contentId || "");
                                     }}
+                                    disabled={submittingPlanIds.has(plan.id)}
                                     className="app-button app-button-secondary h-10 px-4 text-xs"
                                   >
                                     编辑
                                   </button>
-                                  <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                  <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                     <Play className="mr-1.5 h-3.5 w-3.5" />执行
                                   </button>
-                                  <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
+                                  <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-danger h-10 px-4 text-xs">
                                     <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
                                   </button>
                                 </>
@@ -406,14 +420,14 @@ export function PlansManager({
 
                               {/* 执行中状态：显示停止 */}
                               {plan.status === "RUNNING" && (
-                                <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/stop`, "计划已停止")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/stop`, "计划已停止")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                   <Square className="mr-1.5 h-3.5 w-3.5" />停止
                                 </button>
                               )}
 
                               {/* 已完成/失败/取消状态：只显示删除 */}
                               {(plan.status === "SUCCESS" || plan.status === "FAILED" || plan.status === "CANCELLED") && (
-                                <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
+                                <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-danger h-10 px-4 text-xs">
                                   <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
                                 </button>
                               )}
