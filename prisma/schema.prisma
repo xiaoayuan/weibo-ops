@@ -206,6 +206,9 @@ model WeiboAccount {
 
   @@index([ownerUserId])
   @@index([proxyNodeId])
+  @@index([status])
+  @@index([loginStatus])
+  @@index([ownerUserId, status])
 }
 
 model SuperTopic {
@@ -231,6 +234,9 @@ model CopywritingTemplate {
 
   plans     DailyPlan[]
   interactionTasks InteractionTask[]
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
 }
 
 model AccountTopicTask {
@@ -301,6 +307,9 @@ model DailyPlan {
 
   @@index([accountId, planDate])
   @@index([status, scheduledTime])
+  @@index([planDate, status])
+  @@index([accountId, planDate, status])
+  @@index([planType, status])
 }
 
 model InteractionTarget {
@@ -334,6 +343,8 @@ model InteractionTask {
   @@index([targetId])
   @@index([accountId])
   @@index([contentId])
+  @@index([status, scheduledTime])
+  @@index([accountId, status])
 }
 
 model ExecutionLog {
@@ -354,6 +365,9 @@ model ExecutionLog {
 
   @@index([accountId, executedAt])
   @@index([planId])
+  @@index([executedAt(sort: Desc)])
+  @@index([success, executedAt(sort: Desc)])
+  @@index([actionType, executedAt(sort: Desc)])
 }
 
 model CommentLinkPoolItem {
@@ -385,7 +399,8 @@ model ActionJob {
   steps       ActionJobStep[]
 
   @@index([jobType, createdAt])
-  @@index([status, createdAt])
+  @@index([status, createdAt], map: "ActionJob_status_createdAt_asc_idx")
+  @@index([status, createdAt(sort: Desc)], map: "ActionJob_status_createdAt_desc_idx")
 }
 
 model ActionJobAccountRun {
@@ -404,6 +419,7 @@ model ActionJobAccountRun {
 
   @@index([jobId])
   @@index([accountId, createdAt])
+  @@index([jobId, status])
 }
 
 model ActionJobStep {
