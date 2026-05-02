@@ -9,9 +9,10 @@ import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
-import type { ExecutionLog } from "@/lib/app-data";
+import type { ExecutionLog, Plan } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";
+import { getActionTypeText } from "@/lib/text";
 
 type UserOption = { id: string; username: string };
 type LogStage = "UNKNOWN" | "PRECHECK_BLOCKED" | "PRECHECK_PASSED" | "ACTION_PENDING";
@@ -51,6 +52,19 @@ type SummaryRow = {
   accountRows: AccountSummaryRow[];
 };
 
+type PlanProgressRow = {
+  accountId: string;
+  accountText: string;
+  total: number;
+  completed: number;
+  success: number;
+  failed: number;
+  delayed: number;
+  pending: number;
+  running: number;
+  latestScheduledTime: string;
+};
+
 function readStageFromPayload(payload: unknown): LogStage {
   if (!payload || typeof payload !== "object") {
     return "UNKNOWN";
@@ -88,7 +102,7 @@ function getActionText(log: ExecutionLog) {
     if (actionType === "COMMENT") return "互动回复";
   }
 
-  return log.actionType;
+  return getActionTypeText(log.actionType);
 }
 
 function getDetailText(log: ExecutionLog) {
@@ -258,7 +272,51 @@ function buildSummaryRows(logs: ExecutionLog[]) {
     .sort((a, b) => new Date(b.latestExecutedAt).getTime() - new Date(a.latestExecutedAt).getTime());
 }
 
-export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: ExecutionLog[]; users: UserOption[]; isAdmin: boolean }) {
+function isDelayedPlan(plan: Plan) {
+  const text = `${plan.pendingReason || ""} ${plan.scheduleNote || ""} ${plan.resultMessage || ""}`;
+  return text.includes("延后") || text.includes("顺延") || text.includes("最早执行");
+}
+
+function buildPlanProgressRows(plans: Plan[]) {
+  const map = new Map<string, PlanProgressRow>();
+
+  for (const plan of plans) {
+    const accountId = plan.account.id;
+    const accountText = plan.account.nickname;
+
+    if (!map.has(accountId)) {
+      map.set(accountId, {
+        accountId,
+        accountText,
+        total: 0,
+        completed: 0,
+        success: 0,
+        failed: 0,
+        delayed: 0,
+        pending: 0,
+        running: 0,
+        latestScheduledTime: plan.scheduledTime,
+      });
+    }
+
+    const row = map.get(accountId)!;
+    row.total += 1;
+    row.success += plan.status === "SUCCESS" ? 1 : 0;
+    row.failed += plan.status === "FAILED" || plan.status === "CANCELLED" ? 1 : 0;
+    row.pending += plan.status === "PENDING" || plan.status === "READY" ? 1 : 0;
+    row.running += plan.status === "RUNNING" ? 1 : 0;
+    row.delayed += isDelayedPlan(plan) ? 1 : 0;
+    row.completed += plan.status === "SUCCESS" || plan.status === "FAILED" || plan.status === "CANCELLED" ? 1 : 0;
+
+    if (new Date(plan.scheduledTime).getTime() > new Date(row.latestScheduledTime).getTime()) {
+      row.latestScheduledTime = plan.scheduledTime;
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.accountText.localeCompare(b.accountText, "zh-CN"));
+}
+
+export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { initialLogs: ExecutionLog[]; initialPlans: Plan[]; users: UserOption[]; isAdmin: boolean }) {
   const [viewMode, setViewMode] = useState<"SUMMARY" | "DETAIL">("SUMMARY");
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -294,6 +352,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
   }, [actionFilter, endDate, initialLogs, isAdmin, keyword, resultFilter, stageFilter, startDate, userFilter]);
 
   const summaryRows = useMemo(() => buildSummaryRows(filteredLogs), [filteredLogs]);
+  const planProgressRows = useMemo(() => buildPlanProgressRows(initialPlans), [initialPlans]);
 
   async function fetchAiSummary(key: string, actionText: string, detailText: string, topReason?: string | null) {
     if (aiSummaryMap[key]) {
@@ -360,7 +419,35 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
       {aiError ? <AppNotice tone="error">{aiError}</AppNotice> : null}
 
       <SurfaceCard>
-        <SectionHeader title={viewMode === "SUMMARY" ? "汇总视图" : "明细视图"} description={`当前命中 ${viewMode === "SUMMARY" ? summaryRows.length : filteredLogs.length} 条记录`} />
+        <SectionHeader title="今日计划完成视图" description="这里统计的是当天真实计划，不是日志动作数。每个账号当天通常会有多条计划，是否 5 条取决于任务配置。" />
+        {planProgressRows.length === 0 ? (
+          <div className="mt-5"><EmptyState title="今日暂无计划" description="当前业务日期下没有可统计的计划。" /></div>
+        ) : (
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {planProgressRows.map((row) => (
+              <div key={row.accountId} className="rounded-[18px] border border-app-line bg-app-panel p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium text-app-text-strong">{row.accountText}</p>
+                  <span className="text-xs text-app-text-soft">{formatDateTime(row.latestScheduledTime)}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <StatusBadge tone="info">总计划 {row.total}</StatusBadge>
+                  <StatusBadge tone="success">已完成 {row.completed}</StatusBadge>
+                  <StatusBadge tone="success">成功 {row.success}</StatusBadge>
+                  <StatusBadge tone={row.failed > 0 ? "danger" : "neutral"}>失败/取消 {row.failed}</StatusBadge>
+                  <StatusBadge tone="warning">延后 {row.delayed}</StatusBadge>
+                  <StatusBadge tone="info">待处理 {row.pending}</StatusBadge>
+                  <StatusBadge tone="accent">执行中 {row.running}</StatusBadge>
+                </div>
+                <p className="mt-3 text-xs leading-6 text-app-text-soft">这里统计的是该账号今天真实生成的计划数。不同账号是否正好 5 条，取决于它绑定的任务配置，不是固定值。</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </SurfaceCard>
+
+      <SurfaceCard>
+        <SectionHeader title={viewMode === "SUMMARY" ? "汇总视图" : "明细视图"} description={viewMode === "SUMMARY" ? `当前命中 ${summaryRows.length} 个动作汇总。这里统计的是日志动作，不等于每日计划总任务数。` : `当前命中 ${filteredLogs.length} 条日志记录`} />
         {viewMode === "SUMMARY" ? (
           summaryRows.length === 0 ? (
             <div className="mt-5"><EmptyState title="当前筛选下暂无汇总数据" description="调整筛选条件后再试。" /></div>
@@ -405,7 +492,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
                                       <span className="text-xs text-app-text-soft">{formatDateTime(accountRow.latestExecutedAt)}</span>
                                     </div>
                                     <div className="mt-3 flex flex-wrap gap-2">
-                                      <StatusBadge tone="info">总数 {accountRow.total}</StatusBadge>
+                                      <StatusBadge tone="info">该动作数 {accountRow.total}</StatusBadge>
                                       <StatusBadge tone="success">完成 {accountRow.completed}</StatusBadge>
                                       <StatusBadge tone="warning">延后 {accountRow.delayed}</StatusBadge>
                                       <StatusBadge tone="info">入队 {accountRow.queued}</StatusBadge>
