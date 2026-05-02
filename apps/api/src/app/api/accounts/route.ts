@@ -42,6 +42,28 @@ export async function GET(request: Request) {
     });
   }
 
+  // 如果是第一页且没有缓存，尝试使用预热缓存
+  if (page === 1) {
+    const warmupCache = await CacheManager.get<unknown[]>("accounts:active");
+    if (warmupCache && warmupCache.length > 0) {
+      const total = warmupCache.length;
+      const accounts = warmupCache.slice(0, pageSize);
+      
+      return Response.json({
+        success: true,
+        data: accounts,
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        },
+        cached: true,
+        warmup: true,
+      });
+    }
+  }
+
   // 查询数据库
   const [accounts, total] = await Promise.all([
     prisma.weiboAccount.findMany({

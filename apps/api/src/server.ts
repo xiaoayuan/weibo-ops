@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
 import { proxyToLegacyBackend } from "./http/proxy";
+import { CacheWarmup } from "./lib/cache-warmup";
 
 const app = new Hono();
 
@@ -35,6 +36,9 @@ app.all("/api/*", async (c) => {
 });
 
 const port = Number(process.env.PORT || 3009);
+
+// 启动缓存预热
+CacheWarmup.startScheduledWarmup();
 
 serve(
   {
