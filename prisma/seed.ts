@@ -166,9 +166,16 @@ async function main() {
     });
   }
 
-  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
+  // 使用本地时区创建日期，避免 UTC 时区偏差
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
+
+  function createLocalDateTime(date: Date, time: string): Date {
+    const [hours, minutes] = time.split(":").map(Number);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0);
+  }
 
   const planSeeds = [
     {
@@ -178,7 +185,7 @@ async function main() {
       contentId: createdContents[0]?.id,
       planDate: today,
       planType: "POST" as const,
-      scheduledTime: new Date(new Date().toISOString().slice(0, 10) + "T10:30:00"),
+      scheduledTime: createLocalDateTime(today, "10:30"),
       status: "READY" as const,
     },
     {
@@ -188,7 +195,7 @@ async function main() {
       contentId: createdContents[1]?.id,
       planDate: today,
       planType: "CHECK_IN" as const,
-      scheduledTime: new Date(new Date().toISOString().slice(0, 10) + "T09:20:00"),
+      scheduledTime: createLocalDateTime(today, "09:20"),
       status: "SUCCESS" as const,
     },
     {
@@ -198,7 +205,7 @@ async function main() {
       contentId: createdContents[2]?.id,
       planDate: today,
       planType: "POST" as const,
-      scheduledTime: new Date(new Date().toISOString().slice(0, 10) + "T14:00:00"),
+      scheduledTime: createLocalDateTime(today, "14:00"),
       status: "FAILED" as const,
       resultMessage: "模拟失败日志",
     },
@@ -209,7 +216,7 @@ async function main() {
       contentId: createdContents[3]?.id,
       planDate: tomorrow,
       planType: "POST" as const,
-      scheduledTime: new Date(tomorrow.toISOString().slice(0, 10) + "T11:30:00"),
+      scheduledTime: createLocalDateTime(tomorrow, "11:30"),
       status: "PENDING" as const,
     },
   ].filter((item) => item.accountId);

@@ -108,14 +108,18 @@ function getBusinessActionText(log: LogWithRelations) {
       return "生成今日计划";
     case "PLAN_SCHEDULED":
       return "计划进入执行队列";
+    case "PLAN_EXECUTE_PRECHECKED":
+    case "PLAN_EXECUTE_BLOCKED":
+      return "计划执行";
     case "AUTO_CHECKIN_DAILY_RUN":
       return "自动签到调度";
     case "AUTO_FIRST_COMMENT_DAILY_RUN":
       return "自动首评调度";
     case "FIRST_COMMENT_EXECUTE_FAILED":
-      return "首评执行";
     case "FIRST_COMMENT_EXECUTE_SUCCESS":
       return "首评执行";
+    case "FIRST_COMMENT_REQUEUED":
+      return "首评重新排队";
     case "CHECK_IN":
       return "签到执行";
     case "POST":
@@ -230,6 +234,34 @@ function getBusinessDetailText(log: LogWithRelations) {
     const targetUrl = payload && typeof payload.targetUrl === "string" ? payload.targetUrl : null;
     const actionText = actionType === "LIKE" ? "点赞" : actionType === "POST" ? "转发" : actionType === "CHECK_IN" ? "签到" : "回复";
     return `${actionText}互动任务${targetUrl ? `，目标 ${targetUrl}` : ""}${getLogStage(log) === "PRECHECK_BLOCKED" ? "，执行前被拦截。" : "。"}`;
+  }
+
+  if (log.actionType === "PLAN_EXECUTE_PRECHECKED" || log.actionType === "PLAN_EXECUTE_BLOCKED") {
+    const planType = payload && typeof payload.planType === "string" ? payload.planType : null;
+    const planTypeText = planType === "CHECK_IN" ? "签到" : planType === "POST" ? "发帖" : planType === "LIKE" ? "点赞" : planType === "COMMENT" ? "评论" : planType === "REPOST" ? "转发" : planType === "FIRST_COMMENT" ? "首评" : "计划";
+    const summary = getResponseSummary(log.responsePayload);
+    
+    if (stage === "PRECHECK_BLOCKED") {
+      return `${planTypeText}计划预检拦截${summary !== "-" ? `：${summary}` : ""}`;
+    }
+    
+    if (log.success) {
+      return `${planTypeText}计划执行成功${summary !== "-" ? `：${summary}` : ""}`;
+    }
+    
+    return `${planTypeText}计划执行失败${summary !== "-" ? `：${summary}` : ""}`;
+  }
+
+  if (log.actionType === "FIRST_COMMENT_EXECUTE_SUCCESS" || log.actionType === "FIRST_COMMENT_EXECUTE_FAILED") {
+    const summary = getResponseSummary(log.responsePayload);
+    const success = log.actionType === "FIRST_COMMENT_EXECUTE_SUCCESS";
+    return `首评${success ? "成功" : "失败"}${summary !== "-" ? `：${summary}` : ""}`;
+  }
+
+  if (log.actionType === "FIRST_COMMENT_REQUEUED") {
+    const reason = payload && typeof payload.reason === "string" ? payload.reason : null;
+    const retryAt = payload && typeof payload.retryAt === "string" ? payload.retryAt : null;
+    return `首评重新排队${reason ? `，原因：${reason}` : ""}${retryAt ? `，重试时间：${retryAt}` : ""}`;
   }
 
   if (log.errorMessage) {

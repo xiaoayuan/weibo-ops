@@ -53,12 +53,16 @@ async function requestAiRisk(prompt: string) {
     throw new Error("AI 风控未返回可用内容");
   }
 
-  return JSON.parse(stripCodeFences(content)) as {
-    riskLevel?: AiRiskLevel;
-    summary?: string;
-    reasons?: string[];
-    suggestions?: string[];
-  };
+  try {
+    return JSON.parse(stripCodeFences(content)) as {
+      riskLevel?: AiRiskLevel;
+      summary?: string;
+      reasons?: string[];
+      suggestions?: string[];
+    };
+  } catch (error) {
+    throw new Error(`AI 风控返回内容解析失败: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function normalizeAssessment(input: Partial<AiRiskAssessment>, canBlock: boolean): AiRiskAssessment {

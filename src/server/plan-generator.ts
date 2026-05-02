@@ -114,7 +114,7 @@ export async function generateDailyPlansWithSummary(
   let createdCount = 0;
   let existingCount = 0;
 
-  const [tasks, activeContents] = await Promise.all([
+  const [tasks, activeContents, existingPlansAll] = await Promise.all([
     prisma.accountTopicTask.findMany({
       where: {
         status: true,
@@ -140,20 +140,38 @@ export async function generateDailyPlansWithSummary(
         id: true,
       },
     }),
+    prisma.dailyPlan.findMany({
+      where: {
+        planDate,
+        ...(ownerUserId
+          ? {
+              account: {
+                ownerUserId,
+              },
+            }
+          : {}),
+      },
+      select: {
+        taskId: true,
+        planType: true,
+      },
+    }),
   ]);
 
   const contentIds = activeContents.map((item) => item.id);
 
+  // 按 taskId 分组现有计划，避免 N+1 查询
+  const existingPlansByTask = new Map<string, Array<{ planType: string }>>();
+  for (const plan of existingPlansAll) {
+    if (!plan.taskId) continue;
+    if (!existingPlansByTask.has(plan.taskId)) {
+      existingPlansByTask.set(plan.taskId, []);
+    }
+    existingPlansByTask.get(plan.taskId)!.push({ planType: plan.planType });
+  }
+
   for (const task of tasks) {
-    const existingPlans = await prisma.dailyPlan.findMany({
-      where: {
-        taskId: task.id,
-        planDate,
-      },
-      select: {
-        planType: true,
-      },
-    });
+    const existingPlans = existingPlansByTask.get(task.id) || [];
 
     const checkInCount = existingPlans.filter((plan) => plan.planType === "CHECK_IN").length;
     const firstCommentCount = existingPlans.filter((plan) => plan.planType === "FIRST_COMMENT").length;
