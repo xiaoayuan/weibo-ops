@@ -27,6 +27,9 @@ type AccountSummaryRow = {
   id: string;
   accountText: string;
   total: number;
+  completed: number;
+  delayed: number;
+  queued: number;
   failed: number;
   blocked: number;
   latestExecutedAt: string;
@@ -38,6 +41,9 @@ type SummaryRow = {
   id: string;
   actionText: string;
   total: number;
+  completed: number;
+  delayed: number;
+  queued: number;
   failed: number;
   blocked: number;
   latestExecutedAt: string;
@@ -155,6 +161,19 @@ function getOutcomeMeta(log: ExecutionLog) {
   return { label: "执行失败", tone: "danger" as const };
 }
 
+function isCompletedLog(log: ExecutionLog) {
+  const meta = getOutcomeMeta(log);
+  return meta.label === "执行成功" || meta.label === "执行失败" || meta.label === "预检拦截";
+}
+
+function isDelayedLog(log: ExecutionLog) {
+  return getOutcomeMeta(log).label === "延后执行";
+}
+
+function isQueuedLog(log: ExecutionLog) {
+  return getOutcomeMeta(log).label === "已入队";
+}
+
 function buildSummaryRows(logs: ExecutionLog[]) {
   const rows = new Map<string, SummaryRow>();
 
@@ -167,20 +186,26 @@ function buildSummaryRows(logs: ExecutionLog[]) {
     const blocked = getLogStage(log) === "PRECHECK_BLOCKED" ? 1 : 0;
 
     if (!rows.has(actionText)) {
-      rows.set(actionText, {
-        id: actionText,
-        actionText,
-        total: 0,
-        failed: 0,
-        blocked: 0,
-        latestExecutedAt,
-        details: [],
-        accountRows: [],
+        rows.set(actionText, {
+          id: actionText,
+          actionText,
+          total: 0,
+          completed: 0,
+          delayed: 0,
+          queued: 0,
+          failed: 0,
+          blocked: 0,
+          latestExecutedAt,
+          details: [],
+          accountRows: [],
       });
     }
 
     const row = rows.get(actionText)!;
     row.total += 1;
+    row.completed += isCompletedLog(log) ? 1 : 0;
+    row.delayed += isDelayedLog(log) ? 1 : 0;
+    row.queued += isQueuedLog(log) ? 1 : 0;
     row.failed += log.success ? 0 : 1;
     row.blocked += blocked;
     if (new Date(latestExecutedAt).getTime() > new Date(row.latestExecutedAt).getTime()) {
@@ -192,13 +217,16 @@ function buildSummaryRows(logs: ExecutionLog[]) {
 
     let accountRow = row.accountRows.find((item) => item.id === accountId);
     if (!accountRow) {
-      accountRow = {
-        id: accountId,
-        accountText,
-        total: 0,
-        failed: 0,
-        blocked: 0,
-        latestExecutedAt,
+        accountRow = {
+          id: accountId,
+          accountText,
+          total: 0,
+          completed: 0,
+          delayed: 0,
+          queued: 0,
+          failed: 0,
+          blocked: 0,
+          latestExecutedAt,
         details: [],
         topReason: null,
       };
@@ -206,6 +234,9 @@ function buildSummaryRows(logs: ExecutionLog[]) {
     }
 
     accountRow.total += 1;
+    accountRow.completed += isCompletedLog(log) ? 1 : 0;
+    accountRow.delayed += isDelayedLog(log) ? 1 : 0;
+    accountRow.queued += isQueuedLog(log) ? 1 : 0;
     accountRow.failed += log.success ? 0 : 1;
     accountRow.blocked += blocked;
     if (new Date(latestExecutedAt).getTime() > new Date(accountRow.latestExecutedAt).getTime()) {
@@ -337,7 +368,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
             <TableShell className="mt-5">
               <table className="app-table min-w-[1180px]">
                 <thead>
-                  <tr><th>动作</th><th>总数</th><th>失败</th><th>预检拦截</th><th>说明</th><th>最近时间</th><th>AI</th></tr>
+                  <tr><th>动作</th><th>总数</th><th>已完成</th><th>延后</th><th>已入队</th><th>失败</th><th>预检拦截</th><th>说明</th><th>最近时间</th><th>AI</th></tr>
                 </thead>
                 <tbody>
                   {summaryRows.flatMap((row) => {
@@ -349,6 +380,9 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
                           {row.actionText}
                         </td>
                         <td>{row.total}</td>
+                        <td>{row.completed}</td>
+                        <td>{row.delayed}</td>
+                        <td>{row.queued}</td>
                         <td>{row.failed}</td>
                         <td>{row.blocked}</td>
                         <td className="max-w-[320px] text-xs text-app-text-soft">{row.details.join(" / ") || "-"}</td>
@@ -360,7 +394,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
                       </tr>,
                       expanded ? (
                         <tr key={`${row.id}-expanded`}>
-                          <td colSpan={7} className="p-0">
+                          <td colSpan={10} className="p-0">
                             <div className="grid gap-3 border-t border-app-line bg-app-panel-muted p-4 md:grid-cols-2 xl:grid-cols-3">
                               {row.accountRows.map((accountRow) => {
                                 const aiKey = `${row.id}:${accountRow.id}`;
@@ -372,6 +406,9 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: Exec
                                     </div>
                                     <div className="mt-3 flex flex-wrap gap-2">
                                       <StatusBadge tone="info">总数 {accountRow.total}</StatusBadge>
+                                      <StatusBadge tone="success">完成 {accountRow.completed}</StatusBadge>
+                                      <StatusBadge tone="warning">延后 {accountRow.delayed}</StatusBadge>
+                                      <StatusBadge tone="info">入队 {accountRow.queued}</StatusBadge>
                                       <StatusBadge tone={accountRow.failed > 0 ? "danger" : "success"}>失败 {accountRow.failed}</StatusBadge>
                                       <StatusBadge tone={accountRow.blocked > 0 ? "warning" : "neutral"}>拦截 {accountRow.blocked}</StatusBadge>
                                     </div>

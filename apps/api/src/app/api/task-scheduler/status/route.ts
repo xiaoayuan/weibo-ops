@@ -1,7 +1,25 @@
-import { NextRequest } from "next/server";
+import { requireApiRole } from "@/src/lib/permissions";
+import { getRateLimitSnapshot } from "@/src/lib/rate-limit";
+import { getTaskSchedulerSnapshot } from "@/src/lib/task-scheduler";
 
-import { proxyToLegacyBackend } from "@/src/lib/legacy-backend";
+export async function GET() {
+  const auth = await requireApiRole("VIEWER");
+  if (!auth.ok) {
+    return auth.response;
+  }
 
-export async function GET(request: NextRequest) {
-  return proxyToLegacyBackend(request, ["task-scheduler", "status"]);
+  const [workers, rateLimit] = await Promise.all([
+    getTaskSchedulerSnapshot(),
+    getRateLimitSnapshot(auth.session.role === "ADMIN" ? undefined : auth.session.id),
+  ]);
+
+  return Response.json({
+    success: true,
+    data: {
+      workerCount: workers.length,
+      workers,
+      rateLimit,
+      updatedAt: new Date().toISOString(),
+    },
+  });
 }

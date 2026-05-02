@@ -15,6 +15,20 @@ type RateLimitRule = {
   userPerMinute: number;
 };
 
+export type RateLimitSnapshotItem = {
+  key: string;
+  nextAvailableAt: string | null;
+  waitMs: number;
+  active: boolean;
+};
+
+export type RateLimitSnapshot = {
+  global: RateLimitSnapshotItem | null;
+  taskTypes: Array<RateLimitSnapshotItem & { taskType: ManagedTaskType }>;
+  users: Array<RateLimitSnapshotItem & { userId: string; username: string | null }>;
+  updatedAt: string;
+};
+
 const settingKeyPrefix = "rate_limit_v1";
 
 const taskRateRules: Record<ManagedTaskType, RateLimitRule> = {
@@ -65,6 +79,18 @@ function getEffectiveTier(taskType: ManagedTaskType, baseTier: TaskTier, delayMs
   }
 
   return baseTier;
+}
+
+function toSnapshotItem(key: string, state: RateLimitState): RateLimitSnapshotItem {
+  const nextAvailableAt = toDate(state.nextAvailableAt);
+  const waitMs = Math.max(0, (nextAvailableAt?.getTime() || 0) - Date.now());
+
+  return {
+    key,
+    nextAvailableAt: nextAvailableAt?.toISOString() || null,
+    waitMs,
+    active: waitMs > 0,
+  };
 }
 
 export async function reserveRateLimitedExecution(input: {
@@ -123,4 +149,54 @@ export function resolvePlanTaskType(_planType: PlanType): ManagedTaskType {
 
 export function resolveInteractionTaskType(_actionType: InteractionActionType): ManagedTaskType {
   return "QUICK_REPLY";
+}
+
+export async function getRateLimitSnapshot(ownerUserId?: string): Promise<RateLimitSnapshot> {
+  const taskTypes = Object.keys(taskRateRules) as ManagedTaskType[];
+  const baseKeys = [stateKey("global", "all"), ...taskTypes.map((taskType) => stateKey("taskType", taskType))];
+
+  const [baseSettings, userSettings, users] = await Promise.all([
+    prisma.systemSetting.findMany({
+      where: { key: { in: baseKeys } },
+      select: { key: true, value: true },
+    }),
+    prisma.systemSetting.findMany({
+      where: ownerUserId
+        ? { key: stateKey("user", ownerUserId) }
+        : { key: { startsWith: `${settingKeyPrefix}:user:` } },
+      select: { key: true, value: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+    ownerUserId
+      ? prisma.user.findMany({ where: { id: ownerUserId }, select: { id: true, username: true } })
+      : prisma.user.findMany({ select: { id: true, username: true } }),
+  ]);
+
+  const settings = [...baseSettings, ...userSettings];
+  const stateMap = new Map(
+    settings.map((item) => [item.key, item.value && typeof item.value === "object" && !Array.isArray(item.value) ? (item.value as RateLimitState) : {}]),
+  );
+  const userMap = new Map(users.map((user) => [user.id, user.username]));
+  const globalKey = stateKey("global", "all");
+
+  const userEntries = settings
+    .filter((item) => item.key.startsWith(`${settingKeyPrefix}:user:`))
+    .map((item) => {
+      const userId = item.key.replace(`${settingKeyPrefix}:user:`, "");
+      return {
+        userId,
+        username: userMap.get(userId) || null,
+        ...toSnapshotItem(item.key, stateMap.get(item.key) || {}),
+      };
+    });
+
+  return {
+    global: toSnapshotItem(globalKey, stateMap.get(globalKey) || {}),
+    taskTypes: taskTypes.map((taskType) => ({
+      taskType,
+      ...toSnapshotItem(stateKey("taskType", taskType), stateMap.get(stateKey("taskType", taskType)) || {}),
+    })),
+    users: userEntries,
+    updatedAt: new Date().toISOString(),
+  };
 }
