@@ -29,7 +29,7 @@ function getPlanTypeText(planType: string) {
   return map[planType] || planType;
 }
 
-type PlanStatus = "ALL" | "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
+type PlanStatus = "ALL" | "INCOMPLETE" | "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
 function summarizePlanRefreshMessage(actionLabel: string, nextPlan?: Plan) {
   if (!nextPlan) {
@@ -66,7 +66,12 @@ export function PlansManager({
 
   const accountOptions = useMemo(() => Array.from(new Set(plans.map((plan) => plan.account.nickname))), [plans]);
   const filteredPlans = plans.filter((plan) => {
-    const matchesStatus = statusFilter === "ALL" || plan.status === statusFilter;
+    let matchesStatus = true;
+    if (statusFilter === "INCOMPLETE") {
+      matchesStatus = !["SUCCESS", "CANCELLED"].includes(plan.status);
+    } else if (statusFilter !== "ALL") {
+      matchesStatus = plan.status === statusFilter;
+    }
     const matchesAccount = accountFilter === "ALL" || plan.account.nickname === accountFilter;
 
     return matchesStatus && matchesAccount;
@@ -75,10 +80,13 @@ export function PlansManager({
   const summary = {
     total: filteredPlans.length,
     completed: filteredPlans.filter((plan) => plan.status === "SUCCESS").length,
-    incomplete: filteredPlans.filter((plan) => plan.status !== "SUCCESS" && plan.status !== "CANCELLED").length,
-    pending: filteredPlans.filter((plan) => plan.status === "PENDING" || plan.status === "READY").length,
+    incomplete: filteredPlans.filter((plan) => !["SUCCESS", "CANCELLED"].includes(plan.status)).length,
     running: filteredPlans.filter((plan) => plan.status === "RUNNING").length,
     failed: filteredPlans.filter((plan) => plan.status === "FAILED").length,
+  };
+
+  const handleIncompleteClick = () => {
+    setStatusFilter("INCOMPLETE");
   };
 
   async function reloadPlans(targetDate = date) {
@@ -237,7 +245,7 @@ export function PlansManager({
       <section className="grid gap-4 md:grid-cols-5">
         <StatCard label="计划总数" value={String(summary.total)} detail="当前筛选结果" accent="accent" icon={<CalendarDays className="h-5 w-5" />} />
         <StatCard label="已完成" value={String(summary.completed)} detail="成功执行的计划" accent="success" icon={<ShieldCheck className="h-5 w-5" />} />
-        <StatCard label="未完成" value={String(summary.incomplete)} detail="待处理、执行中、失败" accent="warning" icon={<AlertCircle className="h-5 w-5" />} />
+        <StatCard label="未完成" value={String(summary.incomplete)} detail="待处理、执行中、失败，点击筛选" accent="warning" icon={<AlertCircle className="h-5 w-5" />} onClick={handleIncompleteClick} cursorPointer />
         <StatCard label="执行中" value={String(summary.running)} detail="已进入执行阶段" accent="info" icon={<Play className="h-5 w-5" />} />
         <StatCard label="失败数" value={String(summary.failed)} detail="需要关注的异常" accent="danger" icon={<Square className="h-5 w-5" />} />
       </section>
@@ -250,6 +258,7 @@ export function PlansManager({
             <div className="flex flex-wrap gap-3">
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as PlanStatus)} className="app-input h-12 w-[180px]">
                 <option value="ALL">全部状态</option>
+                <option value="INCOMPLETE">未完成</option>
                 <option value="PENDING">待执行</option>
                 <option value="READY">待确认</option>
                 <option value="RUNNING">执行中</option>

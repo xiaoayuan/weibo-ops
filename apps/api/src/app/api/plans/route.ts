@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         },
       },
     },
-    orderBy: { scheduledTime: "asc" },
+    orderBy: { scheduledTime: "desc" },
   });
 
   return Response.json({ success: true, data: plans });
