@@ -74,7 +74,7 @@ export function PlansManager({
 
   const summary = {
     total: filteredPlans.length,
-    completed: filteredPlans.filter((plan) => plan.status === "SUCCESS" || plan.status === "FAILED" || plan.status === "CANCELLED").length,
+    completed: filteredPlans.filter((plan) => plan.status === "SUCCESS").length,
     pending: filteredPlans.filter((plan) => plan.status === "PENDING" || plan.status === "READY").length,
     running: filteredPlans.filter((plan) => plan.status === "RUNNING").length,
     failed: filteredPlans.filter((plan) => plan.status === "FAILED").length,
@@ -235,7 +235,7 @@ export function PlansManager({
 
       <section className="grid gap-4 md:grid-cols-5">
         <StatCard label="计划总数" value={String(summary.total)} detail="当前筛选结果" accent="accent" icon={<CalendarDays className="h-5 w-5" />} />
-        <StatCard label="已完成" value={String(summary.completed)} detail="成功、失败、已取消都计入完成" accent="success" icon={<ShieldCheck className="h-5 w-5" />} />
+        <StatCard label="已完成" value={String(summary.completed)} detail="仅统计成功执行的计划" accent="success" icon={<ShieldCheck className="h-5 w-5" />} />
         <StatCard label="待处理" value={String(summary.pending)} detail="待执行或待确认" accent="warning" icon={<ShieldCheck className="h-5 w-5" />} />
         <StatCard label="执行中" value={String(summary.running)} detail="已进入执行阶段" accent="info" icon={<Play className="h-5 w-5" />} />
         <StatCard label="失败数" value={String(summary.failed)} detail="优先关注异常结果" accent="danger" icon={<Square className="h-5 w-5" />} />
@@ -252,9 +252,10 @@ export function PlansManager({
                 <option value="PENDING">待执行</option>
                 <option value="READY">待确认</option>
                 <option value="RUNNING">执行中</option>
-                <option value="SUCCESS">成功</option>
-                <option value="FAILED">失败</option>
+                <option value="SUCCESS">已成功</option>
+                <option value="FAILED">已失败</option>
                 <option value="CANCELLED">已取消</option>
+
               </select>
               <select value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)} className="app-input h-12 w-[220px]">
                 <option value="ALL">全部账号</option>
@@ -324,8 +325,11 @@ export function PlansManager({
                       </td>
                       <td>
                         <StatusBadge tone={plan.status === "SUCCESS" ? "success" : plan.status === "FAILED" ? "danger" : plan.status === "RUNNING" ? "info" : plan.status === "READY" ? "accent" : "neutral"}>
-                          {getPlanStatusText(plan.status)}
+                          {plan.status === "PENDING" ? "待执行" : plan.status === "READY" ? "待确认" : plan.status === "RUNNING" ? "执行中" : plan.status === "SUCCESS" ? "已成功" : plan.status === "FAILED" ? "已失败" : "已取消"}
                         </StatusBadge>
+                        {plan.status === "FAILED" && plan.error ? (
+                          <p className="mt-1 text-xs text-app-danger">{plan.error}</p>
+                        ) : null}
                       </td>
                       <td className="max-w-[240px] text-xs leading-6 text-app-text-soft">{plan.pendingReason || plan.scheduleNote || plan.resultMessage || "-"}</td>
                       <td>

@@ -73,6 +73,7 @@ export type Plan = {
   scheduledTime: string;
   status: string;
   resultMessage: string | null;
+  error?: string | null;
   pendingReason?: string | null;
   scheduleNote?: string | null;
   contentId?: string | null;
