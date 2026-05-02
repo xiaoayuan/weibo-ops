@@ -3,6 +3,7 @@ import { requireApiRole } from "@/src/lib/permissions";
 import { prisma } from "@/src/lib/prisma";
 import { autoAssignProxyBindingsForAccount } from "@/src/lib/proxy-pool";
 import { updateAccountSchema } from "@/src/lib/validators";
+import { WSPusher } from "@/src/lib/ws-pusher";
 
 export async function GET(_request: Request, context: RouteContext<"/api/accounts/[id]">) {
   const auth = await requireApiRole("VIEWER");
@@ -65,6 +66,10 @@ export async function PATCH(request: Request, context: RouteContext<"/api/accoun
     await autoAssignProxyBindingsForAccount(id).catch(() => undefined);
 
     const refreshed = await prisma.weiboAccount.findUnique({ where: { id }, select: accountSelect });
+    
+    // 推送账号更新通知
+    WSPusher.pushAccountUpdate(id, refreshed);
+    
     return Response.json({ success: true, data: refreshed });
   } catch (error) {
     return Response.json({ success: false, message: error instanceof Error ? error.message : "更新账号失败" }, { status: 500 });
