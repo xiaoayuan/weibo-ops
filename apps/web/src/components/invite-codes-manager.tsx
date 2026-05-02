@@ -203,7 +203,6 @@ export function InviteCodesManager({ initialCodes }: { initialCodes: InviteCode[
               <tbody>
                 {codes.map((code) => {
                   const expired = isExpired(code.expiresAt);
-                  const disabled = code.disabled || expired;
 
                   return (
                     <tr key={code.id}>

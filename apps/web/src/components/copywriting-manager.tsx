@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
-import type { CopywritingTemplate } from "@/lib/app-data";
+import type { AiCopywritingConfig, AiRiskConfig, CopywritingTemplate } from "@/lib/app-data";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { SectionHeader } from "@/components/section-header";
@@ -28,6 +28,11 @@ type AiCandidate = {
 type AiGenerateResult = {
   batchId: string;
   candidates: AiCandidate[];
+};
+
+type LinkPreview = {
+  summary?: string;
+  content?: string;
 };
 
 type AiRiskAssessment = {
@@ -127,7 +132,15 @@ function getApiMessage(value: unknown) {
 // Component
 // ---------------------------------------------------------------------------
 
-export function CopywritingManager({ initialItems }: { initialItems: CopywritingTemplate[] }) {
+export function CopywritingManager({
+  initialItems,
+  initialAiConfig,
+  initialAiRiskConfig,
+}: {
+  initialItems: CopywritingTemplate[];
+  initialAiConfig: AiCopywritingConfig | null;
+  initialAiRiskConfig: AiRiskConfig | null;
+}) {
   const [items, setItems] = useState(initialItems);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -157,6 +170,16 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
   const [linkPreviewResult, setLinkPreviewResult] = useState<string | null>(null);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiConfig, setAiConfig] = useState({
+    baseUrl: initialAiConfig?.baseUrl ?? "",
+    model: initialAiConfig?.model ?? "",
+    apiKey: "",
+    hasApiKey: initialAiConfig?.hasApiKey ?? false,
+    apiKeySource: initialAiConfig?.apiKeySource ?? "none",
+  });
+  const [aiRiskKeywordsText, setAiRiskKeywordsText] = useState((initialAiRiskConfig?.riskyKeywords ?? []).join("\n"));
+  const [aiConfigSaving, setAiConfigSaving] = useState(false);
+  const [aiRiskConfigSaving, setAiRiskConfigSaving] = useState(false);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -268,7 +291,7 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
         throw new Error((result as ApiEnvelope<null>).message || "链接预览失败");
       }
 
-      const preview = result.data as Record<string, string>;
+      const preview = result.data as LinkPreview;
       const summary = preview.summary ?? preview.content ?? JSON.stringify(preview);
       setLinkPreviewResult(summary.slice(0, 300));
       setAiNotice("预览获取成功，已添加到上下文中");
@@ -464,6 +487,67 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
     }
   }
 
+  async function handleSaveAiConfig() {
+    try {
+      setAiConfigSaving(true);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch("/api/copywriting/ai-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: aiConfig.baseUrl,
+          model: aiConfig.model,
+          apiKey: aiConfig.apiKey,
+        }),
+      });
+      const result = (await response.json()) as ApiEnvelope<AiCopywritingConfig>;
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(getApiMessage(result) || "保存 AI 接口配置失败");
+      }
+
+      setAiConfig((current) => ({ ...current, ...result.data!, apiKey: "" }));
+      setNotice("AI 接口配置已保存");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "保存 AI 接口配置失败");
+    } finally {
+      setAiConfigSaving(false);
+    }
+  }
+
+  async function handleSaveAiRiskConfig() {
+    try {
+      setAiRiskConfigSaving(true);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch("/api/ai-risk/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          riskyKeywords: aiRiskKeywordsText
+            .split(/\n+/)
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }),
+      });
+      const result = (await response.json()) as ApiEnvelope<AiRiskConfig>;
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(getApiMessage(result) || "保存风险词配置失败");
+      }
+
+      setAiRiskKeywordsText(result.data.riskyKeywords.join("\n"));
+      setNotice("AI 风险词配置已保存");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "保存风险词配置失败");
+    } finally {
+      setAiRiskConfigSaving(false);
+    }
+  }
+
   function toggleCandidate(index: number) {
     setSelectedIndexes((prev) => {
       const next = new Set(prev);
@@ -497,6 +581,35 @@ export function CopywritingManager({ initialItems }: { initialItems: Copywriting
         title="AI 文案工作流"
         description="通过 AI 生成或改写候选文案，预审后保存至文案库。"
       />
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <SurfaceCard>
+          <SectionHeader title="AI 接口配置" description="维护 Base URL、模型和 API Key。API Key 保存后不会回显。" />
+          <div className="mt-5 grid gap-4">
+            <input value={aiConfig.baseUrl} onChange={(event) => setAiConfig((current) => ({ ...current, baseUrl: event.target.value }))} className="app-input" placeholder="AI Base URL" />
+            <input value={aiConfig.model} onChange={(event) => setAiConfig((current) => ({ ...current, model: event.target.value }))} className="app-input" placeholder="模型名称" />
+            <input type="password" value={aiConfig.apiKey} onChange={(event) => setAiConfig((current) => ({ ...current, apiKey: event.target.value }))} className="app-input" placeholder={aiConfig.hasApiKey ? "已配置 API Key，如需更换请重新输入" : "输入 AI API Key"} />
+            <p className="text-xs text-app-text-soft">当前 Key 来源：{aiConfig.apiKeySource === "system" ? "页面配置" : aiConfig.apiKeySource === "env" ? ".env 环境变量" : "未配置"}</p>
+            <div>
+              <button type="button" onClick={() => void handleSaveAiConfig()} disabled={aiConfigSaving} className="app-button app-button-primary">
+                {aiConfigSaving ? "保存中…" : "保存 AI 接口配置"}
+              </button>
+            </div>
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard>
+          <SectionHeader title="AI 风险词配置" description="维护高风险关键词，用于候选文案预审和风控提示。" />
+          <div className="mt-5 grid gap-4">
+            <textarea value={aiRiskKeywordsText} onChange={(event) => setAiRiskKeywordsText(event.target.value)} className="app-input min-h-[220px] resize-y py-3" placeholder="每行一个风险词" />
+            <div>
+              <button type="button" onClick={() => void handleSaveAiRiskConfig()} disabled={aiRiskConfigSaving} className="app-button app-button-primary">
+                {aiRiskConfigSaving ? "保存中…" : "保存风险词配置"}
+              </button>
+            </div>
+          </div>
+        </SurfaceCard>
+      </div>
 
       {/* AI workflow */}
       <SurfaceCard>

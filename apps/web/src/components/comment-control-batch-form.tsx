@@ -1,7 +1,7 @@
 "use client";
 
 import { LoaderCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
 import { SectionHeader } from "@/components/section-header";
@@ -9,7 +9,6 @@ import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
 import type { CommentPoolItem, WeiboAccount } from "@/lib/app-data";
-import { formatDateTime } from "@/lib/date";
 
 type Urgency = "S" | "A" | "B";
 
@@ -58,12 +57,15 @@ export function CommentControlBatchForm({ initialAccounts }: { initialAccounts: 
   const [targetNodeId, setTargetNodeId] = useState("");
   const [urgency, setUrgency] = useState<Urgency>("S");
   const [aiRiskJson, setAiRiskJson] = useState("");
+  const [aiRiskLoading, setAiRiskLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [poolError, setPoolError] = useState<string | null>(null);
   const [result, setResult] = useState<{ jobId: string; workerId: string } | null>(null);
+  const lastAutoAssessKeyRef = useRef<string>("");
 
   const activeAccounts = initialAccounts.filter((account) => account.status === "ACTIVE");
+  const availablePoolItems = commentPoolItems;
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +131,62 @@ export function CommentControlBatchForm({ initialAccounts }: { initialAccounts: 
   function deselectAllPoolItems() {
     setSelectedPoolItemIds(new Set());
   }
+
+  async function assessAiRisk() {
+    if (selectedAccountIds.size === 0) {
+      setError("请先选择至少一个账号");
+      return;
+    }
+
+    try {
+      setAiRiskLoading(true);
+      setError(null);
+
+      const response = await fetch("/api/ai-risk/task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskType: "COMMENT_CONTROL",
+          urgency,
+          accountCount: selectedAccountIds.size,
+          context: `控评池 ${selectedPoolItemIds.size} 条评论链接`,
+        }),
+      });
+      const result = (await response.json()) as { success: boolean; message?: string; data?: AiRisk };
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(result.message || "AI 风险评估失败");
+      }
+
+      setAiRiskJson(JSON.stringify(result.data, null, 2));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "AI 风险评估失败");
+    } finally {
+      setAiRiskLoading(false);
+    }
+  }
+
+  const handleAutoAssessAiRisk = useEffectEvent(() => {
+    void assessAiRisk();
+  });
+
+  useEffect(() => {
+    if (selectedAccountIds.size === 0 || selectedPoolItemIds.size === 0) {
+      return;
+    }
+
+    const assessKey = `${urgency}:${selectedAccountIds.size}:${Array.from(selectedPoolItemIds).sort().join(",")}`;
+    if (lastAutoAssessKeyRef.current === assessKey) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      lastAutoAssessKeyRef.current = assessKey;
+      handleAutoAssessAiRisk();
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedAccountIds, selectedPoolItemIds, urgency]);
 
   async function handleCreateJob() {
     if (selectedAccountIds.size === 0) {
@@ -227,7 +285,7 @@ export function CommentControlBatchForm({ initialAccounts }: { initialAccounts: 
                     />
                     <span className="text-app-text-strong">{account.nickname}</span>
                     <span className="text-app-text-soft text-xs">{account.username}</span>
-                    {account.proxy ? <StatusBadge tone="neutral">{account.proxy.ip}</StatusBadge> : null}
+                    {account.proxyNode ? <StatusBadge tone="neutral">{account.proxyNode.name}</StatusBadge> : null}
                   </label>
                 ))
               )}
@@ -250,9 +308,9 @@ export function CommentControlBatchForm({ initialAccounts }: { initialAccounts: 
                   <tr>
                     <th className="w-12">选择</th>
                     <th>评论链接</th>
-                    <th>关键词</th>
-                    <th>状态</th>
-                    <th>热度</th>
+                     <th>评论ID</th>
+                     <th>状态</th>
+                     <th>备注</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -278,10 +336,10 @@ export function CommentControlBatchForm({ initialAccounts }: { initialAccounts: 
                             className="accent-app-brand"
                           />
                         </td>
-                        <td className="max-w-[380px] truncate font-mono text-xs text-app-text-soft">{item.link}</td>
-                        <td>{item.keyword}</td>
-                        <td><StatusBadge tone={getCommentPoolStatusTone(item.status)}>{item.status}</StatusBadge></td>
-                        <td>{item.heat}</td>
+                        <td className="max-w-[380px] truncate font-mono text-xs text-app-text-soft">{item.sourceUrl}</td>
+                        <td>{item.commentId}</td>
+                        <td><StatusBadge tone="neutral">已入池</StatusBadge></td>
+                        <td>{item.note || item.tags.join(", ") || "-"}</td>
                       </tr>
                     ))
                   )}
@@ -319,7 +377,12 @@ export function CommentControlBatchForm({ initialAccounts }: { initialAccounts: 
 
           {/* AI 风险评估 JSON */}
           <div>
-            <label className="block text-sm font-medium text-app-text-strong mb-1">AI 风险评估 JSON（可选）</label>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className="block text-sm font-medium text-app-text-strong">AI 风险评估 JSON（可选）</label>
+              <button type="button" onClick={() => void assessAiRisk()} disabled={aiRiskLoading} className="app-button app-button-secondary h-9 px-3 text-xs">
+                {aiRiskLoading ? "评估中" : "自动评估"}
+              </button>
+            </div>
             <textarea
               value={aiRiskJson}
               onChange={(event) => setAiRiskJson(event.target.value)}

@@ -30,6 +30,12 @@ type FormState = {
   baseJitterSec: number;
 };
 
+type SessionFormState = {
+  uid: string;
+  username: string;
+  cookie: string;
+};
+
 type QrLoginState = "WAITING" | "SCANNED" | "CONFIRMED" | "EXPIRED" | "FAILED";
 
 type QrSession = {
@@ -69,6 +75,18 @@ type CreateAccountResult = {
   data: WeiboAccount;
 };
 
+type SaveSessionResult = {
+  success: boolean;
+  message?: string;
+  data?: {
+    id: string;
+    uid: string | null;
+    username: string | null;
+    loginStatus: WeiboAccount["loginStatus"];
+    cookieUpdatedAt: string | null;
+  };
+};
+
 type QrStartResult = {
   success: boolean;
   message?: string;
@@ -99,8 +117,11 @@ function summarizeSessionCheckMessage(result: CheckSessionResult) {
 export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAccount[] }) {
   const [accounts, setAccounts] = useState(initialAccounts);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sessionEditingId, setSessionEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [sessionForm, setSessionForm] = useState<SessionFormState>({ uid: "", username: "", cookie: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [sessionSubmitting, setSessionSubmitting] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrAccountId, setQrAccountId] = useState<string | null>(null);
   const [qrSession, setQrSession] = useState<QrSession | null>(null);
@@ -219,6 +240,8 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
       }
 
       setForm(initialForm);
+      setSessionEditingId(null);
+      setSessionForm({ uid: "", username: "", cookie: "" });
       setQrAccountId(null);
       setQrSession(null);
     } catch (reason) {
@@ -231,9 +254,72 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
   function cancelEdit() {
     setEditingId(null);
     setForm(initialForm);
+    setSessionEditingId(null);
+    setSessionForm({ uid: "", username: "", cookie: "" });
     setQrAccountId(null);
     setQrSession(null);
     setError(null);
+  }
+
+  function openSessionEditor(account: WeiboAccount) {
+    setSessionEditingId(account.id);
+    setSessionForm({
+      uid: account.uid || "",
+      username: account.username || "",
+      cookie: "",
+    });
+    setQrAccountId(null);
+    setQrSession(null);
+    setError(null);
+    setNotice(null);
+  }
+
+  async function saveSession() {
+    if (!sessionEditingId) {
+      return;
+    }
+
+    if (!sessionForm.cookie.trim()) {
+      setError("请粘贴 Cookie / Session 内容");
+      return;
+    }
+
+    try {
+      setSessionSubmitting(true);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/accounts/${sessionEditingId}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sessionForm),
+      });
+      const result = await readJsonResponse<SaveSessionResult>(response);
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(result.message || "保存登录态失败");
+      }
+
+      setAccounts((current) =>
+        current.map((item) =>
+          item.id === sessionEditingId
+            ? {
+                ...item,
+                uid: result.data?.uid || item.uid,
+                username: result.data?.username || item.username,
+                loginStatus: result.data?.loginStatus || item.loginStatus,
+                cookieUpdatedAt: result.data?.cookieUpdatedAt || item.cookieUpdatedAt,
+              }
+            : item,
+        ),
+      );
+      setSessionForm((current) => ({ ...current, cookie: "" }));
+      setNotice(result.message || "登录态已保存");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "保存登录态失败");
+    } finally {
+      setSessionSubmitting(false);
+    }
   }
 
   async function checkSession(id: string) {
@@ -301,6 +387,25 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
 
         {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
         {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
+        {sessionEditingId ? (
+          <div className="mt-4 rounded-[24px] border border-app-line bg-app-panel-muted p-5">
+            <p className="text-sm font-semibold text-app-text-strong">手动录入 Session / Cookie</p>
+            <p className="mt-2 text-sm text-app-text-soft">当扫码不可用时，可以直接录入账号的 UID、用户名和 Cookie。</p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <input value={sessionForm.uid} onChange={(event) => setSessionForm((current) => ({ ...current, uid: event.target.value }))} className="app-input h-12" placeholder="UID（可选）" />
+              <input value={sessionForm.username} onChange={(event) => setSessionForm((current) => ({ ...current, username: event.target.value }))} className="app-input h-12" placeholder="用户名（可选）" />
+              <textarea value={sessionForm.cookie} onChange={(event) => setSessionForm((current) => ({ ...current, cookie: event.target.value }))} className="app-input min-h-[160px] resize-y py-3 md:col-span-2" placeholder="粘贴完整 Cookie / Session 内容" />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button type="button" onClick={() => void saveSession()} disabled={sessionSubmitting} className="app-button app-button-primary h-10 px-4 text-xs">
+                {sessionSubmitting ? "保存中" : "保存登录态"}
+              </button>
+              <button type="button" onClick={() => setSessionEditingId(null)} className="app-button app-button-secondary h-10 px-4 text-xs">
+                收起录入面板
+              </button>
+            </div>
+          </div>
+        ) : null}
         {qrSession ? (
           <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -416,6 +521,9 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
                         </button>
                         <button type="button" onClick={() => void checkSession(account.id)} disabled={checkingId === account.id} className="app-button app-button-secondary h-10 px-4 text-xs">
                           {checkingId === account.id ? "检测中" : "检测登录态"}
+                        </button>
+                        <button type="button" onClick={() => openSessionEditor(account)} className="app-button app-button-secondary h-10 px-4 text-xs">
+                          录入 Session
                         </button>
                       </div>
                     </td>

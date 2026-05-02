@@ -10,6 +10,10 @@ export type SessionUser = {
   role: "ADMIN" | "OPERATOR" | "VIEWER";
 };
 
+export function signToken(payload: SessionUser) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+}
+
 export function verifyToken(token: string): SessionUser | null {
   try {
     return jwt.verify(token, JWT_SECRET) as SessionUser;

@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { ActionJobsManager } from "@/components/action-jobs-manager";
 import { AppNotice } from "@/components/app-notice";
 import { CommentControlBatchForm } from "@/components/comment-control-batch-form";
-import { CommentPoolManager } from "@/components/comment-pool-manager";
 import { EmptyState } from "@/components/empty-state";
 import { HotCommentsExtractor } from "@/components/hot-comments-extractor";
 import { InteractionTargetParser } from "@/components/interaction-target-parser";
@@ -127,10 +126,6 @@ export function OpsManager({
 
   const handlePoolChanged = () => {
     void refreshPool();
-  };
-
-  const handleJobsChanged = () => {
-    void refreshJobs();
   };
 
   async function createSinglePoolItem() {

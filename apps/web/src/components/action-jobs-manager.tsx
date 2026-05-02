@@ -1,24 +1,17 @@
 "use client";
 
-import { LoaderCircle, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { LoaderCircle } from "lucide-react";
+import { useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
-import type { ActionJob, CommentPoolItem, WeiboAccount } from "@/lib/app-data";
+import type { ActionJob } from "@/lib/app-data";
 import { EmptyState } from "@/components/empty-state";
 
 type Urgency = "S" | "A" | "B";
-
-type CreateJobResponse = {
-  success: boolean;
-  message?: string;
-  data: ActionJob;
-  workerId: string;
-};
 
 type ListJobsResponse = {
   success: boolean;

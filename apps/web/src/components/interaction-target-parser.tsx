@@ -352,7 +352,7 @@ export function InteractionTargetParser({ onImported }: { onImported?: (items: C
                           已解析
                         </StatusBadge>
                       ) : (
-                        <StatusBadge tone="muted">{target.status}</StatusBadge>
+                        <StatusBadge tone="neutral">{target.status}</StatusBadge>
                       )}
                     </td>
                     <td className="text-xs text-app-text-soft">

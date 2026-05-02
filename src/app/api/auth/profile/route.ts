@@ -11,6 +11,82 @@ function shouldUseSecureCookie() {
   return process.env.AUTH_COOKIE_SECURE === "true";
 }
 
+function toProfilePayload(user: {
+  id: string;
+  username: string;
+  role: string;
+  proxyEnabled: boolean | null;
+  proxyProtocol: "HTTP" | "HTTPS" | "SOCKS5" | null;
+  proxyHost: string | null;
+  proxyPort: number | null;
+  proxyUsername: string | null;
+  proxyPasswordEncrypted: string | null;
+  taskConcurrency: number | null;
+  autoGenerateEnabled: boolean | null;
+  autoGenerateWindowStart: string | null;
+  autoGenerateWindowEnd: string | null;
+  autoExecuteEnabled: boolean | null;
+  autoExecuteStartTime: string | null;
+  autoExecuteEndTime: string | null;
+}) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    ...sanitizeProxySettings({
+      proxyEnabled: user.proxyEnabled ?? undefined,
+      proxyProtocol: user.proxyProtocol ?? undefined,
+      proxyHost: user.proxyHost ?? undefined,
+      proxyPort: user.proxyPort ?? undefined,
+      proxyUsername: user.proxyUsername ?? undefined,
+      proxyPasswordEncrypted: user.proxyPasswordEncrypted ?? undefined,
+    }),
+    taskConcurrency: user.taskConcurrency,
+    autoGenerateEnabled: user.autoGenerateEnabled,
+    autoGenerateWindowStart: user.autoGenerateWindowStart,
+    autoGenerateWindowEnd: user.autoGenerateWindowEnd,
+    autoExecuteEnabled: user.autoExecuteEnabled,
+    autoExecuteStartTime: user.autoExecuteStartTime,
+    autoExecuteEndTime: user.autoExecuteEndTime,
+  };
+}
+
+export async function GET() {
+  const auth = await requireApiRole("VIEWER");
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: auth.session.id },
+    select: {
+      id: true,
+      username: true,
+      role: true,
+      proxyEnabled: true,
+      proxyProtocol: true,
+      proxyHost: true,
+      proxyPort: true,
+      proxyUsername: true,
+      proxyPasswordEncrypted: true,
+      taskConcurrency: true,
+      autoGenerateEnabled: true,
+      autoGenerateWindowStart: true,
+      autoGenerateWindowEnd: true,
+      autoExecuteEnabled: true,
+      autoExecuteStartTime: true,
+      autoExecuteEndTime: true,
+    },
+  });
+
+  if (!user) {
+    return Response.json({ success: false, message: "用户不存在" }, { status: 404 });
+  }
+
+  return Response.json({ success: true, data: toProfilePayload(user) });
+}
+
 export async function PATCH(request: Request) {
   const auth = await requireApiRole("VIEWER");
 
@@ -93,19 +169,7 @@ export async function PATCH(request: Request) {
     return new Response(
       JSON.stringify({
         success: true,
-        data: {
-          id: updated.id,
-          username: updated.username,
-          role: updated.role,
-          ...sanitizeProxySettings(updated),
-          taskConcurrency: updated.taskConcurrency,
-          autoGenerateEnabled: updated.autoGenerateEnabled,
-          autoGenerateWindowStart: updated.autoGenerateWindowStart,
-          autoGenerateWindowEnd: updated.autoGenerateWindowEnd,
-          autoExecuteEnabled: updated.autoExecuteEnabled,
-          autoExecuteStartTime: updated.autoExecuteStartTime,
-          autoExecuteEndTime: updated.autoExecuteEndTime,
-        },
+        data: toProfilePayload(updated),
         message: "账号信息已更新",
       }),
       {

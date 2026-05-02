@@ -1,13 +1,12 @@
 "use client";
 
 import { LoaderCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
-import { TableShell } from "@/components/table-shell";
 import type { WeiboAccount } from "@/lib/app-data";
 
 const REPOST_INTERVAL_OPTIONS: { value: number; label: string }[] = [
@@ -33,13 +32,6 @@ type AiRisk = {
   canBlock: boolean;
 };
 
-type Forecast = {
-  targetMinutes: number;
-  limitMinutes: number;
-  riskLevel: string;
-  notes: string[];
-};
-
 type CreateJobResponse = {
   success: boolean;
   message?: string;
@@ -59,9 +51,11 @@ export function RepostRotationForm({ initialAccounts }: { initialAccounts: Weibo
   const [urgency, setUrgency] = useState<Urgency>("S");
   const [copywritingTexts, setCopywritingTexts] = useState("");
   const [aiRiskJson, setAiRiskJson] = useState("");
+  const [aiRiskLoading, setAiRiskLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ jobId: string; workerId: string } | null>(null);
+  const lastAutoAssessKeyRef = useRef<string>("");
 
   const activeAccounts = initialAccounts.filter((account) => account.status === "ACTIVE");
 
@@ -84,6 +78,67 @@ export function RepostRotationForm({ initialAccounts }: { initialAccounts: Weibo
   function deselectAll() {
     setSelectedAccountIds(new Set());
   }
+
+  async function assessAiRisk() {
+    if (selectedAccountIds.size === 0) {
+      setError("请先选择至少一个账号");
+      return;
+    }
+
+    if (!targetUrl.trim()) {
+      setError("请先填写目标微博链接");
+      return;
+    }
+
+    try {
+      setAiRiskLoading(true);
+      setError(null);
+
+      const response = await fetch("/api/ai-risk/task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskType: "REPOST_ROTATION",
+          urgency,
+          accountCount: selectedAccountIds.size,
+          context: `目标 ${targetUrl.trim()}，轮转 ${times} 次`,
+        }),
+      });
+      const result = (await response.json()) as { success: boolean; message?: string; data?: AiRisk };
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(result.message || "AI 风险评估失败");
+      }
+
+      setAiRiskJson(JSON.stringify(result.data, null, 2));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "AI 风险评估失败");
+    } finally {
+      setAiRiskLoading(false);
+    }
+  }
+
+  const handleAutoAssessAiRisk = useEffectEvent(() => {
+    void assessAiRisk();
+  });
+
+  useEffect(() => {
+    if (selectedAccountIds.size === 0 || !targetUrl.trim()) {
+      return;
+    }
+
+    const assessKey = `${urgency}:${selectedAccountIds.size}:${targetUrl.trim()}:${times}`;
+    if (lastAutoAssessKeyRef.current === assessKey) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      lastAutoAssessKeyRef.current = assessKey;
+      handleAutoAssessAiRisk();
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedAccountIds, targetUrl, times, urgency]);
 
   async function handleCreateJob() {
     if (selectedAccountIds.size === 0) {
@@ -200,8 +255,8 @@ export function RepostRotationForm({ initialAccounts }: { initialAccounts: Weibo
                     />
                     <span className="text-app-text-strong">{account.nickname}</span>
                     <span className="text-app-text-soft text-xs">{account.username}</span>
-                    {account.proxy ? (
-                      <StatusBadge tone="neutral">{account.proxy.ip}</StatusBadge>
+                    {account.proxyNode ? (
+                      <StatusBadge tone="neutral">{account.proxyNode.name}</StatusBadge>
                     ) : null}
                   </label>
                 ))
@@ -289,7 +344,12 @@ export function RepostRotationForm({ initialAccounts }: { initialAccounts: Weibo
 
           {/* AI 风险评估 JSON */}
           <div>
-            <label className="block text-sm font-medium text-app-text-strong mb-1">AI 风险评估 JSON（可选）</label>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className="block text-sm font-medium text-app-text-strong">AI 风险评估 JSON（可选）</label>
+              <button type="button" onClick={() => void assessAiRisk()} disabled={aiRiskLoading} className="app-button app-button-secondary h-9 px-3 text-xs">
+                {aiRiskLoading ? "评估中" : "自动评估"}
+              </button>
+            </div>
             <textarea
               value={aiRiskJson}
               onChange={(event) => setAiRiskJson(event.target.value)}

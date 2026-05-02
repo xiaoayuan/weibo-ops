@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth";
-import { getExecutionStrategy, getRiskRules } from "@/lib/app-data";
-import { fetchServerApi } from "@/lib/backend";
+import { getExecutionStrategy, getExecutorHealth, getProfileSettings, getRiskRules } from "@/lib/app-data";
+import { ExecutorHealthCard } from "@/components/executor-health-card";
 import { ExecutionStrategyForm } from "@/components/settings/execution-strategy-form";
 import { RiskRulesForm } from "@/components/settings/risk-rules-form";
 import { ProfileSettings } from "@/components/profile-settings";
@@ -14,10 +14,11 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const session = await requireSession();
 
-  const [strategy, riskRules, executorResult] = await Promise.all([
+  const [strategy, riskRules, executorStatus, profile] = await Promise.all([
     getExecutionStrategy(),
     getRiskRules(),
-    fetchServerApi<ExecutorHealth>("/api/health/executor"),
+    getExecutorHealth(),
+    getProfileSettings(),
   ]);
 
   const defaultStrategy = strategy ?? {
@@ -83,6 +84,26 @@ export default async function SettingsPage() {
           </SurfaceCard>
         }
       />
+
+      <SurfaceCard className="rounded-[24px] p-6">
+        <SectionHeader
+          title="个人资料与自动化偏好"
+          description="维护当前登录用户的用户名、密码、代理配置以及自动生成/执行偏好。"
+        />
+        <div className="mt-5">
+          {profile ? <ProfileSettings initial={profile} /> : <div className="text-sm text-app-text-soft">当前未取到个人设置。</div>}
+        </div>
+      </SurfaceCard>
+
+      <SurfaceCard className="rounded-[24px] p-6">
+        <SectionHeader
+          title="执行器状态"
+          description="确认当前实例是否已经切到真实执行链路，以及模式与实现是否一致。"
+        />
+        <div className="mt-5">
+          <ExecutorHealthCard initial={executorStatus} />
+        </div>
+      </SurfaceCard>
 
       <SurfaceCard className="rounded-[24px] p-6">
         <SectionHeader

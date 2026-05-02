@@ -101,6 +101,13 @@ export type ExecutionLog = {
   success: boolean;
   errorMessage: string | null;
   executedAt: string;
+  requestPayload?: unknown;
+  responsePayload?: unknown;
+  plan?: {
+    id: string;
+    planType: string;
+    scheduledTime: string;
+  } | null;
   account: {
     id: string;
     nickname: string;
@@ -262,17 +269,25 @@ export type SuperTopic = {
 
 export type ProxyNode = {
   id: string;
-  ip: string;
+  name: string;
+  protocol: "HTTP" | "HTTPS" | "SOCKS5";
+  rotationMode: "STICKY" | "M1" | "M5" | "M10";
+  countryCode: string | null;
+  host: string;
+  maxAccounts: number;
+  assignedAccounts?: number;
+  enabled: boolean;
+  username?: string | null;
+  ip?: string;
   port: number;
-  type: string;
-  protocol?: string;
+  type?: string;
   location?: string;
   source?: string;
   latencyMs: number | null;
   successRate: number | null;
   lastCheckedAt: string | null;
   failures: number;
-  disabled: boolean;
+  disabled?: boolean;
   provider?: string;
 };
 
@@ -311,15 +326,41 @@ export type UserListItem = {
   updatedAt: string;
 };
 
-export type InviteCode = {
+export type ExecutorHealth = {
+  mode: string;
+  executorClass: string;
+  isRealExecutor: boolean;
+  modeMatchesExecutor: boolean;
+};
+
+export type ProfileSettingsData = {
   id: string;
-  code: string;
-  role: "VIEWER" | "OPERATOR";
-  maxUses: number;
-  usedCount: number;
-  expiresAt: string | null;
-  disabled: boolean;
-  createdAt: string;
+  username: string;
+  role: "ADMIN" | "OPERATOR" | "VIEWER";
+  proxyEnabled: boolean;
+  proxyProtocol: "HTTP" | "HTTPS" | "SOCKS5";
+  proxyHost: string;
+  proxyPort: number;
+  proxyUsername: string;
+  proxyPasswordConfigured: boolean;
+  taskConcurrency: number | null;
+  autoGenerateEnabled: boolean | null;
+  autoGenerateWindowStart: string | null;
+  autoGenerateWindowEnd: string | null;
+  autoExecuteEnabled: boolean | null;
+  autoExecuteStartTime: string | null;
+  autoExecuteEndTime: string | null;
+};
+
+export type AiCopywritingConfig = {
+  baseUrl: string;
+  model: string;
+  hasApiKey: boolean;
+  apiKeySource: "system" | "env" | "none";
+};
+
+export type AiRiskConfig = {
+  riskyKeywords: string[];
 };
 
 export type ExecutionStrategy = {
@@ -529,6 +570,46 @@ export async function getExecutionStrategy() {
 
 export async function getRiskRules() {
   const response = await fetchServerApi<RiskRules>("/api/risk-rules");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
+  }
+
+  return response.payload.data ?? null;
+}
+
+export async function getProfileSettings() {
+  const response = await fetchServerApi<ProfileSettingsData>("/api/auth/profile");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
+  }
+
+  return response.payload.data ?? null;
+}
+
+export async function getExecutorHealth() {
+  const response = await fetchServerApi<ExecutorHealth>("/api/health/executor");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
+  }
+
+  return response.payload.data ?? null;
+}
+
+export async function getAiCopywritingConfig() {
+  const response = await fetchServerApi<AiCopywritingConfig>("/api/copywriting/ai-config");
+
+  if (!response.ok || !response.payload?.success) {
+    return null;
+  }
+
+  return response.payload.data ?? null;
+}
+
+export async function getAiRiskConfig() {
+  const response = await fetchServerApi<AiRiskConfig>("/api/ai-risk/config");
 
   if (!response.ok || !response.payload?.success) {
     return null;

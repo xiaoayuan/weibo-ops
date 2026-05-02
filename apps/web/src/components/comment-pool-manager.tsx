@@ -1,7 +1,7 @@
 "use client";
 
 import { LoaderCircle, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
 import { EmptyState } from "@/components/empty-state";
@@ -167,7 +167,7 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
     }
   }
 
-  const renderList = useCallback(() => {
+  function renderList() {
     if (items.length === 0) {
       return <EmptyState title="暂无评论链接" description="批量导入评论链接或从热评提取补充评论池。" />;
     }
@@ -237,7 +237,7 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
         </table>
       </TableShell>
     );
-  }, [items, deletingId]);
+  }
 
   return (
     <div className="space-y-6 lg:space-y-8">

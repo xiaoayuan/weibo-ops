@@ -41,27 +41,6 @@ type StrategyDraft = {
   };
 };
 
-function defaultDraft(): StrategyDraft {
-  return {
-    maxRetry: 1,
-    commentLikeConcurrency: { S: 20, A: 5, B: 3 },
-    repostConcurrency: { S: 6, A: 4, B: 2 },
-    urgency: {
-      S: { waveRatios: [0.3, 0.4, 0.3], waveWindowsSec: [5, 20, 60], cooldownSecRange: [8, 25], retryDelaySecRange: [2, 5], targetSlaSec: 300, limitSlaSec: 600 },
-      A: { waveRatios: [0.2, 0.3, 0.5], waveWindowsSec: [600, 1800, 7200], cooldownSecRange: [20, 60], retryDelaySecRange: [4, 8], targetSlaSec: 600, limitSlaSec: 1800 },
-      B: { waveRatios: [0.1, 0.2, 0.7], waveWindowsSec: [1800, 7200, 43200], cooldownSecRange: [60, 180], retryDelaySecRange: [8, 15], targetSlaSec: 1800, limitSlaSec: 7200 },
-    },
-    circuitBreaker: {
-      accountFailureThreshold: 3,
-      accountPauseMinutes: 360,
-      proxyWindowMinutes: 10,
-      proxyMinSamples: 10,
-      proxyFailureRatio: 0.4,
-      proxyPauseMinutes: 30,
-    },
-  };
-}
-
 function toDraft(strategy: ExecutionStrategy): StrategyDraft {
   return {
     maxRetry: strategy.actionJob.maxRetry,

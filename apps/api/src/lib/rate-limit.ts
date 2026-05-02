@@ -1,6 +1,8 @@
 import { prisma } from "@/src/lib/prisma";
 
 type TaskTier = "S" | "A" | "B";
+type PlanType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
+type InteractionActionType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
 type ManagedTaskType = "DAILY_PLAN" | "QUICK_REPLY" | "COMMENT_CONTROL" | "REPOST_ROTATION";
 
 type RateLimitState = {
@@ -113,4 +115,12 @@ export async function reserveRateLimitedExecution(input: {
     delayMs,
     reasons,
   };
+}
+
+export function resolvePlanTaskType(_planType: PlanType): ManagedTaskType {
+  return "DAILY_PLAN";
+}
+
+export function resolveInteractionTaskType(_actionType: InteractionActionType): ManagedTaskType {
+  return "QUICK_REPLY";
 }

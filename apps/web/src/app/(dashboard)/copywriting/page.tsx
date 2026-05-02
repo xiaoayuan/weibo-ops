@@ -1,5 +1,5 @@
 import { CopywritingManager } from "@/components/copywriting-manager";
-import { getCopywritingTemplates } from "@/lib/app-data";
+import { getAiCopywritingConfig, getAiRiskConfig, getCopywritingTemplates } from "@/lib/app-data";
 import { requireSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +7,17 @@ export const dynamic = "force-dynamic";
 export default async function CopywritingPage() {
   await requireSession();
 
-  const items = await getCopywritingTemplates();
+  const [items, aiConfig, aiRiskConfig] = await Promise.all([
+    getCopywritingTemplates(),
+    getAiCopywritingConfig(),
+    getAiRiskConfig(),
+  ]);
 
-  return <CopywritingManager initialItems={items} />;
+  return (
+    <CopywritingManager
+      initialItems={items}
+      initialAiConfig={aiConfig}
+      initialAiRiskConfig={aiRiskConfig}
+    />
+  );
 }

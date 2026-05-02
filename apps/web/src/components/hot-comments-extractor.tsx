@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, LoaderCircle, Trash2 } from "lucide-react";
+import { CheckCircle, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
