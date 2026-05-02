@@ -1,3 +1,5 @@
+import { performanceMonitor } from "../performance-monitor";
+
 /**
  * 统一的 API 响应格式
  */
@@ -6,6 +8,7 @@ export type ApiResponse<T = unknown> = {
   data?: T;
   message?: string;
   error?: string;
+  cached?: boolean; // 是否来自缓存
 };
 
 /**
@@ -29,37 +32,51 @@ export async function apiRequest<T = unknown>(
   url: string,
   options?: RequestInit & { signal?: AbortSignal }
 ): Promise<T> {
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
-    });
+  return performanceMonitor.measure(
+    `API:${options?.method || "GET"} ${url}`,
+    async () => {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            ...options?.headers,
+          },
+        });
 
-    const result: ApiResponse<T> = await response.json();
+        const result: ApiResponse<T> = await response.json();
 
-    if (!response.ok || !result.success) {
-      throw new ApiError(
-        result.error || result.message || "请求失败",
-        response.status
-      );
-    }
+        // 记录缓存命中
+        if (result.cached) {
+          performanceMonitor.record({
+            name: `Cache:HIT ${url}`,
+            duration: 0,
+            timestamp: Date.now(),
+            success: true,
+            cached: true,
+          });
+        }
 
-    return result.data as T;
-  } catch (error) {
-    // 忽略取消的请求
-    if (error instanceof Error && error.name === "AbortError") {
-      throw error;
-    }
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(
-      error instanceof Error ? error.message : "网络请求失败"
-    );
-  }
+        if (!response.ok || !result.success) {
+          throw new ApiError(
+            result.error || result.message || "请求失败",
+            response.status
+          );
+        }
+
+        return result.data as T;
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+
+        throw new ApiError(
+          error instanceof Error ? error.message : "网络请求失败"
+        );
+      }
+    },
+    { cached: false }
+  );
 }
 
 /**
