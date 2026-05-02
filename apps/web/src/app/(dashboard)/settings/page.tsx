@@ -1,7 +1,9 @@
 import { requireSession } from "@/lib/auth";
 import { getExecutionStrategy, getRiskRules } from "@/lib/app-data";
+import { fetchServerApi } from "@/lib/backend";
 import { ExecutionStrategyForm } from "@/components/settings/execution-strategy-form";
 import { RiskRulesForm } from "@/components/settings/risk-rules-form";
+import { ProfileSettings } from "@/components/profile-settings";
 import { SurfaceCard } from "@/components/surface-card";
 import { StatusBadge } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
@@ -12,7 +14,11 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const session = await requireSession();
 
-  const [strategy, riskRules] = await Promise.all([getExecutionStrategy(), getRiskRules()]);
+  const [strategy, riskRules, executorResult] = await Promise.all([
+    getExecutionStrategy(),
+    getRiskRules(),
+    fetchServerApi<ExecutorHealth>("/api/health/executor"),
+  ]);
 
   const defaultStrategy = strategy ?? {
     actionJob: {

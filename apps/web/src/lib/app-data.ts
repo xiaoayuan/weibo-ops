@@ -262,19 +262,32 @@ export type SuperTopic = {
 
 export type ProxyNode = {
   id: string;
-  name: string;
-  protocol: "HTTP" | "HTTPS" | "SOCKS5";
-  rotationMode: "STICKY" | "M1" | "M5" | "M10";
-  countryCode: string | null;
-  host: string;
+  ip: string;
   port: number;
-  username?: string | null;
-  enabled: boolean;
-  maxAccounts?: number;
-  assignedAccounts: number;
-  hasPassword?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  type: string;
+  protocol?: string;
+  location?: string;
+  source?: string;
+  latencyMs: number | null;
+  successRate: number | null;
+  lastCheckedAt: string | null;
+  failures: number;
+  disabled: boolean;
+  provider?: string;
+};
+
+export type InviteCode = {
+  id: string;
+  code: string;
+  role: string;
+  maxUses: number;
+  usedCount: number;
+  expiresAt: string | null;
+  disabled: boolean;
+  createdAt: string;
+  creatorId: string;
+  creator?: { id: string; username: string; nickname: string | null } | null;
+  users?: Array<{ id: string; username: string; nickname: string | null; createdAt: string }>;
 };
 
 export type ProxyBindingAccount = {

@@ -2,15 +2,21 @@
 
 import { useMemo, useState } from "react";
 
+import { ActionJobsManager } from "@/components/action-jobs-manager";
 import { AppNotice } from "@/components/app-notice";
-import type { ActionJob, CommentPoolItem, WeiboAccount } from "@/lib/app-data";
-import { formatDateTime } from "@/lib/date";
+import { CommentControlBatchForm } from "@/components/comment-control-batch-form";
+import { CommentPoolManager } from "@/components/comment-pool-manager";
 import { EmptyState } from "@/components/empty-state";
+import { HotCommentsExtractor } from "@/components/hot-comments-extractor";
+import { InteractionTargetParser } from "@/components/interaction-target-parser";
 import { PageHeader } from "@/components/page-header";
+import { RepostRotationForm } from "@/components/repost-rotation-form";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
+import type { ActionJob, CommentPoolItem, WeiboAccount } from "@/lib/app-data";
+import { formatDateTime } from "@/lib/date";
 
 function getJobTypeText(jobType: ActionJob["jobType"]) {
   return jobType === "COMMENT_LIKE_BATCH" ? "控评点赞" : "轮转转发";
@@ -46,7 +52,7 @@ export function OpsManager({
   initialPoolItems: CommentPoolItem[];
   initialJobs: ActionJob[];
 }) {
-  const [activeTab, setActiveTab] = useState<"POOL" | "ROTATION">("POOL");
+  const [activeTab, setActiveTab] = useState<"POOL" | "HOT" | "TARGET" | "ROTATION">("POOL");
   const [poolItems, setPoolItems] = useState(initialPoolItems);
   const [jobs, setJobs] = useState(initialJobs);
   const [selectedPoolIds, setSelectedPoolIds] = useState<string[]>([]);
@@ -118,6 +124,14 @@ export function OpsManager({
 
     setJobs(result.data);
   }
+
+  const handlePoolChanged = () => {
+    void refreshPool();
+  };
+
+  const handleJobsChanged = () => {
+    void refreshJobs();
+  };
 
   async function createSinglePoolItem() {
     try {
@@ -362,7 +376,7 @@ export function OpsManager({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="执行控制" title="先在独立前端接控评池、轮转创建和批次监控" description="这版优先把评论池管理、热门评论导入、控评创建、轮转创建和最近任务列表迁过来，让执行侧主链路先在新前端跑通。" />
+      <PageHeader eyebrow="执行控制" title="运营操作台" description="评论池管理、热评提取、互动目标解析、控评创建、轮转转发与批次监控。" />
 
       <section className="grid gap-4 md:grid-cols-4">
         <SurfaceCard className="rounded-[20px] p-5"><p className="text-xs uppercase tracking-[0.18em] text-app-text-soft">控评池</p><p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-app-text-strong">{stats.pool}</p></SurfaceCard>
@@ -372,16 +386,18 @@ export function OpsManager({
       </section>
 
       <SurfaceCard>
-        <div className="flex gap-3">
-          <button type="button" onClick={() => setActiveTab("POOL")} className={`app-button ${activeTab === "POOL" ? "app-button-primary" : "app-button-secondary"}`}>控评</button>
-          <button type="button" onClick={() => setActiveTab("ROTATION")} className={`app-button ${activeTab === "ROTATION" ? "app-button-primary" : "app-button-secondary"}`}>轮转</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setActiveTab("POOL")} className={`app-button ${activeTab === "POOL" ? "app-button-primary" : "app-button-secondary"}`}>评论池</button>
+          <button type="button" onClick={() => setActiveTab("HOT")} className={`app-button ${activeTab === "HOT" ? "app-button-primary" : "app-button-secondary"}`}>热评提取</button>
+          <button type="button" onClick={() => setActiveTab("TARGET")} className={`app-button ${activeTab === "TARGET" ? "app-button-primary" : "app-button-secondary"}`}>互动目标</button>
+          <button type="button" onClick={() => setActiveTab("ROTATION")} className={`app-button ${activeTab === "ROTATION" ? "app-button-primary" : "app-button-secondary"}`}>轮转转发</button>
         </div>
 
         {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
         {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
 
         {activeTab === "POOL" ? (
-          <div className="mt-5 space-y-6">
+          <div className="mt-5">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="app-subpanel space-y-3">
                 <h2 className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">单条加入控评池</h2>
@@ -400,7 +416,7 @@ export function OpsManager({
               </div>
             </div>
 
-            <div className="app-subpanel space-y-3">
+            <div className="mt-5 app-subpanel space-y-3">
               <h2 className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">提取热门评论</h2>
               <div className="grid gap-4 lg:grid-cols-4">
                 <input value={hotCommentTargetUrl} onChange={(event) => setHotCommentTargetUrl(event.target.value)} className="app-input lg:col-span-2" placeholder="目标微博链接" />
@@ -419,7 +435,7 @@ export function OpsManager({
               </div>
             </div>
 
-            <SurfaceCard className="rounded-[20px] p-5">
+            <SurfaceCard className="mt-5 rounded-[20px] p-5">
               <SectionHeader title="控评池与任务创建" action={<input value={poolKeyword} onChange={(event) => setPoolKeyword(event.target.value)} className="app-input md:w-[260px]" placeholder="搜索链接、评论ID或备注" />} />
 
               {filteredPoolItems.length === 0 ? (
@@ -493,6 +509,14 @@ export function OpsManager({
               )}
             </SurfaceCard>
           </div>
+        ) : activeTab === "HOT" ? (
+          <div className="mt-5">
+            <HotCommentsExtractor onImported={handlePoolChanged} />
+          </div>
+        ) : activeTab === "TARGET" ? (
+          <div className="mt-5">
+            <InteractionTargetParser onImported={handlePoolChanged} />
+          </div>
         ) : (
           <div className="mt-5 space-y-5">
             <div className="app-subpanel">
@@ -539,8 +563,8 @@ export function OpsManager({
 
       <SurfaceCard>
         <SectionHeader
-          title="最近批次"
-          description="观察最近的控评与轮转创建结果、任务状态和账号运行摘要。"
+          title="批次管理"
+          description="控评点赞和轮转转发的批次任务列表，支持查看状态和停止批次。"
           action={
             <div className="flex gap-3">
               <select value={jobStatusFilter} onChange={(event) => setJobStatusFilter(event.target.value as typeof jobStatusFilter)} className="app-input md:w-[180px]">
@@ -605,6 +629,24 @@ export function OpsManager({
           </TableShell>
         )}
       </SurfaceCard>
+
+      <SectionHeader title="专业模式" description="独立封装的增强组件，支持更精细的配置。" />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SurfaceCard>
+          <SectionHeader title="控评批次（专业版）" description="选择账号和评论池链接，创建控评点赞批次，可配置 AI 风险评估。" />
+          <div className="mt-4">
+            <CommentControlBatchForm initialAccounts={accounts} />
+          </div>
+        </SurfaceCard>
+        <SurfaceCard>
+          <SectionHeader title="轮转转发（专业版）" description="选择账号和目标微博，配置转发次数和间隔，创建轮转转发批次。" />
+          <div className="mt-4">
+            <RepostRotationForm initialAccounts={accounts} />
+          </div>
+        </SurfaceCard>
+      </div>
+
+      <ActionJobsManager initialJobs={jobs} />
     </div>
   );
 }
