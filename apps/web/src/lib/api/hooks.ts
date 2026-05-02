@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { apiGet, apiPost, apiPatch, apiDelete, handleApiError } from "@/lib/api/client";
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, handleApiError } from "@/lib/api/client";
 
 /**
  * 通用的数据获取 hook

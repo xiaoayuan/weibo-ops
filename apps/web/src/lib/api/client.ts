@@ -27,7 +27,7 @@ export class ApiError extends Error {
  */
 export async function apiRequest<T = unknown>(
   url: string,
-  options?: RequestInit
+  options?: RequestInit & { signal?: AbortSignal }
 ): Promise<T> {
   try {
     const response = await fetch(url, {
@@ -49,6 +49,10 @@ export async function apiRequest<T = unknown>(
 
     return result.data as T;
   } catch (error) {
+    // 忽略取消的请求
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
     if (error instanceof ApiError) {
       throw error;
     }
@@ -63,7 +67,8 @@ export async function apiRequest<T = unknown>(
  */
 export async function apiGet<T = unknown>(
   url: string,
-  params?: Record<string, string | number | boolean>
+  params?: Record<string, string | number | boolean>,
+  signal?: AbortSignal
 ): Promise<T> {
   const searchParams = params
     ? "?" + new URLSearchParams(
@@ -71,7 +76,7 @@ export async function apiGet<T = unknown>(
       ).toString()
     : "";
 
-  return apiRequest<T>(url + searchParams, { method: "GET" });
+  return apiRequest<T>(url + searchParams, { method: "GET", signal });
 }
 
 /**

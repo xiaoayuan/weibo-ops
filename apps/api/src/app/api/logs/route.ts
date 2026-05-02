@@ -10,7 +10,9 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId")?.trim() || undefined;
+  const page = parseInt(searchParams.get("page") || "1");
+  const pageSize = parseInt(searchParams.get("pageSize") || "50");
 
-  const logs = await listVisibleExecutionLogs(auth.session, userId);
-  return Response.json({ success: true, data: logs });
+  const result = await listVisibleExecutionLogs(auth.session, userId, { page, pageSize });
+  return Response.json({ success: true, ...result });
 }

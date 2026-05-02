@@ -4,20 +4,41 @@ import { prisma } from "@/src/lib/prisma";
 import { autoAssignProxyBindingsForAccount, getAutoAssignableProxyNode } from "@/src/lib/proxy-pool";
 import { createAccountSchema } from "@/src/lib/validators";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireApiRole("VIEWER");
 
   if (!auth.ok) {
     return auth.response;
   }
 
-  const accounts = await prisma.weiboAccount.findMany({
-    where: { ownerUserId: auth.session.id },
-    orderBy: { createdAt: "desc" },
-    select: accountSelect,
-  });
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get("page") || "1");
+  const pageSize = Math.min(parseInt(searchParams.get("pageSize") || "50"), 100);
+  const skip = (page - 1) * pageSize;
 
-  return Response.json({ success: true, data: accounts });
+  const where = { ownerUserId: auth.session.id };
+
+  const [accounts, total] = await Promise.all([
+    prisma.weiboAccount.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: accountSelect,
+      skip,
+      take: pageSize,
+    }),
+    prisma.weiboAccount.count({ where }),
+  ]);
+
+  return Response.json({
+    success: true,
+    data: accounts,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  });
 }
 
 export async function POST(request: Request) {

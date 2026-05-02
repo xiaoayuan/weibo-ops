@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { WeiboAccount, CopywritingTemplate, DailyPlan } from "@/lib/app-data";
+import type { WeiboAccount, CopywritingTemplate, Plan } from "@/lib/app-data";
 
 type AppState = {
   // 账号数据
@@ -17,11 +17,11 @@ type AppState = {
   deleteCopywriting: (id: string) => void;
 
   // 计划数据
-  plans: DailyPlan[];
+  plans: Plan[];
   plansLoading: boolean;
   plansDate: string;
   fetchPlans: (date?: string) => Promise<void>;
-  updatePlan: (id: string, data: Partial<DailyPlan>) => void;
+  updatePlan: (id: string, data: Partial<Plan>) => void;
   deletePlan: (id: string) => void;
 
   // 全局通知
