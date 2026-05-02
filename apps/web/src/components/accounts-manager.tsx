@@ -126,6 +126,8 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
   const [qrAccountId, setQrAccountId] = useState<string | null>(null);
   const [qrSession, setQrSession] = useState<QrSession | null>(null);
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [bulkChecking, setBulkChecking] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -356,6 +358,65 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
     }
   }
 
+  async function checkAllSessions() {
+    if (accounts.length === 0) {
+      setError("当前没有可检测账号");
+      return;
+    }
+
+    try {
+      setBulkChecking(true);
+      setError(null);
+      setNotice(null);
+
+      let successCount = 0;
+
+      for (const account of accounts) {
+        const response = await fetch(`/api/accounts/${account.id}/check-session`, { method: "POST" });
+        const result = await readJsonResponse<CheckSessionResult>(response);
+
+        if (response.ok && result.data) {
+          successCount += 1;
+          setAccounts((current) =>
+            current.map((item) => (item.id === account.id ? { ...item, ...result.data } : item)),
+          );
+        }
+      }
+
+      setNotice(`已完成 ${accounts.length} 个账号登录态检测，其中 ${successCount} 个请求成功返回`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量检测登录态失败");
+    } finally {
+      setBulkChecking(false);
+    }
+  }
+
+  async function deleteAccount(id: string) {
+    if (!window.confirm("确认删除这个账号吗？删除后无法恢复。")) {
+      return;
+    }
+
+    try {
+      setDeletingId(id);
+      setError(null);
+      setNotice(null);
+
+      const response = await fetch(`/api/accounts/${id}`, { method: "DELETE" });
+      const result = await readJsonResponse<{ success: boolean; message?: string }>(response);
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "删除账号失败");
+      }
+
+      setAccounts((current) => current.filter((item) => item.id !== id));
+      setNotice(result.message || "账号已删除");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除账号失败");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
@@ -450,7 +511,15 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
       </SurfaceCard>
 
       <SurfaceCard>
-        <SectionHeader title="账号列表" description="读写基础能力已经接入，下面可以直接做账号编辑和登录态检测。" />
+        <SectionHeader
+          title="账号列表"
+          description="读写基础能力已经接入，下面可以直接做账号编辑、删除和登录态检测。"
+          action={
+            <button type="button" onClick={() => void checkAllSessions()} disabled={bulkChecking || checkingId !== null} className="app-button app-button-secondary">
+              {bulkChecking ? "批量检测中" : "一键检测全部账号"}
+            </button>
+          }
+        />
 
         {accounts.length === 0 ? (
           <div className="mt-5">
@@ -524,6 +593,9 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
                         </button>
                         <button type="button" onClick={() => openSessionEditor(account)} className="app-button app-button-secondary h-10 px-4 text-xs">
                           录入 Session
+                        </button>
+                        <button type="button" onClick={() => void deleteAccount(account.id)} disabled={deletingId === account.id} className="app-button app-button-secondary h-10 px-4 text-xs text-app-danger hover:border-app-danger/30 hover:text-app-danger">
+                          {deletingId === account.id ? "删除中" : "删除账号"}
                         </button>
                       </div>
                     </td>

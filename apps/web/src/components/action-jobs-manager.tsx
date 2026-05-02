@@ -87,6 +87,8 @@ export function ActionJobsManager({ initialJobs }: { initialJobs: ActionJob[] })
   const [jobs, setJobs] = useState<ActionJob[]>(initialJobs);
   const [loading, setLoading] = useState(false);
   const [stoppingId, setStoppingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -123,6 +125,53 @@ export function ActionJobsManager({ initialJobs }: { initialJobs: ActionJob[] })
     }
   }
 
+  async function deleteJob(id: string) {
+    if (!window.confirm("确认删除该批次吗？")) return;
+    try {
+      setDeletingId(id);
+      setError(null);
+      setNotice(null);
+      const response = await fetch(`/api/action-jobs/${id}`, { method: "DELETE" });
+      const result = await response.json() as { success: boolean; message?: string };
+      if (!response.ok) throw new Error(result.message ?? "删除批次失败");
+      setJobs((current) => current.filter((job) => job.id !== id));
+      setSelectedJobIds((current) => current.filter((jobId) => jobId !== id));
+      setNotice(result.message || "批次已删除");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除批次失败");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function batchDeleteJobs() {
+    if (selectedJobIds.length === 0) {
+      setError("请先选择至少一个批次");
+      return;
+    }
+    if (!window.confirm(`确认删除选中的 ${selectedJobIds.length} 个批次吗？`)) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      setNotice(null);
+
+      for (const id of selectedJobIds) {
+        const response = await fetch(`/api/action-jobs/${id}`, { method: "DELETE" });
+        const result = await response.json() as { success: boolean; message?: string };
+        if (!response.ok) throw new Error(result.message ?? `批次 ${id} 删除失败`);
+      }
+
+      setJobs((current) => current.filter((job) => !selectedJobIds.includes(job.id)));
+      setNotice(`已删除 ${selectedJobIds.length} 个批次`);
+      setSelectedJobIds([]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量删除批次失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6 lg:space-y-8">
       <SurfaceCard>
@@ -130,15 +179,20 @@ export function ActionJobsManager({ initialJobs }: { initialJobs: ActionJob[] })
           title="批次管理"
           description="查看最近创建的控评和轮转批次，支持停止待执行或执行中的批次。"
           action={
-            <button
-              type="button"
-              onClick={() => void refreshJobs()}
-              disabled={loading}
-              className="app-button app-button-secondary"
-            >
-              {loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {loading ? "刷新中" : "刷新"}
-            </button>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => void batchDeleteJobs()} disabled={loading || selectedJobIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
+                批量删除
+              </button>
+              <button
+                type="button"
+                onClick={() => void refreshJobs()}
+                disabled={loading}
+                className="app-button app-button-secondary"
+              >
+                {loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {loading ? "刷新中" : "刷新"}
+              </button>
+            </div>
           }
         />
 
@@ -157,6 +211,7 @@ export function ActionJobsManager({ initialJobs }: { initialJobs: ActionJob[] })
             <table className="app-table min-w-[1100px]">
               <thead>
                 <tr>
+                  <th>选择</th>
                   <th>批次ID</th>
                   <th>类型</th>
                   <th>账号数</th>
@@ -175,6 +230,17 @@ export function ActionJobsManager({ initialJobs }: { initialJobs: ActionJob[] })
 
                   return (
                     <tr key={job.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedJobIds.includes(job.id)}
+                          onChange={() =>
+                            setSelectedJobIds((current) =>
+                              current.includes(job.id) ? current.filter((jobId) => jobId !== job.id) : [...current, job.id],
+                            )
+                          }
+                        />
+                      </td>
                       <td className="font-mono text-xs text-app-text-soft">{truncateJobId(job.id)}</td>
                       <td className="font-medium text-app-text-strong">{getJobTypeText(job.jobType)}</td>
                       <td>{job.accountRuns.length}</td>
@@ -189,14 +255,24 @@ export function ActionJobsManager({ initialJobs }: { initialJobs: ActionJob[] })
                         {new Date(job.createdAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          onClick={() => void stopJob(job.id)}
-                          disabled={!canStop || stoppingId === job.id}
-                          className="app-button app-button-secondary h-9 px-4 text-xs text-app-danger hover:border-app-danger/30 hover:text-app-danger disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {stoppingId === job.id ? "停止中" : "停止"}
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void stopJob(job.id)}
+                            disabled={!canStop || stoppingId === job.id}
+                            className="app-button app-button-secondary h-9 px-4 text-xs text-app-danger hover:border-app-danger/30 hover:text-app-danger disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {stoppingId === job.id ? "停止中" : "停止"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteJob(job.id)}
+                            disabled={deletingId === job.id || canStop}
+                            className="app-button app-button-secondary h-9 px-4 text-xs text-app-danger hover:border-app-danger/30 hover:text-app-danger disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {deletingId === job.id ? "删除中" : "删除"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

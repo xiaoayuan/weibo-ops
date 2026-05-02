@@ -36,6 +36,7 @@ type DeleteResponse = {
 
 export function CommentPoolManager({ initialItems }: { initialItems: CommentPoolItem[] }) {
   const [items, setItems] = useState(initialItems);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchText, setBatchText] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -167,6 +168,44 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
     }
   }
 
+  async function batchDeleteItems() {
+    if (selectedIds.length === 0) {
+      setError("请先选择至少一条评论链接");
+      return;
+    }
+
+    if (!window.confirm(`确认删除选中的 ${selectedIds.length} 条评论链接吗？`)) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      setNotice(null);
+
+      for (const id of selectedIds) {
+        const response = await fetch(`/api/comment-pool/${id}`, { method: "DELETE" });
+        if (response.status === 404) {
+          setApiMissing(true);
+          throw new Error("接口不存在，跳过");
+        }
+
+        const result = await readJsonResponse<DeleteResponse>(response);
+        if (!response.ok) {
+          throw new Error(result.message || `删除 ${id} 失败`);
+        }
+      }
+
+      setItems((current) => current.filter((item) => !selectedIds.includes(item.id)));
+      setNotice(`已删除 ${selectedIds.length} 条评论链接`);
+      setSelectedIds([]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量删除失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function renderList() {
     if (items.length === 0) {
       return <EmptyState title="暂无评论链接" description="批量导入评论链接或从热评提取补充评论池。" />;
@@ -177,6 +216,7 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
         <table className="app-table min-w-[1000px]">
           <thead>
             <tr>
+              <th>选择</th>
               <th>评论链接</th>
               <th>评论 ID</th>
               <th>标签</th>
@@ -188,6 +228,17 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(item.id)}
+                    onChange={() =>
+                      setSelectedIds((current) =>
+                        current.includes(item.id) ? current.filter((selectedId) => selectedId !== item.id) : [...current, item.id],
+                      )
+                    }
+                  />
+                </td>
                 <td className="max-w-[320px]">
                   <a
                     href={item.sourceUrl}
@@ -296,15 +347,20 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
           title="评论池列表"
           description={`共 ${items.length} 条评论链接，支持按链接和 ID 搜索。`}
           action={
-            <button
-              type="button"
-              onClick={() => void refreshList()}
-              disabled={loading}
-              className="app-button app-button-secondary"
-            >
-              {loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {loading ? "刷新中" : "刷新"}
-            </button>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => void batchDeleteItems()} disabled={submitting || selectedIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
+                批量删除
+              </button>
+              <button
+                type="button"
+                onClick={() => void refreshList()}
+                disabled={loading}
+                className="app-button app-button-secondary"
+              >
+                {loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {loading ? "刷新中" : "刷新"}
+              </button>
+            </div>
           }
         />
 
