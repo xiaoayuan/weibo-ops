@@ -39,7 +39,7 @@ export function StatCard({
           ? "from-amber-400/10"
           : accent === "info"
             ? "from-blue-400/10"
-            : "from-pink-400/10";
+            : "from-orange-400/10";
 
   return (
     <SurfaceCard className={`group relative overflow-hidden rounded-[22px] p-5${cursorPointer ? " cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg active:translate-y-0" : ""}`}>

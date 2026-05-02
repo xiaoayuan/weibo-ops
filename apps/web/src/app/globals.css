@@ -19,10 +19,10 @@
   --text-soft: #666666;
   --text-muted: #999999;
   
-  /* 多巴胺主色 - 明亮但不刺眼 */
-  --accent: #ff6b9d;
-  --accent-strong: #ff4d88;
-  --accent-soft: rgba(255, 107, 157, 0.08);
+  /* 田曦薇应援色 - 珊瑚橙 */
+  --accent: #ff7b6d;
+  --accent-strong: #ff6355;
+  --accent-soft: rgba(255, 123, 109, 0.08);
   
   /* 辅助色 - 活泼多彩 */
   --success: #00d4aa;
@@ -38,8 +38,8 @@
   --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
   
   /* 渐变 */
-  --gradient-primary: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(255, 107, 157, 0.05) 0%, rgba(255, 143, 171, 0.03) 100%);
+  --gradient-primary: linear-gradient(135deg, #ff7b6d 0%, #ff9485 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(255, 123, 109, 0.05) 0%, rgba(255, 148, 133, 0.03) 100%);
 }
 
 :root[data-theme="dark"] {
@@ -60,9 +60,9 @@
   --text-muted: #707070;
   
   /* 深色模式主色 */
-  --accent: #ff6b9d;
-  --accent-strong: #ff8fab;
-  --accent-soft: rgba(255, 107, 157, 0.12);
+  --accent: #ff7b6d;
+  --accent-strong: #ff9485;
+  --accent-soft: rgba(255, 123, 109, 0.12);
   
   /* 深色模式辅助色 */
   --success: #00d4aa;
@@ -78,8 +78,8 @@
   --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.5);
   
   /* 深色模式渐变 */
-  --gradient-primary: linear-gradient(135deg, #ff6b9d 0%, #ff8fab 100%);
-  --gradient-soft: linear-gradient(135deg, rgba(255, 107, 157, 0.08) 0%, rgba(255, 143, 171, 0.05) 100%);
+  --gradient-primary: linear-gradient(135deg, #ff7b6d 0%, #ff9485 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(255, 123, 109, 0.08) 0%, rgba(255, 148, 133, 0.05) 100%);
 }
 
 @theme inline {
@@ -119,18 +119,18 @@ body {
 
 :root[data-theme="dark"] body {
   background:
-    radial-gradient(circle at 20% 10%, rgba(255, 107, 157, 0.03), transparent 40%),
+    radial-gradient(circle at 20% 10%, rgba(255, 123, 109, 0.03), transparent 40%),
     radial-gradient(circle at 80% 80%, rgba(77, 159, 255, 0.02), transparent 40%),
     var(--bg);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 107, 157, 0.3) transparent;
+  scrollbar-color: rgba(255, 123, 109, 0.3) transparent;
 }
 
 ::selection {
-  background: rgba(255, 107, 157, 0.2);
+  background: rgba(255, 123, 109, 0.2);
   color: var(--text-strong);
 }
 
@@ -152,8 +152,8 @@ body {
 
   .app-button-primary {
     background: var(--gradient-primary);
-    box-shadow: 0 2px 8px rgba(255, 107, 157, 0.25);
-    @apply text-white hover:shadow-[0_4px_12px_rgba(255,107,157,0.35)] active:scale-[0.98];
+    box-shadow: 0 2px 8px rgba(255, 123, 109, 0.25);
+    @apply text-white hover:shadow-[0_4px_12px_rgba(255,123,109,0.35)] active:scale-[0.98];
   }
 
   .app-button-secondary {

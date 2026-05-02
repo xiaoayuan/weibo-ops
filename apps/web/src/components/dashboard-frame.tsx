@@ -56,7 +56,7 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
       <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-1 gap-5 px-4 py-4 lg:grid-cols-[286px_minmax(0,1fr)] lg:px-6 lg:py-6 xl:gap-6">
         <aside className="app-surface sticky top-6 hidden h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-[26px] p-0 lg:flex">
           <div className="flex items-center gap-4 border-b border-app-line px-6 py-6">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-gradient-to-br from-pink-400 to-rose-400 text-xl font-bold text-white shadow-sm">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-gradient-to-br from-coral-400 to-coral-500 text-xl font-bold text-white shadow-sm" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
               薇
             </div>
             <div>
@@ -126,7 +126,7 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
               <div className="flex items-center gap-3">
                 <ThemeToggle />
                 <div className="hidden items-center gap-3 rounded-[16px] border border-app-line bg-app-panel-muted px-3 py-2 md:flex">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-br from-pink-400 to-rose-400 text-sm font-bold text-white">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[12px] text-sm font-bold text-white" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
                     {getInitials(session.username)}
                   </div>
                   <div>
@@ -150,7 +150,7 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
           <div className="flex h-full max-w-sm flex-col rounded-[24px] border border-app-line bg-app-panel shadow-xl">
             <div className="flex items-center justify-between border-b border-app-line px-5 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-gradient-to-br from-pink-400 to-rose-400 text-base font-bold text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[14px] text-base font-bold text-white" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
                   薇
                 </div>
                 <div>
@@ -192,7 +192,7 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
 
             <div className="space-y-4 border-t border-app-line px-5 py-5">
               <div className="flex items-center gap-3 rounded-[18px] border border-app-line bg-app-panel-muted px-4 py-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-br from-pink-400 to-rose-400 text-sm font-bold text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] text-sm font-bold text-white" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
                   {getInitials(session.username)}
                 </div>
                 <div>
