@@ -1,3 +1,4 @@
+import { CacheManager } from "@/src/lib/cache";
 import { extractCommentIdFromUrl } from "@/src/lib/comment-link";
 import { requireApiRole } from "@/src/lib/permissions";
 import { prisma } from "@/src/lib/prisma";
@@ -13,6 +14,20 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const keyword = (searchParams.get("keyword") || "").trim();
   const tag = (searchParams.get("tag") || "").trim();
+
+  // 生成缓存键
+  const cacheKey = `comment-pool:keyword:${keyword}:tag:${tag}`;
+
+  // 尝试从缓存获取
+  const cached = await CacheManager.get<unknown[]>(cacheKey);
+
+  if (cached) {
+    return Response.json({
+      success: true,
+      data: cached,
+      cached: true,
+    });
+  }
 
   const items = await prisma.commentLinkPoolItem.findMany({
     where:
@@ -36,7 +51,14 @@ export async function GET(request: Request) {
     take: 500,
   });
 
-  return Response.json({ success: true, data: items });
+  // 写入缓存（5 分钟）
+  await CacheManager.set(cacheKey, items, 300);
+
+  return Response.json({
+    success: true,
+    data: items,
+    cached: false,
+  });
 }
 
 export async function POST(request: Request) {
@@ -77,6 +99,9 @@ export async function POST(request: Request) {
         isForcedDuplicate: Boolean(parsed.data.forceDuplicate),
       },
     });
+
+    // 清除评论池缓存
+    await CacheManager.delPattern("comment-pool:*");
 
     return Response.json({ success: true, data: item });
   } catch {
