@@ -56,12 +56,13 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
       <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-1 gap-5 px-4 py-4 lg:grid-cols-[286px_minmax(0,1fr)] lg:px-6 lg:py-6 xl:gap-6">
         <aside className="app-surface sticky top-6 hidden h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-[26px] p-0 lg:flex">
           <div className="flex items-center gap-4 border-b border-app-line px-6 py-6">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[16px] border border-app-line bg-app-panel-muted text-xl font-semibold text-app-text-strong shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              微
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-[16px] border border-app-accent/30 bg-gradient-to-br from-fuchsia-500/20 to-purple-500/20 text-xl font-semibold text-app-accent-strong shadow-[inset_0_1px_0_rgba(232,121,249,0.15),0_0_20px_rgba(232,121,249,0.25)]">
+              <span className="relative z-10">薇</span>
+              <div className="absolute inset-0 rounded-[16px] bg-gradient-to-br from-fuchsia-400/10 to-purple-400/10 blur-sm" />
             </div>
             <div>
-              <p className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">微博运营台</p>
-              <p className="mt-1 text-sm text-app-text-muted">独立前端工作台</p>
+              <p className="bg-gradient-to-r from-fuchsia-300 to-purple-300 bg-clip-text text-lg font-semibold tracking-[-0.03em] text-transparent">田曦薇应援站</p>
+              <p className="mt-1 text-sm text-app-text-muted">微博运营管理系统</p>
             </div>
           </div>
 
@@ -71,25 +72,29 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
               const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
 
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "group relative flex items-center gap-3 rounded-[18px] px-4 py-3 text-sm transition",
-                    active
-                      ? "border border-app-line-strong bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(125,211,199,0.08))] text-app-text-strong shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "border border-transparent text-app-text-muted hover:border-app-line hover:bg-white/[0.025] hover:text-app-text-strong",
-                  )}
-                >
-                  {active ? <span className="absolute inset-y-3 left-0 w-px rounded-full bg-app-accent/90" /> : null}
-                  <span className={cn("flex h-10 w-10 items-center justify-center rounded-[14px] border", active ? "border-app-accent/15 bg-app-accent-soft text-app-accent-strong" : "border-app-line bg-app-panel-muted text-app-text-soft") }>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-medium">{item.label}</span>
-                    <span className="mt-1 block truncate text-[11px] tracking-[0.02em] text-app-text-soft">{item.description}</span>
-                  </span>
-                </Link>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-[18px] border px-4 py-3 text-sm transition-all duration-200",
+                      active 
+                        ? "border-app-accent/30 bg-gradient-to-r from-fuchsia-500/15 to-purple-500/15 text-app-text-strong shadow-[0_0_20px_rgba(232,121,249,0.2)]" 
+                        : "border-transparent text-app-text-muted hover:border-app-line hover:bg-white/[0.025] hover:text-app-text-strong",
+                    )}
+                  >
+                    <span className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-[14px] border transition-all duration-200",
+                      active 
+                        ? "border-app-accent/30 bg-gradient-to-br from-fuchsia-400/20 to-purple-400/20 text-app-accent shadow-[0_0_15px_rgba(232,121,249,0.3)]" 
+                        : "border-app-line bg-app-panel-muted text-app-text-soft"
+                    )}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="font-medium">{item.label}</p>
+                      <p className="text-[11px] text-app-text-soft">{item.description}</p>
+                    </div>
+                  </Link>
               );
             })}
           </nav>
@@ -109,15 +114,15 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-app-line bg-app-panel-muted lg:hidden"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-app-accent/20 bg-gradient-to-br from-fuchsia-500/10 to-purple-500/10 text-app-accent transition-all duration-200 hover:shadow-[0_0_15px_rgba(232,121,249,0.3)] active:scale-95 lg:hidden"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-app-text-soft">运营控制台</p>
-                  <h2 className="mt-1.5 text-[1.8rem] font-semibold tracking-[-0.05em] text-app-text-strong">{activeItem.label}</h2>
-                  <p className="mt-1.5 text-sm text-app-text-muted">{activeItem.description}</p>
+                <div className="hidden lg:block">
+                  <p className="bg-gradient-to-r from-fuchsia-300 to-purple-300 bg-clip-text text-base font-semibold tracking-[-0.02em] text-transparent">{activeItem?.label || "控制台"}</p>
+                  <p className="mt-0.5 text-xs text-app-text-soft">{activeItem?.description || "管理和监控"}</p>
                 </div>
+              </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -183,13 +188,13 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
             </nav>
 
             <div className="space-y-4 border-t border-app-line px-5 py-5">
-              <div className="flex items-center gap-3 rounded-[18px] border border-app-line bg-app-panel-muted px-4 py-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-app-accent-soft text-sm font-semibold text-app-accent-strong">
+              <div className="flex items-center gap-3 rounded-[18px] border border-app-accent/20 bg-gradient-to-r from-fuchsia-500/10 to-purple-500/10 px-4 py-3 shadow-[0_0_15px_rgba(232,121,249,0.15)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-br from-fuchsia-400 to-purple-400 text-sm font-semibold text-white shadow-[0_0_15px_rgba(232,121,249,0.4)]">
                   {getInitials(session.username)}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-app-text-strong">{session.username}</p>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-app-text-soft">{getRoleText(session.role)}</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-app-accent">{getRoleText(session.role)}</p>
                 </div>
               </div>
               <div className="flex gap-3">
