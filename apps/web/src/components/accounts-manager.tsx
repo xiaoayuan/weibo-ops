@@ -421,8 +421,8 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
         eyebrow="账号管理"
-        title="账号状态、编辑和登录态检测已接入独立前端"
-        description="这里现在不只是读取视图。你可以直接新增账号、编辑账号信息、触发登录态检测，并在新增时进入扫码登录流程。"
+        title="微博账号管理"
+        description="管理微博账号、检测登录状态、配置代理绑定。"
       />
 
       <section className="grid gap-4 md:grid-cols-3">

@@ -224,7 +224,7 @@ export function TopicTasksManager({
 
         {accounts.length === 0 || topics.length === 0 ? (
           <div className="mt-5">
-            <EmptyState title="请先准备账号和超话" description="至少存在一个账号和一个超话后，才能在独立前端创建任务配置。" />
+            <EmptyState title="请先准备账号和超话" description="至少需要一个账号和一个超话才能创建任务配置。" />
           </div>
         ) : (
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">

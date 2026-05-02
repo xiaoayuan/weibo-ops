@@ -22,7 +22,7 @@ export function AuthShell({
           <div>
             <div className="inline-flex items-center gap-3 rounded-full border border-app-line bg-app-panel-muted px-4 py-2 text-xs tracking-[0.18em] text-app-text-soft">
               <span className="h-2 w-2 rounded-full bg-app-accent" />
-              微博运营台独立前端
+              田曦薇应援站
             </div>
             <h1 className="mt-8 max-w-2xl text-[3.35rem] font-semibold leading-[1.02] tracking-[-0.06em] text-app-text-strong">
               更像成熟控制台，而不是默认后台模板。

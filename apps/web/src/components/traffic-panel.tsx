@@ -45,7 +45,7 @@ export function TrafficPanel({ data }: { data: TrafficSummary | null }) {
   if (!data) {
     return (
       <div className="space-y-6 lg:space-y-8">
-        <PageHeader eyebrow="流量监控" title="独立前端暂时未取到流量统计" description="流量页依赖执行日志中的真实流量字段。如果当前环境没有数据，页面会先保持空态。" />
+        <PageHeader eyebrow="流量监控" title="暂无流量数据" description="当前没有可用的流量统计数据，请检查执行日志。" />
         <EmptyState title="暂无流量数据" description="等真实执行日志继续沉淀后，这里会展示动作占比、日趋势和最近流量明细。" />
       </div>
     );

@@ -233,7 +233,7 @@ export function InteractionsManager({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="互动任务" title="迁移互动创建、执行和批量处理主流程" description="这一轮先把互动任务的创建、执行、审批、停止和批量删除迁过来，保证互动侧常用流程能在独立前端闭环。" />
+      <PageHeader eyebrow="互动任务" title="互动任务管理" description="创建、执行、审批和管理微博互动任务。" />
 
       <section className="grid gap-4 md:grid-cols-4">
         <SurfaceCard className="rounded-[20px] p-5"><p className="text-xs uppercase tracking-[0.18em] text-app-text-soft">任务总数</p><p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-app-text-strong">{stats.total}</p></SurfaceCard>

@@ -34,7 +34,7 @@ export function PlaceholderModule({ title, description }: { title: string; descr
         </div>
       </SurfaceCard>
 
-      <EmptyState title="该页面仍在补齐完整操作流" description="视觉框架已经就位，后续会继续把这个模块的真实增删改查和批量动作补进独立前端。" />
+      <EmptyState title="功能开发中" description="该模块正在开发中，敬请期待。" />
     </div>
   );
 }

@@ -26,7 +26,7 @@ export function SchedulerMonitor({ data }: { data: TaskSchedulerStatus | null })
   if (!data) {
     return (
       <div className="space-y-6 lg:space-y-8">
-        <PageHeader eyebrow="调度快照" title="独立前端暂时未取到调度数据" description="后端没有返回调度快照，可能是接口暂时不可达，也可能是当前环境还没有可见队列。" />
+        <PageHeader eyebrow="调度快照" title="暂无调度数据" description="当前没有可用的调度队列数据，请检查后端服务状态。" />
         <EmptyState title="暂无调度快照" description="稍后刷新页面，或先让系统产生一些调度任务后再查看。" />
       </div>
     );

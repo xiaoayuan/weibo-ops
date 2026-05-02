@@ -226,7 +226,7 @@ export function PlansManager({
       <PageHeader
         eyebrow="计划控制页"
         title="按业务日期管理计划生成、调度和执行"
-        description="这版先把今天和指定日期的计划视图迁到独立前端，并接上生成、执行、停止、人工确认和删除这些高频动作。"
+        description="查看和管理每日执行计划，支持生成、执行、停止和删除操作。"
         action={
           <div className="flex flex-wrap gap-3">
             <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="app-input h-12 w-[180px] font-mono" />
