@@ -229,13 +229,13 @@ export function PlansManager({
         description="这版先把今天和指定日期的计划视图迁到独立前端，并接上生成、执行、停止、人工确认和删除这些高频动作。"
         action={
           <div className="flex flex-wrap gap-3">
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="app-input h-12 w-[180px]" />
-            <button type="button" onClick={() => void reloadPlans()} className="app-button app-button-secondary">
-              {loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="app-input h-12 w-[180px] font-mono" />
+            <button type="button" onClick={() => void reloadPlans()} disabled={loading} className="app-button app-button-secondary">
+              {loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               刷新
             </button>
             <button type="button" onClick={() => void generatePlans()} disabled={submitting} className="app-button app-button-primary">
-              <CalendarDays className="mr-2 h-4 w-4" />
+              {submitting ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <CalendarDays className="mr-2 h-4 w-4" />}
               生成计划
             </button>
           </div>
@@ -283,11 +283,11 @@ export function PlansManager({
         {notice ? <AppNotice tone="success" className="mt-4">{notice}</AppNotice> : null}
 
         {filteredPlans.length === 0 ? (
-          <div className="mt-5">
+          <div className="mt-6">
             <EmptyState title="当前筛选下没有计划" description="你可以切换业务日期、刷新列表，或者直接为当前日期生成一批计划。" />
           </div>
         ) : (
-          <TableShell className="mt-5">
+          <TableShell className="mt-6">
             <table className="app-table min-w-[1280px]">
               <thead>
                 <tr>
@@ -304,17 +304,17 @@ export function PlansManager({
                   const isEditing = editingId === plan.id;
 
                   return (
-                    <tr key={plan.id}>
+                    <tr key={plan.id} className="group">
                       <td>
-                        <p className="font-medium text-app-text-strong">{getPlanTypeText(plan.planType)}</p>
+                        <p className="font-semibold text-app-text-strong transition-colors duration-200 group-hover:text-app-accent">{getPlanTypeText(plan.planType)}</p>
                         <p className="mt-1 font-mono text-xs text-app-text-soft">{new Date(plan.scheduledTime).toLocaleString("zh-CN")}</p>
                         {isEditing ? (
                           <input value={scheduledTime} onChange={(event) => setScheduledTime(event.target.value)} type="datetime-local" className="app-input mt-3 h-11 w-[220px]" />
                         ) : null}
                       </td>
                       <td>
-                        <p className="font-medium text-app-text-strong">{plan.account.nickname}</p>
-                        <p className="mt-1 text-xs text-app-text-soft">{plan.task?.superTopic?.name || "-"}</p>
+                        <p className="font-semibold text-app-text-strong">{plan.account.nickname}</p>
+                        <p className="mt-1 text-xs text-app-text-soft">{plan.task?.superTopic?.name || <span className="text-app-text-soft/60">-</span>}</p>
                       </td>
                       <td>
                         {isEditing ? (
@@ -328,8 +328,8 @@ export function PlansManager({
                           </select>
                         ) : (
                           <div>
-                            <p className="text-sm text-app-text-strong">{plan.content?.title || "未绑定文案"}</p>
-                            <p className="mt-1 max-w-[280px] truncate text-xs text-app-text-soft">{plan.content?.content || plan.resultMessage || "-"}</p>
+                            <p className="text-sm font-medium text-app-text-strong">{plan.content?.title || <span className="text-app-text-soft">未绑定文案</span>}</p>
+                            <p className="mt-1 max-w-[280px] truncate text-xs leading-relaxed text-app-text-soft">{plan.content?.content || plan.resultMessage || "-"}</p>
                           </div>
                         )}
                       </td>
@@ -338,15 +338,16 @@ export function PlansManager({
                           {plan.status === "PENDING" ? "待执行" : plan.status === "READY" ? "待确认" : plan.status === "RUNNING" ? "执行中" : plan.status === "SUCCESS" ? "已成功" : plan.status === "FAILED" ? "已失败" : "已取消"}
                         </StatusBadge>
                         {plan.status === "FAILED" && plan.error ? (
-                          <p className="mt-1 text-xs text-app-danger">{plan.error}</p>
+                          <p className="mt-2 text-xs leading-relaxed text-app-danger">{plan.error}</p>
                         ) : null}
                       </td>
-                      <td className="max-w-[240px] text-xs leading-6 text-app-text-soft">{plan.pendingReason || plan.scheduleNote || plan.resultMessage || "-"}</td>
+                      <td className="max-w-[240px] text-xs leading-6 text-app-text-soft">{plan.pendingReason || plan.scheduleNote || plan.resultMessage || <span className="text-app-text-soft/60">-</span>}</td>
                       <td>
                         <div className="flex flex-wrap gap-2">
                           {isEditing ? (
                             <>
                               <button type="button" onClick={() => void savePlanEdit(plan.id)} disabled={submitting} className="app-button app-button-primary h-10 px-4 text-xs">
+                                {submitting ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
                                 保存
                               </button>
                               <button type="button" onClick={() => setEditingId(null)} className="app-button app-button-secondary h-10 px-4 text-xs">
@@ -378,7 +379,7 @@ export function PlansManager({
                               <button type="button" onClick={() => void runPlanAction(`/api/plans/${plan.id}/stop`, "计划已停止")} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs">
                                 <Square className="mr-1.5 h-3.5 w-3.5" />停止
                               </button>
-                              <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-secondary h-10 px-4 text-xs text-app-danger hover:border-app-danger/30 hover:text-app-danger">
+                              <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submitting} className="app-button app-button-danger h-10 px-4 text-xs">
                                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
                               </button>
                             </>
