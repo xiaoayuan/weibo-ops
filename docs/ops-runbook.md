@@ -2,6 +2,12 @@
 
 ## 标准更新流程
 
+说明：
+
+- 每次代码推送到 GitHub 后，默认都要同时考虑 `controller` 和 `worker` 两台服务器的更新动作。
+- 即使某次改动看起来只影响主服务器，也要明确说明 `worker` 是否需要同步 `git pull`。
+- 如果不确定，默认两台都执行 `git pull origin main`，避免代码版本漂移。
+
 ### 主服务器
 
 ```bash
@@ -17,6 +23,15 @@ cd /opt/weibo-ops
 git pull origin main
 docker compose up -d
 ```
+
+## 推荐答复格式
+
+每次推送后，对用户的默认更新答复应至少包含：
+
+1. 主服务器更新指令
+2. 第二台 worker 更新指令
+3. 是否需要 `--build`
+4. 是否需要 `prisma generate` / `db push`
 
 只有在确实需要重新构建镜像时，才使用：
 

@@ -57,6 +57,7 @@ export function OpsManager({
   const [selectedPoolIds, setSelectedPoolIds] = useState<string[]>([]);
   const [selectedPoolAccountIds, setSelectedPoolAccountIds] = useState<string[]>([]);
   const [selectedRotationAccountIds, setSelectedRotationAccountIds] = useState<string[]>([]);
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [poolKeyword, setPoolKeyword] = useState("");
   const [singleUrl, setSingleUrl] = useState("");
   const [singleNote, setSingleNote] = useState("");
@@ -362,6 +363,74 @@ export function OpsManager({
     }
   }
 
+  async function deleteSelectedPoolItems() {
+    if (selectedPoolIds.length === 0) {
+      setError("请先选择至少一条评论链接");
+      return;
+    }
+
+    if (!window.confirm(`确认删除选中的 ${selectedPoolIds.length} 条评论链接吗？`)) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      setNotice(null);
+
+      for (const id of selectedPoolIds) {
+        const response = await fetch(`/api/comment-pool/${id}`, { method: "DELETE" });
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || `删除评论链接 ${id} 失败`);
+        }
+      }
+
+      setPoolItems((current) => current.filter((item) => !selectedPoolIds.includes(item.id)));
+      setSelectedPoolIds([]);
+      setNotice(`已删除 ${selectedPoolIds.length} 条评论链接`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量删除评论链接失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteSelectedJobs() {
+    if (selectedJobIds.length === 0) {
+      setError("请先选择至少一个批次");
+      return;
+    }
+
+    if (!window.confirm(`确认删除选中的 ${selectedJobIds.length} 个批次吗？运行中或待执行批次需先停止。`)) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      setNotice(null);
+
+      for (const id of selectedJobIds) {
+        const response = await fetch(`/api/action-jobs/${id}`, { method: "DELETE" });
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || `删除批次 ${id} 失败`);
+        }
+      }
+
+      setJobs((current) => current.filter((job) => !selectedJobIds.includes(job.id)));
+      setSelectedJobIds([]);
+      setNotice(`已删除 ${selectedJobIds.length} 个批次`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量删除批次失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const stats = {
     pool: poolItems.length,
     running: jobs.filter((job) => job.status === "RUNNING").length,
@@ -431,7 +500,17 @@ export function OpsManager({
             </div>
 
             <SurfaceCard className="mt-5 rounded-[20px] p-5">
-              <SectionHeader title="控评池与任务创建" action={<input value={poolKeyword} onChange={(event) => setPoolKeyword(event.target.value)} className="app-input md:w-[260px]" placeholder="搜索链接、评论ID或备注" />} />
+              <SectionHeader
+                title="控评池与任务创建"
+                action={
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => void deleteSelectedPoolItems()} disabled={submitting || selectedPoolIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
+                      批量删除
+                    </button>
+                    <input value={poolKeyword} onChange={(event) => setPoolKeyword(event.target.value)} className="app-input md:w-[260px]" placeholder="搜索链接、评论ID或备注" />
+                  </div>
+                }
+              />
 
               {filteredPoolItems.length === 0 ? (
                 <div className="mt-5">
@@ -562,6 +641,9 @@ export function OpsManager({
           description="控评点赞和轮转转发的批次任务列表，支持查看状态和停止批次。"
           action={
             <div className="flex gap-3">
+              <button type="button" onClick={() => void deleteSelectedJobs()} disabled={submitting || selectedJobIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
+                批量删除
+              </button>
               <select value={jobStatusFilter} onChange={(event) => setJobStatusFilter(event.target.value as typeof jobStatusFilter)} className="app-input md:w-[180px]">
                 <option value="ALL">全部状态</option>
                 <option value="PENDING">待执行</option>
@@ -587,6 +669,7 @@ export function OpsManager({
             <table className="app-table min-w-[1180px]">
               <thead>
                 <tr>
+                  <th>选择</th>
                   <th>类型</th>
                   <th>创建时间</th>
                   <th>账号数</th>
@@ -598,6 +681,17 @@ export function OpsManager({
               <tbody>
                 {filteredJobs.map((job) => (
                   <tr key={job.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedJobIds.includes(job.id)}
+                        onChange={() =>
+                          setSelectedJobIds((current) =>
+                            current.includes(job.id) ? current.filter((jobId) => jobId !== job.id) : [...current, job.id],
+                          )
+                        }
+                      />
+                    </td>
                     <td className="font-medium text-app-text-strong">{getJobTypeText(job.jobType)}</td>
                     <td className="text-xs text-app-text-soft">{formatDateTime(job.createdAt)}</td>
                     <td>{job.accountRuns.length}</td>
