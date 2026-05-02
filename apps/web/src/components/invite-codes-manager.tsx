@@ -124,8 +124,7 @@ export function InviteCodesManager({ initialCodes }: { initialCodes: InviteCode[
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="邀请码管理"
-        title="生成、禁用和查看邀请码"
+        title="邀请码管理"
         description="邀请码用于新用户自助注册，可控制角色、可用次数和有效期。"
       />
 

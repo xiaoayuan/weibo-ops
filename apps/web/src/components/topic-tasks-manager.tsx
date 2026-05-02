@@ -217,7 +217,7 @@ export function TopicTasksManager({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="任务配置" title="账号与超话任务配置" description="为账号批量绑定超话和执行规则，支持创建、编辑、启停和删除。" />
+      <PageHeader title="账号与超话任务配置" description="为账号批量绑定超话和执行规则，支持创建、编辑、启停和删除。" />
 
       <SurfaceCard>
         <SectionHeader title={editingId ? "编辑任务" : "新增任务"} description="配置签到、首评、点赞、转发、回复等任务参数。" />

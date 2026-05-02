@@ -196,8 +196,7 @@ export function InteractionTargetParser({ onImported }: { onImported?: (items: C
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="互动目标"
-        title="互动目标解析与导入"
+        title="互动目标解析"
         description="解析互动目标链接，提取目标 ID，批量导入评论池，为互动任务提供执行目标。"
       />
 

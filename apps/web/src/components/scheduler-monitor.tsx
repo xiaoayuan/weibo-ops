@@ -26,7 +26,7 @@ export function SchedulerMonitor({ data }: { data: TaskSchedulerStatus | null })
   if (!data) {
     return (
       <div className="space-y-6 lg:space-y-8">
-        <PageHeader eyebrow="调度快照" title="暂无调度数据" description="当前没有可用的调度队列数据，请检查后端服务状态。" />
+        <PageHeader title="暂无调度数据" description="当前没有可用的调度队列数据，请检查后端服务状态。" />
         <EmptyState title="暂无调度快照" description="稍后刷新页面，或先让系统产生一些调度任务后再查看。" />
       </div>
     );
@@ -43,7 +43,7 @@ export function SchedulerMonitor({ data }: { data: TaskSchedulerStatus | null })
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="调度快照" title="调度系统监控" description="查看 worker 负载、用户队列和限流状态。" />
+      <PageHeader title="调度系统监控" description="查看 worker 负载、用户队列和限流状态。" />
 
       <section className="grid gap-4 md:grid-cols-4">
         <SurfaceCard className="rounded-[20px] p-5"><p className="text-xs uppercase tracking-[0.18em] text-app-text-soft">Worker 数量</p><p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-app-text-strong">{data.workerCount}</p></SurfaceCard>

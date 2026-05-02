@@ -11,7 +11,6 @@ export default async function InviteCodesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="系统管理"
         title="邀请码"
         description="查看邀请码的使用情况"
       />

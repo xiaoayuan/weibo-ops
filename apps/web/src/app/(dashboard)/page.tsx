@@ -27,8 +27,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="总览驾驶舱"
-        title="围绕任务执行、账号健康和异常告警建立第一屏"
+        title="控制台"
         description="统一查看今日计划、账号状态、异常日志和任务配置。"
       />
 

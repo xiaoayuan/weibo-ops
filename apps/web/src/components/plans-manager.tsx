@@ -224,8 +224,7 @@ export function PlansManager({
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="计划控制页"
-        title="按业务日期管理计划生成、调度和执行"
+        title="每日计划管理"
         description="查看和管理每日执行计划，支持生成、执行、停止和删除操作。"
         action={
           <div className="flex flex-wrap gap-3">

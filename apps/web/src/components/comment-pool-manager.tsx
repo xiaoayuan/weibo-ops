@@ -293,8 +293,7 @@ export function CommentPoolManager({ initialItems }: { initialItems: CommentPool
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="评论池管理"
-        title="评论池维护与批量导入"
+        title="评论池管理"
         description="从微博评论链接批量导入到评论池，支持热评提取，为互动任务提供数据基础。"
       />
 

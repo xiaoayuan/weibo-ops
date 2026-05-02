@@ -179,7 +179,7 @@ export function UsersManager({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="用户管理" title="用户与邀请码管理" description="管理团队成员、分配权限、生成和管理邀请码。" />
+      <PageHeader title="用户与邀请码管理" description="管理团队成员、分配权限、生成和管理邀请码。" />
 
       <SurfaceCard>
         <SectionHeader title="注册码管理" />

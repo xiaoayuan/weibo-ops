@@ -380,7 +380,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="可观测性" title="执行日志分析" description="保留最近日志明细，同时补上筛选、按账号展开汇总和 AI 总结，方便快速定位失败原因。" />
+      <PageHeader title="执行日志分析" description="查看执行日志明细，支持筛选、按账号汇总和 AI 总结，快速定位失败原因。" />
 
       <SurfaceCard>
         <div className="flex flex-wrap gap-3">

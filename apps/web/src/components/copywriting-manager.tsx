@@ -577,7 +577,6 @@ export function CopywritingManager({
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="文案库"
         title="AI 文案工作流"
         description="通过 AI 生成或改写候选文案，预审后保存至文案库。"
       />

@@ -452,7 +452,7 @@ export function OpsManager({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="执行控制" title="运营操作台" description="评论池管理、热评提取、互动目标解析、控评创建、轮转转发与批次监控。" />
+      <PageHeader title="运营操作台" description="评论池管理、热评提取、互动目标解析、控评创建、轮转转发与批次监控。" />
 
       <section className="grid gap-4 md:grid-cols-4">
         <SurfaceCard className="rounded-[20px] p-5"><p className="text-xs uppercase tracking-[0.18em] text-app-text-soft">控评池</p><p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-app-text-strong">{stats.pool}</p></SurfaceCard>

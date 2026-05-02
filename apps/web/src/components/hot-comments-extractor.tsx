@@ -164,8 +164,7 @@ export function HotCommentsExtractor({ onImported }: { onImported?: (items: Comm
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="热评提取"
-        title="从微博提取热门评论"
+        title="热评提取"
         description="输入目标微博链接，提取热门评论，筛选后批量导入评论池，为互动任务提供评论素材。"
       />
 

@@ -420,7 +420,6 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="账号管理"
         title="微博账号管理"
         description="管理微博账号、检测登录状态、配置代理绑定。"
       />

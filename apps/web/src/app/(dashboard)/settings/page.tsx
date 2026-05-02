@@ -69,8 +69,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6 lg:space-y-8">
       <PageHeader
-        eyebrow="系统设置"
-        title="执行策略与风控规则"
+        title="系统设置"
         description="配置控评/轮转并发上限、熔断阈值和风控关键词匹配规则。修改后实时生效。"
         action={
           <SurfaceCard className="rounded-[20px] px-6 py-4">

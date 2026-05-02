@@ -110,7 +110,7 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="基础资源" title="超话管理" description="管理超话名称、板块和入口链接等基础信息。" />
+      <PageHeader title="超话管理" description="管理超话名称、板块和入口链接等基础信息。" />
 
       <SurfaceCard>
         <SectionHeader title={editingId ? "编辑超话" : "新增超话"} />

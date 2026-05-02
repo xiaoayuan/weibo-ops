@@ -45,7 +45,7 @@ export function TrafficPanel({ data }: { data: TrafficSummary | null }) {
   if (!data) {
     return (
       <div className="space-y-6 lg:space-y-8">
-        <PageHeader eyebrow="流量监控" title="暂无流量数据" description="当前没有可用的流量统计数据，请检查执行日志。" />
+        <PageHeader title="暂无流量数据" description="当前没有可用的流量统计数据，请检查执行日志。" />
         <EmptyState title="暂无流量数据" description="等真实执行日志继续沉淀后，这里会展示动作占比、日趋势和最近流量明细。" />
       </div>
     );
@@ -55,7 +55,7 @@ export function TrafficPanel({ data }: { data: TrafficSummary | null }) {
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader eyebrow="流量监控" title="流量消耗与动作统计" description="查看近期流量消耗、动作占比和执行明细。" />
+      <PageHeader title="流量消耗与动作统计" description="查看近期流量消耗、动作占比和执行明细。" />
 
       <section className="grid gap-4 md:grid-cols-3">
         <SurfaceCard className="rounded-[20px] p-5"><p className="text-xs uppercase tracking-[0.18em] text-app-text-soft">近 24 小时</p><p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-app-text-strong">{formatBytes(toNumber(data.oneDayBytes))}</p></SurfaceCard>
