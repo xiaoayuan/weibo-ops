@@ -123,17 +123,16 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
                   <p className="mt-0.5 text-xs text-app-text-soft">{activeItem?.description || "管理和监控"}</p>
                 </div>
               </div>
-              </div>
 
               <div className="flex items-center gap-3">
                 <ThemeToggle />
-                <div className="hidden items-center gap-3 rounded-[16px] border border-app-line bg-app-panel-muted px-3 py-2 md:flex">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-app-accent-soft text-sm font-semibold text-app-accent-strong">
+                <div className="hidden items-center gap-3 rounded-[16px] border border-app-accent/20 bg-gradient-to-r from-fuchsia-500/10 to-purple-500/10 px-3 py-2 shadow-[0_0_10px_rgba(232,121,249,0.15)] md:flex">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-br from-fuchsia-400 to-purple-400 text-sm font-semibold text-white shadow-[0_0_10px_rgba(232,121,249,0.3)]">
                     {getInitials(session.username)}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-app-text-strong">{session.username}</p>
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-app-text-soft">{getRoleText(session.role)}</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-app-accent">{getRoleText(session.role)}</p>
                   </div>
                 </div>
                 <div className="hidden md:block">
@@ -148,14 +147,19 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
       </div>
 
       {open ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 px-4 py-4 lg:hidden">
-          <div className="flex h-full max-w-sm flex-col rounded-[24px] border border-app-line bg-app-panel shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 px-4 py-4 backdrop-blur-sm lg:hidden">
+          <div className="flex h-full max-w-sm flex-col rounded-[24px] border border-app-accent/20 bg-app-panel shadow-[0_0_50px_rgba(232,121,249,0.3)]">
             <div className="flex items-center justify-between border-b border-app-line px-5 py-5">
-              <div>
-                <p className="text-lg font-semibold text-app-text-strong">微博运营台</p>
-                <p className="mt-1 text-sm text-app-text-muted">独立前端工作台</p>
+              <div className="flex items-center gap-3">
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-app-accent/30 bg-gradient-to-br from-fuchsia-500/20 to-purple-500/20 text-base font-semibold text-app-accent-strong shadow-[0_0_15px_rgba(232,121,249,0.2)]">
+                  <span className="relative z-10">薇</span>
+                </div>
+                <div>
+                  <p className="bg-gradient-to-r from-fuchsia-300 to-purple-300 bg-clip-text text-base font-semibold tracking-[-0.02em] text-transparent">田曦薇应援站</p>
+                  <p className="text-xs text-app-text-soft">微博运营管理</p>
+                </div>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-app-line bg-app-panel-muted">
+              <button type="button" onClick={() => setOpen(false)} className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-app-line bg-app-panel-muted text-app-text-soft transition-all duration-200 hover:border-app-accent/30 hover:text-app-accent active:scale-95">
                 <X className="h-4 w-4" />
               </button>
             </div>
