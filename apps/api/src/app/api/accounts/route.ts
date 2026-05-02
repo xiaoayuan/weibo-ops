@@ -1,4 +1,5 @@
 import { getVisibleAccountById, accountSelect } from "@/src/lib/accounts";
+import { CacheManager } from "@/src/lib/cache";
 import { requireApiRole } from "@/src/lib/permissions";
 import { prisma } from "@/src/lib/prisma";
 import { autoAssignProxyBindingsForAccount, getAutoAssignableProxyNode } from "@/src/lib/proxy-pool";
@@ -18,6 +19,30 @@ export async function GET(request: Request) {
 
   const where = { ownerUserId: auth.session.id };
 
+  // 生成缓存键
+  const cacheKey = `accounts:user:${auth.session.id}:page:${page}:size:${pageSize}`;
+
+  // 尝试从缓存获取
+  const cached = await CacheManager.get<{
+    accounts: unknown[];
+    total: number;
+  }>(cacheKey);
+
+  if (cached) {
+    return Response.json({
+      success: true,
+      data: cached.accounts,
+      pagination: {
+        page,
+        pageSize,
+        total: cached.total,
+        totalPages: Math.ceil(cached.total / pageSize),
+      },
+      cached: true,
+    });
+  }
+
+  // 查询数据库
   const [accounts, total] = await Promise.all([
     prisma.weiboAccount.findMany({
       where,
@@ -29,6 +54,9 @@ export async function GET(request: Request) {
     prisma.weiboAccount.count({ where }),
   ]);
 
+  // 写入缓存（5 分钟）
+  await CacheManager.set(cacheKey, { accounts, total }, 300);
+
   return Response.json({
     success: true,
     data: accounts,
@@ -38,6 +66,7 @@ export async function GET(request: Request) {
       total,
       totalPages: Math.ceil(total / pageSize),
     },
+    cached: false,
   });
 }
 
@@ -89,6 +118,9 @@ export async function POST(request: Request) {
     }
 
     const created = await getVisibleAccountById(account.id);
+
+    // 清除账号列表缓存
+    await CacheManager.delPattern(`accounts:user:${auth.session.id}:*`);
 
     return Response.json({
       success: true,
