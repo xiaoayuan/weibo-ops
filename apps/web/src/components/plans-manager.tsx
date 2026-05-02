@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, LoaderCircle, Play, ShieldCheck, Square, Trash2 } from "lucide-react";
+import { AlertCircle, CalendarDays, LoaderCircle, Play, ShieldCheck, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
@@ -75,6 +75,7 @@ export function PlansManager({
   const summary = {
     total: filteredPlans.length,
     completed: filteredPlans.filter((plan) => plan.status === "SUCCESS").length,
+    incomplete: filteredPlans.filter((plan) => plan.status !== "SUCCESS" && plan.status !== "CANCELLED").length,
     pending: filteredPlans.filter((plan) => plan.status === "PENDING" || plan.status === "READY").length,
     running: filteredPlans.filter((plan) => plan.status === "RUNNING").length,
     failed: filteredPlans.filter((plan) => plan.status === "FAILED").length,
@@ -235,10 +236,10 @@ export function PlansManager({
 
       <section className="grid gap-4 md:grid-cols-5">
         <StatCard label="计划总数" value={String(summary.total)} detail="当前筛选结果" accent="accent" icon={<CalendarDays className="h-5 w-5" />} />
-        <StatCard label="已完成" value={String(summary.completed)} detail="仅统计成功执行的计划" accent="success" icon={<ShieldCheck className="h-5 w-5" />} />
-        <StatCard label="待处理" value={String(summary.pending)} detail="待执行或待确认" accent="warning" icon={<ShieldCheck className="h-5 w-5" />} />
+        <StatCard label="已完成" value={String(summary.completed)} detail="成功执行的计划" accent="success" icon={<ShieldCheck className="h-5 w-5" />} />
+        <StatCard label="未完成" value={String(summary.incomplete)} detail="待处理、执行中、失败" accent="warning" icon={<AlertCircle className="h-5 w-5" />} />
         <StatCard label="执行中" value={String(summary.running)} detail="已进入执行阶段" accent="info" icon={<Play className="h-5 w-5" />} />
-        <StatCard label="失败数" value={String(summary.failed)} detail="优先关注异常结果" accent="danger" icon={<Square className="h-5 w-5" />} />
+        <StatCard label="失败数" value={String(summary.failed)} detail="需要关注的异常" accent="danger" icon={<Square className="h-5 w-5" />} />
       </section>
 
       <SurfaceCard>
