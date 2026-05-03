@@ -10,8 +10,12 @@ RUN npm ci
 RUN mkdir -p apps/api && ln -sfn /repo/node_modules apps/api/node_modules
 
 FROM deps AS builder
+# Create apps/api dir and remove any symlink from deps stage before copying
+RUN mkdir -p apps/api && rm -rf apps/api/node_modules
 COPY prisma ./prisma
 COPY apps/api ./apps/api
+# Re-link node_modules in builder stage (deps stage symlink is for COPY efficiency only)
+RUN ln -sfn /repo/node_modules apps/api/node_modules
 RUN npx prisma generate --schema prisma/schema.prisma && mkdir -p apps/api/src/generated && cp -r src/generated/prisma apps/api/src/generated/ && mkdir -p node_modules/.prisma/client && cp -r src/generated/prisma/* node_modules/.prisma/client/ && cd apps/api && PATH="/repo/node_modules/.bin:$PATH" npm run build
 
 FROM node:22-alpine AS runner
