@@ -10,8 +10,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
 import { LogDetailModal } from "@/components/log-detail-modal";
-import { LogStats } from "@/components/log-display";
+import { LogStats, TimelineLog, type LogLevel } from "@/components/log-display";
 import { ProgressBar } from "@/components/progress-indicators";
+import { AdvancedFilter, type FilterConfig, type FilterValues } from "@/components/advanced-filter";
 import type { ExecutionLog, Plan } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";
@@ -320,7 +321,7 @@ function buildPlanProgressRows(plans: Plan[]) {
 }
 
 export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { initialLogs: ExecutionLog[]; initialPlans: Plan[]; users: UserOption[]; isAdmin: boolean }) {
-  const [viewMode, setViewMode] = useState<"SUMMARY" | "DETAIL">("SUMMARY");
+  const [viewMode, setViewMode] = useState<"SUMMARY" | "DETAIL" | "TIMELINE">("SUMMARY");
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [actionFilter, setActionFilter] = useState("ALL");
@@ -332,6 +333,21 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
   const [aiSummaryMap, setAiSummaryMap] = useState<Record<string, AiRiskAssessment>>({});
   const [aiError, setAiError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<ExecutionLog | null>(null);
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+
+  const logFilterConfigs: FilterConfig[] = [
+    { name: "keyword", label: "搜索关键词", type: "text", placeholder: "搜索动作、账号、错误信息" },
+    { name: "startDate", label: "开始日期", type: "text", placeholder: "YYYY-MM-DD" },
+    { name: "endDate", label: "结束日期", type: "text", placeholder: "YYYY-MM-DD" },
+  ];
+
+  const logFilterValues: FilterValues = { keyword, startDate, endDate };
+
+  const handleAdvancedFilterChange = (values: FilterValues) => {
+    if (typeof values.keyword === "string") setKeyword(values.keyword);
+    if (typeof values.startDate === "string") setStartDate(values.startDate);
+    if (typeof values.endDate === "string") setEndDate(values.endDate);
+  };
 
   const actionOptions = useMemo(() => Array.from(new Set(initialLogs.map((log) => log.actionType))), [initialLogs]);
 
@@ -399,6 +415,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
         <div className="flex flex-wrap gap-3">
           <button type="button" onClick={() => setViewMode("SUMMARY")} className={`app-button ${viewMode === "SUMMARY" ? "app-button-primary" : "app-button-secondary"}`}>汇总视图</button>
           <button type="button" onClick={() => setViewMode("DETAIL")} className={`app-button ${viewMode === "DETAIL" ? "app-button-primary" : "app-button-secondary"}`}>明细视图</button>
+          <button type="button" onClick={() => setViewMode("TIMELINE")} className={`app-button ${viewMode === "TIMELINE" ? "app-button-primary" : "app-button-secondary"}`}>时间线</button>
         </div>
         <div className={`mt-5 grid gap-3 ${isAdmin ? "md:grid-cols-7" : "md:grid-cols-6"}`}>
           <input value={keyword} onChange={(event) => setKeyword(event.target.value)} className="app-input" placeholder="搜索动作、账号、错误信息" />
@@ -427,6 +444,16 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
           <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="app-input" />
           <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="app-input" />
         </div>
+        <div className="mt-3 flex items-center gap-2">
+          <button type="button" onClick={() => setShowAdvancedFilter(!showAdvancedFilter)} className="app-button app-button-secondary text-xs">
+            {showAdvancedFilter ? "收起高级过滤" : "高级过滤"}
+          </button>
+        </div>
+        {showAdvancedFilter && (
+          <div className="mt-3">
+            <AdvancedFilter filters={logFilterConfigs} values={logFilterValues} onChange={handleAdvancedFilterChange} />
+          </div>
+        )}
       </SurfaceCard>
 
       {aiError ? <AppNotice tone="error">{aiError}</AppNotice> : null}
@@ -466,8 +493,23 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
       </SurfaceCard>
 
       <SurfaceCard>
-        <SectionHeader title={viewMode === "SUMMARY" ? "汇总视图" : "明细视图"} description={viewMode === "SUMMARY" ? `当前命中 ${summaryRows.length} 个动作汇总。这里统计的是日志动作，不等于每日计划总任务数。` : `当前命中 ${filteredLogs.length} 条日志记录`} />
-        {viewMode === "SUMMARY" ? (
+        <SectionHeader
+          title={viewMode === "SUMMARY" ? "汇总视图" : viewMode === "TIMELINE" ? "时间线视图" : "明细视图"}
+          description={viewMode === "SUMMARY" ? `当前命中 ${summaryRows.length} 个动作汇总。这里统计的是日志动作，不等于每日计划总任务数。` : viewMode === "TIMELINE" ? `当前命中 ${filteredLogs.length} 条日志记录，按时间线展示` : `当前命中 ${filteredLogs.length} 条日志记录`}
+        />
+        {viewMode === "TIMELINE" ? (
+          <TimelineLog
+            logs={filteredLogs.map((log) => ({
+              id: log.id,
+              level: (log.success ? "success" : getOutcomeMeta(log).tone === "warning" ? "warning" : "error") as LogLevel,
+              title: getActionText(log),
+              message: getDetailText(log),
+              timestamp: log.executedAt,
+              details: log.requestPayload as Record<string, unknown> | undefined,
+            }))}
+            onViewDetails={(log) => setSelectedLog(log as unknown as ExecutionLog)}
+          />
+        ) : viewMode === "SUMMARY" ? (
           summaryRows.length === 0 ? (
             <div className="mt-5"><EmptyState title="当前筛选下暂无汇总数据" description="调整筛选条件后再试。" /></div>
           ) : (
