@@ -28,7 +28,7 @@ const themeBootScript = `(() => {
 
 export const metadata: Metadata = {
   title: "微博运营台前端",
-  description: "田曦薇应援站 - 微博运营管理系统",
+  description: "厨师长后花园 - 微博数据管理",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

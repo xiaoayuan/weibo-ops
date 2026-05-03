@@ -22,13 +22,13 @@ export function AuthShell({
           <div>
             <div className="inline-flex items-center gap-3 rounded-full border border-app-line bg-app-panel-muted px-4 py-2 text-xs tracking-[0.18em] text-app-text-soft">
               <span className="h-2 w-2 rounded-full bg-app-accent" />
-              田曦薇应援站
+              厨师长后花园
             </div>
             <h1 className="mt-8 max-w-2xl text-[3.35rem] font-semibold leading-[1.02] tracking-[-0.06em] text-app-text-strong">
-              田曦薇应援站运营管理系统
+              厨师长微博数据管理
             </h1>
             <p className="mt-6 max-w-xl text-[15px] leading-8 text-app-text-muted">
-              专业的微博运营管理平台，统一管理账号、任务、互动和数据分析。
+              专业的微博数据管理平台，统一管理账号、任务、互动和数据分析。
             </p>
           </div>
 

@@ -79,8 +79,8 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
               />
             </div>
             <div>
-              <p className="text-lg font-bold tracking-tight text-app-text-strong">田曦薇应援站</p>
-              <p className="mt-1 text-sm text-app-text-muted">微博运营管理系统</p>
+              <p className="text-lg font-bold tracking-tight text-app-text-strong">厨师长后花园</p>
+              <p className="mt-1 text-sm text-app-text-muted">微博数据管理</p>
             </div>
           </div>
 
@@ -171,7 +171,7 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
                   />
                 </div>
                 <div>
-                  <p className="text-base font-bold tracking-tight text-app-text-strong">田曦薇应援站</p>
+                  <p className="text-base font-bold tracking-tight text-app-text-strong">厨师长后花园</p>
                   <p className="text-xs text-app-text-soft">微博运营管理</p>
                 </div>
               </div>
