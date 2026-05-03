@@ -96,6 +96,37 @@ type RequestWithCookieJarResult = {
   headers: Record<string, string | string[] | undefined>;
 };
 
+function shouldRetryTransient(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("ECONNRESET") ||
+    message.includes("ETIMEDOUT") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("EPIPE")
+  );
+}
+
+async function _requestWithCookieJar(
+  url: string,
+  cookieJar: Map<string, string>,
+  extraHeaders?: Record<string, string>,
+  proxyConfig?: ProxyConfig | null,
+  maxRetries = 2,
+): Promise<RequestWithCookieJarResult> {
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await requestWithCookieJar(url, cookieJar, extraHeaders, proxyConfig);
+    } catch (error) {
+      if (attempt < maxRetries && shouldRetryTransient(error)) {
+        await new Promise((resolve) => setTimeout(resolve, 1000 + Math.floor(Math.random() * 2000)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("unreachable");
+}
+
 async function requestWithCookieJar(
   url: string,
   cookieJar: Map<string, string>,
@@ -147,8 +178,8 @@ async function requestWithCookieJar(
     );
 
     request.on("error", reject);
-    request.setTimeout(15_000, () => {
-      request.destroy(new Error("微博扫码请求超时"));
+    request.setTimeout(30_000, () => {
+      request.destroy(new Error("微博扫码请求超时，请重试"));
     });
     request.end();
   });
@@ -159,7 +190,7 @@ async function finalizeQrLogin(session: QrLoginSession, alt: string) {
   const loginUrl =
     `https://login.sina.com.cn/sso/login.php?entry=miniblog&returntype=TEXT&crossdomain=1&cdult=3&domain=weibo.com&savestate=30` +
     `&callback=${encodeURIComponent(callback)}&alt=${encodeURIComponent(alt)}`;
-  const loginResponse = await requestWithCookieJar(loginUrl, session.cookieJar, undefined, session.proxyConfig);
+  const loginResponse = await _requestWithCookieJar(loginUrl, session.cookieJar, undefined, session.proxyConfig);
   const loginPayload = parseJsonpPayload(loginResponse.text);
   const loginRetcode = String(loginPayload.retcode || "");
 
@@ -232,7 +263,7 @@ export async function startWeiboQrLogin(ownerUserId: string, accountId: string, 
   const callback = `STK_${Date.now()}`;
   const initUrl = `https://login.sina.com.cn/sso/qrcode/image?entry=miniblog&size=180&callback=${encodeURIComponent(callback)}`;
   const cookieJar = new Map<string, string>();
-  const initResponse = await requestWithCookieJar(initUrl, cookieJar, undefined, proxyConfig);
+  const initResponse = await _requestWithCookieJar(initUrl, cookieJar, undefined, proxyConfig);
   const payload = parseJsonpPayload(initResponse.text);
 
   if (String(payload.retcode || "") !== "20000000") {
@@ -247,7 +278,7 @@ export async function startWeiboQrLogin(ownerUserId: string, accountId: string, 
     throw new Error("微博扫码二维码数据缺失");
   }
 
-  const imageResponse = await requestWithCookieJar(
+  const imageResponse = await _requestWithCookieJar(
     imageUrl,
     cookieJar,
     { Accept: "image/avif,image/webp,image/png,image/*,*/*;q=0.8" },
@@ -305,7 +336,7 @@ export async function pollWeiboQrLogin(sessionId: string, ownerUserId: string, a
     `https://login.sina.com.cn/sso/qrcode/check?entry=miniblog&qrid=${encodeURIComponent(session.qrid)}` +
     `&callback=${encodeURIComponent(callback)}`;
 
-  const checkResponse = await requestWithCookieJar(checkUrl, session.cookieJar, undefined, session.proxyConfig);
+  const checkResponse = await _requestWithCookieJar(checkUrl, session.cookieJar, undefined, session.proxyConfig);
   const payload = parseJsonpPayload(checkResponse.text);
   const retcode = String(payload.retcode || "");
   const payloadMsg = String(payload.msg || "");
