@@ -9,6 +9,8 @@ import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
+import { LogDetailModal } from "@/components/log-detail-modal";
+import { AdvancedFilter, type FilterConfig, type FilterValues } from "@/components/advanced-filter";
 import type { ExecutionLog, Plan } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";
@@ -328,6 +330,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
   const [endDate, setEndDate] = useState("");
   const [aiSummaryMap, setAiSummaryMap] = useState<Record<string, AiRiskAssessment>>({});
   const [aiError, setAiError] = useState<string | null>(null);
+  const [selectedLog, setSelectedLog] = useState<ExecutionLog | null>(null);
 
   const actionOptions = useMemo(() => Array.from(new Set(initialLogs.map((log) => log.actionType))), [initialLogs]);
 
@@ -532,7 +535,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
                       <td>{log.account?.nickname || "系统"}</td>
                       <td><StatusBadge tone={getOutcomeMeta(log).tone}>{getOutcomeMeta(log).label}</StatusBadge></td>
                       <td>{getStageText(getLogStage(log))}</td>
-                      <td className="max-w-[360px] text-xs text-app-text-soft">{getDetailText(log)} {aiSummaryMap[summaryKey] ? ` | ${aiSummaryMap[summaryKey].summary}` : ""}<button type="button" onClick={() => void fetchAiSummary(summaryKey, getActionText(log), getDetailText(log), log.errorMessage)} className="ml-2 text-xs text-app-accent hover:text-app-text-strong">AI</button></td>
+                      <td className="max-w-[360px] text-xs text-app-text-soft">{getDetailText(log)} {aiSummaryMap[summaryKey] ? ` | ${aiSummaryMap[summaryKey].summary}` : ""}<button type="button" onClick={() => void fetchAiSummary(summaryKey, getActionText(log), getDetailText(log), log.errorMessage)} className="ml-2 text-xs text-app-accent hover:text-app-text-strong">AI</button><button type="button" onClick={() => setSelectedLog(log)} className="ml-2 text-xs text-app-accent hover:text-app-text-strong">详情</button></td>
                       <td>{formatDateTime(log.executedAt)}</td>
                     </tr>
                   );
@@ -542,6 +545,8 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
           </TableShell>
         )}
       </SurfaceCard>
+
+      {selectedLog && <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
     </div>
   );
 }

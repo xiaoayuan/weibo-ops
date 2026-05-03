@@ -10,11 +10,12 @@ import { formatDateTime } from "@/lib/date";
 interface LogEntry {
   id: string;
   actionType: string;
-  createdAt: string;
+  executedAt?: string;
+  createdAt?: string;
   success: boolean;
   account?: { nickname: string } | null;
-  requestPayload?: Record<string, unknown> | null;
-  responsePayload?: Record<string, unknown> | null;
+  requestPayload?: unknown;
+  responsePayload?: unknown;
   errorMessage?: string | null;
 }
 
@@ -87,7 +88,7 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
           </div>
           <div className="flex">
             <span className="w-24 text-app-text-muted">执行时间:</span>
-            <span className="text-app-text">{formatDateTime(log.createdAt)}</span>
+            <span className="text-app-text">{log.createdAt ? formatDateTime(log.createdAt) : log.executedAt ? formatDateTime(log.executedAt) : "-"}</span>
           </div>
           <div className="flex">
             <span className="w-24 text-app-text-muted">执行状态:</span>

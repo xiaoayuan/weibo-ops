@@ -14,6 +14,8 @@ import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
+import { BatchActions, type BatchAction } from "@/components/batch-actions";
+import { useConfirm } from "@/lib/confirm-context";
 import type { ActionJob, CommentPoolItem, WeiboAccount } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 
@@ -79,6 +81,7 @@ export function OpsManager({
   const [hotCommentLoading, setHotCommentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const filteredPoolItems = useMemo(() => {
     const normalized = poolKeyword.trim().toLowerCase();
@@ -381,9 +384,12 @@ export function OpsManager({
       return;
     }
 
-    if (!window.confirm(`确认删除选中的 ${selectedPoolIds.length} 条评论链接吗？`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "批量删除",
+      message: `确认删除选中的 ${selectedPoolIds.length} 条评论链接吗？`,
+      type: "danger",
+    });
+    if (!ok) return;
 
     try {
       setSubmitting(true);
@@ -415,9 +421,12 @@ export function OpsManager({
       return;
     }
 
-    if (!window.confirm(`确认删除选中的 ${selectedJobIds.length} 个批次吗？运行中或待执行批次需先停止。`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "批量删除",
+      message: `确认删除选中的 ${selectedJobIds.length} 个批次吗？运行中或待执行批次需先停止。`,
+      type: "danger",
+    });
+    if (!ok) return;
 
     try {
       setSubmitting(true);
@@ -516,12 +525,15 @@ export function OpsManager({
                 title="控评池与任务创建"
                 action={
                   <div className="flex gap-3">
-                    <button type="button" onClick={toggleAllPoolItems} disabled={filteredPoolItems.length === 0} className="app-button app-button-secondary">
-                      {selectedPoolIds.length === filteredPoolItems.length && filteredPoolItems.length > 0 ? "取消全选" : "全选"}
-                    </button>
-                    <button type="button" onClick={() => void deleteSelectedPoolItems()} disabled={submitting || selectedPoolIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
-                      批量删除
-                    </button>
+                    <BatchActions
+                      items={filteredPoolItems}
+                      selectedIds={selectedPoolIds}
+                      onSelectionChange={setSelectedPoolIds}
+                      getId={(item) => item.id}
+                      actions={[
+                        { label: "批量删除", onClick: () => deleteSelectedPoolItems(), type: "danger", disabled: submitting || selectedPoolIds.length === 0 },
+                      ]}
+                    />
                     <input value={poolKeyword} onChange={(event) => setPoolKeyword(event.target.value)} className="app-input md:w-[260px]" placeholder="搜索链接、评论ID或备注" />
                   </div>
                 }
@@ -656,12 +668,15 @@ export function OpsManager({
           description="控评点赞和轮转转发的批次任务列表，支持查看状态和停止批次。"
           action={
             <div className="flex gap-3">
-              <button type="button" onClick={toggleAllJobs} disabled={filteredJobs.length === 0} className="app-button app-button-secondary">
-                {selectedJobIds.length === filteredJobs.length && filteredJobs.length > 0 ? "取消全选" : "全选"}
-              </button>
-              <button type="button" onClick={() => void deleteSelectedJobs()} disabled={submitting || selectedJobIds.length === 0} className="app-button app-button-secondary text-app-danger hover:border-app-danger/30 hover:text-app-danger">
-                批量删除
-              </button>
+              <BatchActions
+                items={filteredJobs}
+                selectedIds={selectedJobIds}
+                onSelectionChange={setSelectedJobIds}
+                getId={(job) => job.id}
+                actions={[
+                  { label: "批量删除", onClick: () => deleteSelectedJobs(), type: "danger", disabled: submitting || selectedJobIds.length === 0 },
+                ]}
+              />
               <select value={jobStatusFilter} onChange={(event) => setJobStatusFilter(event.target.value as typeof jobStatusFilter)} className="app-input md:w-[180px]">
                 <option value="ALL">全部状态</option>
                 <option value="PENDING">待执行</option>

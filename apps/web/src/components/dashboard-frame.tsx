@@ -31,6 +31,8 @@ import {
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
+import { WebSocketIndicator } from "@/components/websocket-indicator";
+import { ConfirmProvider } from "@/lib/confirm-context";
 import { getRoleText, hasRequiredRole, type SessionUser } from "@/lib/auth-shared";
 import { navItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -62,7 +64,8 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
   const activeItem = visibleNavItems.find((item) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href))) || visibleNavItems[0];
 
   return (
-    <div className="min-h-screen bg-app-bg text-app-text">
+    <ConfirmProvider>
+      <div className="min-h-screen bg-app-bg text-app-text">
       <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-1 gap-5 px-4 py-4 lg:grid-cols-[286px_minmax(0,1fr)] lg:px-6 lg:py-6 xl:gap-6">
         <aside className="app-surface sticky top-6 hidden h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-[26px] p-0 lg:flex">
           <div className="flex items-center gap-4 border-b border-app-line px-6 py-6">
@@ -225,6 +228,9 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
 
       {/* 键盘快捷键帮助 */}
       <KeyboardShortcutsHelp />
+      {/* WebSocket 实时状态 */}
+      <WebSocketIndicator />
     </div>
+    </ConfirmProvider>
   );
 }
