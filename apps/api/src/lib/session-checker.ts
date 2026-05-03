@@ -48,6 +48,10 @@ function detectLoginFromPayload(payload: unknown) {
 
   const record = payload as Record<string, unknown>;
 
+  if (typeof record.ok === "number" && record.ok < 0) {
+    return false;
+  }
+
   if (record.data && typeof record.data === "object") {
     const data = record.data as Record<string, unknown>;
     if (data.id || data.screen_name || data.user || data.userInfo) {
@@ -109,6 +113,21 @@ async function checkCandidate(url: string, cookie: string) {
       responseSummary,
       responsePayload: payload,
     };
+  }
+
+  if (response.ok && typeof payload === "object" && payload !== null && (payload as Record<string, unknown>).ok !== undefined) {
+    const okValue = (payload as Record<string, unknown>).ok;
+    if (typeof okValue === "number" && okValue < 0) {
+      return {
+        success: false,
+        loginStatus: "EXPIRED" as const,
+        message: `微博接口返回 ok:${okValue}，登录态可能已失效`,
+        httpStatus: response.status,
+        matchedRule: "api_ok_negative",
+        responseSummary,
+        responsePayload: payload,
+      };
+    }
   }
 
   if (typeof payload === "string") {

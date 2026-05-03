@@ -56,14 +56,14 @@ const taskRateRules: Record<ManagedTaskType, RateLimitRule> = {
     userPerMinute: 6,
   },
   COMMENT_CONTROL: {
-    globalPerMinute: 30,
-    taskTypePerMinute: 24,
-    userPerMinute: 12,
+    globalPerMinute: 40,
+    taskTypePerMinute: 30,
+    userPerMinute: 20,
   },
   REPOST_ROTATION: {
-    globalPerMinute: 12,
-    taskTypePerMinute: 8,
-    userPerMinute: 4,
+    globalPerMinute: 20,
+    taskTypePerMinute: 12,
+    userPerMinute: 8,
   },
 };
 
@@ -193,6 +193,19 @@ export async function reserveRateLimitedExecution(input: {
     delayMs,
     reasons,
   } satisfies RateLimitDecision;
+}
+
+function _toSnapshotItem(key: string, state: RateLimitState): Omit<RateLimitSnapshotItem, "waitMs" | "active"> & { waitMs: number; active: boolean } {
+  const nextAvailableAt = toDate(state.nextAvailableAt);
+  const waitMs = nextAvailableAt ? Math.max(0, nextAvailableAt.getTime() - Date.now()) : 0;
+  const active = Boolean(nextAvailableAt && nextAvailableAt.getTime() > Date.now());
+
+  return {
+    key,
+    nextAvailableAt: nextAvailableAt?.toISOString() || null,
+    waitMs,
+    active,
+  };
 }
 
 export async function getRateLimitSnapshot(ownerUserId?: string): Promise<RateLimitSnapshot> {

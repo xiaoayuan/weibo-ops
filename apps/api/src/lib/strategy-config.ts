@@ -43,7 +43,7 @@ export const defaultExecutionStrategy: ExecutionStrategy = {
       B: { waveRatios: [0.1, 0.2, 0.7], waveWindowsSec: [1800, 7200, 43200], cooldownSecRange: [60, 180], retryDelaySecRange: [8, 15], targetSlaSec: 1800, limitSlaSec: 7200 },
     },
   },
-  circuitBreaker: { accountFailureThreshold: 3, accountPauseMinutes: 360, proxyWindowMinutes: 10, proxyMinSamples: 10, proxyFailureRatio: 0.4, proxyPauseMinutes: 30 },
+  circuitBreaker: { accountFailureThreshold: 5, accountPauseMinutes: 60, proxyWindowMinutes: 10, proxyMinSamples: 10, proxyFailureRatio: 0.5, proxyPauseMinutes: 20 },
 };
 
 let cachedStrategy: ExecutionStrategy | null = null;

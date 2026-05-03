@@ -34,8 +34,8 @@ const settingKeyPrefix = "rate_limit_v1";
 const taskRateRules: Record<ManagedTaskType, RateLimitRule> = {
   DAILY_PLAN: { globalPerMinute: 6, taskTypePerMinute: 4, userPerMinute: 2 },
   QUICK_REPLY: { globalPerMinute: 18, taskTypePerMinute: 12, userPerMinute: 6 },
-  COMMENT_CONTROL: { globalPerMinute: 30, taskTypePerMinute: 24, userPerMinute: 12 },
-  REPOST_ROTATION: { globalPerMinute: 12, taskTypePerMinute: 8, userPerMinute: 4 },
+  COMMENT_CONTROL: { globalPerMinute: 40, taskTypePerMinute: 30, userPerMinute: 20 },
+  REPOST_ROTATION: { globalPerMinute: 20, taskTypePerMinute: 12, userPerMinute: 8 },
 };
 
 function stateKey(scope: "global" | "taskType" | "user", value: string) {

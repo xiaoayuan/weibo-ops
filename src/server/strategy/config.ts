@@ -85,12 +85,12 @@ export const defaultExecutionStrategy: ExecutionStrategy = {
     },
   },
   circuitBreaker: {
-    accountFailureThreshold: 3,
-    accountPauseMinutes: 360,
+    accountFailureThreshold: 5,
+    accountPauseMinutes: 60,
     proxyWindowMinutes: 10,
     proxyMinSamples: 10,
-    proxyFailureRatio: 0.4,
-    proxyPauseMinutes: 30,
+    proxyFailureRatio: 0.5,
+    proxyPauseMinutes: 20,
   },
 };
 
