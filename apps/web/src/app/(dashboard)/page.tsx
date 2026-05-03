@@ -9,6 +9,7 @@ import { getAccounts, getLogs, getTodayPlans, getTopicTasks } from "@/lib/app-da
 import { formatDateTime, formatTime, getBusinessDateText } from "@/lib/date";
 import { getActionTypeText, getPlanStatusText } from "@/lib/text";
 import { requireSession } from "@/lib/auth";
+import { DashboardPlanCard } from "@/components/dashboard-plan-card";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,8 @@ export default async function DashboardPage() {
   const [accounts, plans, logs, topicTasks] = await Promise.all([getAccounts(), getTodayPlans(), getLogs(), getTopicTasks()]);
   const activeAccounts = accounts.filter((account) => account.status === "ACTIVE").length;
   const onlineAccounts = accounts.filter((account) => account.loginStatus === "ONLINE").length;
-  const failedPlans = plans.filter((plan) => plan.status === "FAILED").length;
   const pendingPlans = plans.filter((plan) => plan.status === "PENDING" || plan.status === "READY").length;
   const failedLogs = logs.filter((log) => !log.success);
-  const recentPlans = plans.slice(0, 6);
   const recentAlerts = failedLogs.slice(0, 4);
 
   return (
@@ -39,50 +38,7 @@ export default async function DashboardPage() {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <SurfaceCard>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold tracking-[-0.02em] text-app-text-strong">今日计划</h2>
-              <p className="mt-2 text-sm leading-relaxed text-app-text-muted">查看当日执行计划和任务状态。</p>
-            </div>
-            <StatusBadge tone={failedPlans > 0 ? "warning" : "success"}>{failedPlans > 0 ? `${failedPlans} 条失败` : "运行稳定"}</StatusBadge>
-          </div>
-
-          {recentPlans.length === 0 ? (
-            <div className="mt-6">
-              <EmptyState title="今日暂无计划" description="当前业务日期下没有生成计划，稍后可以继续接入生成和审核操作。" />
-            </div>
-          ) : (
-            <div className="mt-6 overflow-hidden rounded-[24px] border border-app-line shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-              <div className="overflow-x-auto">
-                <table className="app-table min-w-full">
-                  <thead>
-                    <tr>
-                      <th>时间</th>
-                      <th>账号</th>
-                      <th>超话</th>
-                      <th>状态</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentPlans.map((plan) => (
-                      <tr key={plan.id} className="group">
-                        <td className="font-mono text-xs text-app-text-soft group-hover:text-app-text">{formatTime(plan.scheduledTime)}</td>
-                        <td className="font-medium text-app-text-strong">{plan.account.nickname}</td>
-                        <td className="text-app-text">{plan.task?.superTopic?.name || <span className="text-app-text-soft">-</span>}</td>
-                        <td>
-                          <StatusBadge tone={plan.status === "SUCCESS" ? "success" : plan.status === "FAILED" ? "danger" : plan.status === "RUNNING" ? "info" : "neutral"}>
-                            {getPlanStatusText(plan.status)}
-                          </StatusBadge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </SurfaceCard>
+        <DashboardPlanCard plans={plans} />
 
         <SurfaceCard>
           <div className="flex items-center justify-between gap-4">

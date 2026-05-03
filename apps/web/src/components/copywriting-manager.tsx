@@ -81,6 +81,7 @@ type FormState = {
   tags: string;
   firstComment: boolean;
   status: "ACTIVE" | "DISABLED";
+  imageUrl: string;
 };
 
 const initialForm: FormState = {
@@ -89,6 +90,7 @@ const initialForm: FormState = {
   tags: "",
   firstComment: false,
   status: "ACTIVE",
+  imageUrl: "",
 };
 
 const AI_COUNT_OPTIONS: AiCount[] = [10, 20, 50];
