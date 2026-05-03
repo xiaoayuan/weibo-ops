@@ -194,6 +194,8 @@ async function runAutoExecute(now: Date) {
       continue;
     }
 
+    console.log("[scheduler] runAutoExecute found", candidates.length, "candidates for user", user.id);
+
     const queueablePlans = candidates.filter((item) => !inFlightPlanIds.has(item.id));
 
     if (queueablePlans.length === 0) {
@@ -259,6 +261,7 @@ async function runAutoExecute(now: Date) {
 function scheduleNext() {
   setTimeout(async () => {
     const now = new Date();
+    console.log("[scheduler] tick at", now.toISOString());
 
     try {
       await runAutoGenerate(now);
@@ -270,7 +273,10 @@ function scheduleNext() {
 }
 
 export function ensureUserAutomationSchedulerStarted() {
-  if (getActionJobNodeRole() !== "controller") {
+  const role = getActionJobNodeRole();
+  console.log("[scheduler] ensureUserAutomationSchedulerStarted called, role:", role, "started:", globalThis.__userAutomationSchedulerStarted);
+
+  if (role !== "controller") {
     return;
   }
 
@@ -279,5 +285,6 @@ export function ensureUserAutomationSchedulerStarted() {
   }
 
   globalThis.__userAutomationSchedulerStarted = true;
+  console.log("[scheduler] starting scheduler loop");
   scheduleNext();
 }
