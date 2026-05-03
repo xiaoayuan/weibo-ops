@@ -4,6 +4,7 @@ import { AlertCircle, CalendarDays, LoaderCircle, Play, RefreshCw, ShieldCheck, 
 import { useMemo, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
+import { BatchActions } from "@/components/batch-actions";
 import type { CopywritingTemplate, Plan } from "@/lib/app-data";
 import { getBusinessDateText, toLocalDateTimeValue } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";
@@ -64,6 +65,7 @@ export function PlansManager({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const accountOptions = useMemo(() => Array.from(new Set(plans.map((plan) => plan.account.nickname))), [plans]);
   const filteredPlans = plans.filter((plan) => {
@@ -165,6 +167,36 @@ export function PlansManager({
         return next;
       });
     }
+  }
+
+  async function batchRetryFailed() {
+    const failedPlans = filteredPlans.filter((p) => p.status === "FAILED" && selectedIds.includes(p.id));
+    if (failedPlans.length === 0) return;
+
+    setSubmitting(true);
+    setError(null);
+    setNotice(null);
+
+    let succeeded = 0;
+    for (let i = 0; i < failedPlans.length; i += 1) {
+      const plan = failedPlans[i];
+      try {
+        const response = await fetch(`/api/plans/${plan.id}/execute`, { method: "POST" });
+        const result = await readJsonResponse<{ success: boolean; data?: Plan }>(response);
+        if (response.ok && result.data) {
+          setPlans((current) => current.map((p) => (p.id === result.data!.id ? result.data! : p)));
+          succeeded += 1;
+        }
+      } catch { /* continue */ }
+
+      if (i < failedPlans.length - 1) {
+        await new Promise((r) => setTimeout(r, 5000 + Math.floor(Math.random() * 10000)));
+      }
+    }
+
+    setSelectedIds([]);
+    setNotice(`已重试 ${failedPlans.length} 条计划，${succeeded} 条已入队`);
+    setSubmitting(false);
   }
 
   async function deletePlan(id: string) {
@@ -286,6 +318,15 @@ export function PlansManager({
                   </option>
                 ))}
               </select>
+              <BatchActions
+                items={filteredPlans}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+                getId={(p) => p.id}
+                actions={[
+                  { label: "批量重试", onClick: () => batchRetryFailed(), type: "primary", disabled: submitting || !selectedIds.some((id) => filteredPlans.find((p) => p.id === id && p.status === "FAILED")) },
+                ]}
+              />
             </div>
           }
         />
@@ -302,6 +343,7 @@ export function PlansManager({
             <table className="app-table min-w-[1280px]">
               <thead>
                 <tr>
+                  <th>选择</th>
                   <th>计划</th>
                   <th>账号 / 超话</th>
                   <th>文案</th>
@@ -316,6 +358,17 @@ export function PlansManager({
 
                   return (
                     <tr key={plan.id} className="group">
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(plan.id)}
+                          onChange={() =>
+                            setSelectedIds((current) =>
+                              current.includes(plan.id) ? current.filter((id) => id !== plan.id) : [...current, plan.id],
+                            )
+                          }
+                        />
+                      </td>
                       <td>
                         <p className="font-semibold text-app-text-strong transition-colors duration-200 group-hover:text-app-accent">{getPlanTypeText(plan.planType)}</p>
                         <p className="mt-1 font-mono text-xs text-app-text-soft">{new Date(plan.scheduledTime).toLocaleString("zh-CN")}</p>
@@ -409,7 +462,7 @@ export function PlansManager({
                                   >
                                     编辑
                                   </button>
-                                  <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                   <button type="button" onClick={() => { const delay = 2000 + Math.floor(Math.random() * 3000); setTimeout(() => runPlanAction(plan.id, `/api/plans/${plan.id}/execute`, "计划已入队"), delay); }} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                     <Play className="mr-1.5 h-3.5 w-3.5" />执行
                                   </button>
                                   <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-danger h-10 px-4 text-xs">
