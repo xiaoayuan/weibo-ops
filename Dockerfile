@@ -1,6 +1,6 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
-ENV DATABASE_URL=
+ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 ENV JWT_SECRET=
 ENV AUTH_COOKIE_SECURE=false
 ENV ACCOUNT_SECRET_KEY=
