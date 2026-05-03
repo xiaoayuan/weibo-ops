@@ -167,17 +167,26 @@ export default async function DashboardPage() {
     { label: "待审核", value: String(pendingPlans) },
   ];
 
-  const recentAlerts = [
-    ...recentLogs.map(
-      (log) =>
-        `${log.account?.nickname || "系统"} 在 ${new Date(log.executedAt).toLocaleString("zh-CN")} 执行 ${getActionTypeText(log.actionType, log.requestPayload)} 失败。`,
-    ),
-    copywritingCount < 5 ? `当前启用文案仅剩 ${copywritingCount} 条，建议尽快补充文案池。` : null,
-    pendingPlans > 0 ? `当前有 ${pendingPlans} 条计划处于待审核状态。` : null,
-  ].filter(Boolean) as string[];
+function buildAlert(log: typeof recentLogs[number]): string {
+      const name = log.account?.nickname ? log.account.nickname : "系统";
+      return name + " 执行失败。";
+    }
+    const recentAlerts: string[] = [];
+    for (const log of recentLogs) {
+      const name = log.account?.nickname ? log.account.nickname : "系统";
+      const time = new Date(log.executedAt).toLocaleString("zh-CN");
+      const action = getActionTypeText(log.actionType, log.requestPayload);
+      recentAlerts.push(name + " 在 " + time + " 执行 " + action + " 失败。");
+    }
+    if (copywritingCount < 5) {
+      recentAlerts.push("当前启用文案仅剩 " + copywritingCount + " 条，建议尽快补充文案池。");
+    }
+    if (pendingPlans > 0) {
+      recentAlerts.push("当前有 " + pendingPlans + " 条计划处于待审核状态。");
+    }
 
   const planExecutionStats = [
-    { label: "生成批次", value: String(planGeneratedBatches), detail: `共生成 ${generatedPlanCount} 条计划` },
+    { label: "生成批次", value: String(planGeneratedBatches), detail: "共生成 " + generatedPlanCount + " 条计划" },
     { label: "入队计划", value: String(queuedPlanCount), detail: "今日进入执行队列的计划数" },
     { label: "执行成功", value: String(executedSuccessCount), detail: "含普通计划和首评成功" },
     { label: "执行失败", value: String(executedFailedCount), detail: "含拦截和执行失败" },
@@ -264,11 +273,11 @@ export default async function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentPlans.map((plan) => (
+                  {recentPlans.map((plan: typeof recentPlans[number]) => (
                     <tr key={plan.id} className="border-t border-slate-200">
-                      <td className="px-4 py-3">{new Date(plan.scheduledTime).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</td>
-                      <td className="px-4 py-3">{plan.account.nickname}</td>
-                      <td className="px-4 py-3">{plan.task?.superTopic.name || "-"}</td>
+                      <td className="px-4 py-3">{new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(new Date(plan.scheduledTime))}</td>
+                      <td className="px-4 py-3">{plan.account.nickname || "-"}</td>
+                      <td className="px-4 py-3">{plan.task?.superTopic ? plan.task.superTopic.name : "-"}</td>
                       <td className="px-4 py-3">{getTaskStatusText(plan.status)}</td>
                     </tr>
                   ))}
