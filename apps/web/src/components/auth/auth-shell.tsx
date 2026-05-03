@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 export function AuthShell({
@@ -18,7 +17,8 @@ export function AuthShell({
       <div className="pointer-events-none absolute inset-y-0 left-[52%] hidden w-px bg-gradient-to-b from-transparent via-white/8 to-transparent lg:block" />
 
       <div className="relative mx-auto grid w-full max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="hidden rounded-[28px] border border-app-line bg-app-panel/70 p-10 backdrop-blur lg:flex lg:flex-col lg:justify-between">
+        {/* Left panel: tag + title + description */}
+        <section className="hidden rounded-[28px] border border-app-line bg-app-panel/70 p-10 backdrop-blur lg:flex lg:items-center">
           <div>
             <div className="inline-flex items-center gap-3 rounded-full border border-app-line bg-app-panel-muted px-4 py-2 text-xs tracking-[0.18em] text-app-text-soft">
               <span className="h-2 w-2 rounded-full bg-app-accent" />
@@ -31,31 +31,18 @@ export function AuthShell({
               专业的微博数据管理平台，统一管理账号、任务、互动和数据分析。
             </p>
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-[20px] border border-app-line bg-app-panel-muted p-5">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-app-text-soft">主题</p>
-              <p className="mt-3 text-base font-medium text-app-text-strong">深浅双主题</p>
-            </div>
-            <div className="rounded-[20px] border border-app-line bg-app-panel-muted p-5">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-app-text-soft">功能</p>
-              <p className="mt-3 text-base font-medium text-app-text-strong">全流程管理</p>
-            </div>
-            <div className="rounded-[20px] border border-app-line bg-app-panel-muted p-5">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-app-text-soft">体验</p>
-              <p className="mt-3 text-base font-medium text-app-text-strong">专业运营台</p>
-            </div>
-          </div>
         </section>
 
+        {/* Right panel: logo + form */}
         <section className="flex items-center justify-center">
           <div className="w-full max-w-xl rounded-[28px] border border-app-line bg-app-panel/88 p-8 shadow-[0_36px_90px_rgba(2,8,20,0.34)] backdrop-blur xl:p-10">
-            <Link href="/" className="inline-flex items-center gap-3 text-sm text-app-text-soft transition hover:text-app-text-strong">
-              <span className="flex h-11 w-11 items-center justify-center rounded-[16px] border border-app-line bg-app-panel-muted text-lg font-semibold text-app-text-strong">
-                微
-              </span>
-              <span>微博运营台</span>
-            </Link>
+            <div className="flex items-center gap-4">
+              <img
+                src="/txw-logo.png"
+                alt="logo"
+                className="h-14 w-14 rounded-[16px] border border-app-line object-cover shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+              />
+            </div>
 
             <div className="mt-10">
               <h2 className="text-[2rem] font-semibold tracking-[-0.05em] text-app-text-strong">{title}</h2>
