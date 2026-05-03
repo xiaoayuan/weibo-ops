@@ -286,6 +286,14 @@ function getCommentLikeStepJitterMs(urgency: "S" | "A" | "B") {
   return 1000 + Math.floor(Math.random() * 4000);
 }
 
+function simulateBrowsePauseMs() {
+  return 1000 + Math.floor(Math.random() * 4000);
+}
+
+function simulateTypingDelayMs(contentLength: number) {
+  return contentLength * (60 + Math.floor(Math.random() * 90));
+}
+
 function isDuplicateLikeFailure(message: string) {
   return message.includes("已点赞") || message.includes("点过赞") || message.includes("重复点赞");
 }
@@ -572,6 +580,8 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
       await sleep(getCommentLikeStepJitterMs(urgency));
 
+      await sleep(simulateBrowsePauseMs());
+
       const timing = await waitForAccountExecutionWindow(accountId, `action-job:${input.jobId}:comment-like:${step.id}`, {
         scheduleWindowEnabled: account.scheduleWindowEnabled,
         executionWindowStart: account.executionWindowStart,
@@ -828,6 +838,9 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
       }
 
       const payload = (step.payload || {}) as { repostContent?: string };
+      if (payload.repostContent) {
+        await sleep(simulateTypingDelayMs(payload.repostContent.length));
+      }
       let result = await executor.executeInteraction({
         interactionTaskId: step.id,
         accountId,

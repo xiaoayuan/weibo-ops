@@ -99,7 +99,7 @@ async function dispatchOnce() {
         targetUrl: typeof config.targetUrl === "string" ? config.targetUrl : "",
         times: typeof config.times === "number" ? config.times : 1,
         intervalSec: toIntervalSec(config.intervalSec),
-        urgency: (config.urgency as "S" | "A" | "B" | undefined) || "A",
+        urgency: (config.urgency as "S" | "A" | "B" | undefined) || "S",
       });
     }
   } catch (error) {

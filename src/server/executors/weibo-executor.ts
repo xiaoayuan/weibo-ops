@@ -14,6 +14,14 @@ type TrafficSnapshot = {
   totalBytes: number;
 };
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function simulateTypingDelay(contentLength: number) {
+  return sleep(contentLength * (60 + Math.floor(Math.random() * 90)));
+}
+
 function parseCookieMap(cookie: string): CookieMap {
   return cookie
     .split(";")
@@ -1766,6 +1774,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.planType === "POST" && input.content) {
+        await simulateTypingDelay(input.content.length);
         const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(postResult.summary);
 
@@ -1838,6 +1847,9 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.planType === "REPOST" && input.targetUrl) {
+        if (input.content) {
+          await simulateTypingDelay(input.content.length);
+        }
         const repostResult = await sendRepostRequest(input.targetUrl, account.cookie, input.content || null, proxyConfig);
         const summaryPayload =
           repostResult.summary && typeof repostResult.summary === "object" && "responseSummary" in repostResult.summary

@@ -36,10 +36,10 @@ export const defaultExecutionStrategy: ExecutionStrategy = {
   actionJob: {
     maxRetry: 1,
     commentLikeConcurrency: { S: 20, A: 5, B: 3 },
-    repostConcurrency: { S: 6, A: 4, B: 2 },
+    repostConcurrency: { S: 12, A: 4, B: 2 },
     urgency: {
-      S: { waveRatios: [0.3, 0.4, 0.3], waveWindowsSec: [5, 20, 60], cooldownSecRange: [8, 25], retryDelaySecRange: [2, 5], targetSlaSec: 300, limitSlaSec: 600 },
-      A: { waveRatios: [0.2, 0.3, 0.5], waveWindowsSec: [600, 1800, 7200], cooldownSecRange: [20, 60], retryDelaySecRange: [4, 8], targetSlaSec: 600, limitSlaSec: 1800 },
+      S: { waveRatios: [0.4, 0.3, 0.3], waveWindowsSec: [2, 10, 30], cooldownSecRange: [2, 8], retryDelaySecRange: [1, 3], targetSlaSec: 240, limitSlaSec: 480 },
+      A: { waveRatios: [0.2, 0.3, 0.5], waveWindowsSec: [600, 1800, 7200], cooldownSecRange: [12, 40], retryDelaySecRange: [3, 6], targetSlaSec: 600, limitSlaSec: 1800 },
       B: { waveRatios: [0.1, 0.2, 0.7], waveWindowsSec: [1800, 7200, 43200], cooldownSecRange: [60, 180], retryDelaySecRange: [8, 15], targetSlaSec: 1800, limitSlaSec: 7200 },
     },
   },
