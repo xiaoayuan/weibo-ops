@@ -912,6 +912,7 @@ export function CopywritingManager({
                               tags: item.tags.join(", "),
                               firstComment: item.tags.includes("首评文案") || item.tags.includes("FIRST_COMMENT"),
                               status: item.status as FormState["status"],
+                              imageUrl: "",
                             });
                           }}
                           className="app-button app-button-secondary h-10 px-4 text-xs"
