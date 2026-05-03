@@ -228,7 +228,7 @@ export async function generateDailyPlansWithSummary(
     const likeTarget = Math.max(0, task.likePerDay || 0);
     const missingLike = Math.max(0, likeTarget - likeCount);
 
-    if (missingLike > 0) {
+    if (missingLike > 0 && contentIds.length > 0) {
       const times = randomTimesWithInterval(planDate, startTime, endTime, missingLike, task.likeIntervalSec || 1200);
 
       for (const scheduledTime of times) {
@@ -247,7 +247,7 @@ export async function generateDailyPlansWithSummary(
     const commentTarget = Math.max(0, task.commentPerDay || 0);
     const missingComment = Math.max(0, commentTarget - commentCount);
 
-    if (missingComment > 0) {
+    if (missingComment > 0 && contentIds.length > 0) {
       const times = randomTimesWithInterval(planDate, startTime, endTime, missingComment, task.commentIntervalSec || 1800);
 
       for (const scheduledTime of times) {
@@ -268,7 +268,7 @@ export async function generateDailyPlansWithSummary(
     const repostCount = existingPlans.filter((plan) => plan.planType === "REPOST").length;
     const missingRepost = Math.max(0, repostTarget - repostCount);
 
-    if (missingRepost > 0) {
+    if (missingRepost > 0 && contentIds.length > 0) {
       const times = randomTimesWithInterval(planDate, startTime, endTime, missingRepost, task.repostIntervalSec || 1800);
 
       for (const scheduledTime of times) {
@@ -291,7 +291,7 @@ export async function generateDailyPlansWithSummary(
     const postCountToCheck = existingPlans.filter((plan) => plan.planType === "POST").length;
     const missingPost = Math.max(0, postTarget - postCountToCheck);
 
-    if (missingPost > 0) {
+    if (missingPost > 0 && contentIds.length > 0) {
       const times = randomTimesWithInterval(planDate, startTime, endTime, missingPost, task.repostIntervalSec || 1800);
 
       for (const scheduledTime of times) {
