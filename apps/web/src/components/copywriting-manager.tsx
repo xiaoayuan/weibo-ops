@@ -10,6 +10,8 @@ import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
+import { EnhancedInput, EnhancedTextarea, EnhancedSelect } from "@/components/enhanced-inputs";
+import { ImageUpload } from "@/components/image-upload";
 
 // ---------------------------------------------------------------------------
 // AI workflow types
@@ -819,17 +821,15 @@ export function CopywritingManager({
       <SurfaceCard>
         <SectionHeader title={editingId ? "编辑文案" : "新增文案"} />
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="app-input" placeholder="标题" />
-          <input value={form.tags} onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))} className="app-input" placeholder="标签，多个用英文逗号分隔" />
-          <textarea value={form.content} onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))} className="app-input min-h-[168px] resize-y py-3 md:col-span-2" placeholder="文案内容" />
+          <EnhancedInput label="标题" name="title" value={form.title} onChange={(value) => setForm((current) => ({ ...current, title: value }))} placeholder="文案标题" />
+          <EnhancedInput label="标签" name="tags" value={form.tags} onChange={(value) => setForm((current) => ({ ...current, tags: value }))} placeholder="多个用英文逗号分隔" hint="如：首评文案, 应援, 日常" />
+          <EnhancedTextarea label="文案内容" name="content" value={form.content} onChange={(value) => setForm((current) => ({ ...current, content: value }))} placeholder="文案内容" rows={5} className="md:col-span-2" />
+          <ImageUpload value={form.imageUrl} onChange={(url) => setForm((current) => ({ ...current, imageUrl: url }))} maxSize={5} placeholder="拖拽或点击上传配图" className="md:col-span-2" />
           <label className="flex items-center gap-3 rounded-[16px] border border-app-line bg-app-panel-muted px-4 py-3 text-sm text-app-text-soft">
             <input type="checkbox" checked={form.firstComment} onChange={(event) => setForm((current) => ({ ...current, firstComment: event.target.checked }))} />
             标记为首评文案
           </label>
-          <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as FormState["status"] }))} className="app-input">
-            <option value="ACTIVE">启用</option>
-            <option value="DISABLED">停用</option>
-          </select>
+          <EnhancedSelect label="状态" name="status" value={form.status} onChange={(value) => setForm((current) => ({ ...current, status: value as FormState["status"] }))} options={[{ label: "启用", value: "ACTIVE" }, { label: "停用", value: "DISABLED" }]} />
         </div>
 
         {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}

@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
 import { BatchActions, type BatchAction } from "@/components/batch-actions";
+import { VirtualList } from "@/components/virtual-list";
 import { useConfirm } from "@/lib/confirm-context";
 import type { ActionJob, CommentPoolItem, WeiboAccount } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
@@ -545,44 +546,41 @@ export function OpsManager({
                 </div>
               ) : (
                 <div className="mt-5 space-y-5">
-                  <TableShell>
-                    <table className="app-table min-w-[1180px]">
-                      <thead>
-                        <tr>
-                          <th>选择</th>
-                          <th>评论ID</th>
-                          <th>链接</th>
-                          <th>标签</th>
-                          <th>备注</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredPoolItems.map((item) => (
-                          <tr key={item.id}>
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={selectedPoolIds.includes(item.id)}
-                                onChange={() =>
-                                  setSelectedPoolIds((current) =>
-                                    current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id],
-                                  )
-                                }
-                              />
-                            </td>
-                            <td className="font-mono text-xs text-app-text-soft">{item.commentId}</td>
-                            <td className="max-w-[320px] truncate text-app-text-muted">{item.sourceUrl}</td>
-                            <td>
-                              <div className="flex flex-wrap gap-2">
-                                {item.tags.length > 0 ? item.tags.map((tag) => <span key={tag} className="app-chip">{tag}</span>) : <span className="text-app-text-soft">-</span>}
-                              </div>
-                            </td>
-                            <td>{item.note || "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </TableShell>
+                  <div className="rounded-[18px] border border-app-line bg-app-panel overflow-hidden">
+                    <div className="grid grid-cols-[40px_1fr_1fr_1fr_1fr] gap-2 px-4 py-3 border-b border-app-line bg-app-panel-muted text-[11px] font-semibold uppercase tracking-[0.22em] text-app-text-soft">
+                      <span className="text-center">#</span>
+                      <span>评论ID</span>
+                      <span>链接</span>
+                      <span>标签</span>
+                      <span>备注</span>
+                    </div>
+                    <VirtualList
+                      items={filteredPoolItems}
+                      itemHeight={52}
+                      height={360}
+                      renderItem={(item) => (
+                        <label className="grid grid-cols-[40px_1fr_1fr_1fr_1fr] gap-2 items-center px-4 py-3 border-b border-app-line/70 hover:bg-app-panel-muted transition cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedPoolIds.includes(item.id)}
+                            onChange={() =>
+                              setSelectedPoolIds((current) =>
+                                current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id],
+                              )
+                            }
+                            className="justify-self-center"
+                          />
+                          <span className="font-mono text-xs text-app-text-soft truncate">{item.commentId}</span>
+                          <span className="max-w-[240px] truncate text-app-text-muted">{item.sourceUrl}</span>
+                          <span className="flex flex-wrap gap-1">
+                            {item.tags.length > 0 ? item.tags.slice(0, 2).map((tag) => <span key={tag} className="app-chip text-[10px]">{tag}</span>) : <span className="text-app-text-soft">-</span>}
+                          </span>
+                          <span className="truncate text-app-text">{item.note || "-"}</span>
+                        </label>
+                      )}
+                      emptyText="暂无控评链接"
+                    />
+                  </div>
 
                   <div className="app-subpanel">
                     <p className="text-sm text-app-text-muted">选择执行账号</p>

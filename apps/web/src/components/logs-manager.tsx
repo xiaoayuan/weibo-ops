@@ -11,7 +11,7 @@ import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
 import { LogDetailModal } from "@/components/log-detail-modal";
 import { LogStats, TimelineLog, type LogLevel } from "@/components/log-display";
-import { ProgressBar } from "@/components/progress-indicators";
+import { ProgressBar, CircularProgress } from "@/components/progress-indicators";
 import { AdvancedFilter, type FilterConfig, type FilterValues } from "@/components/advanced-filter";
 import type { ExecutionLog, Plan } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
@@ -471,6 +471,9 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {planProgressRows.map((row) => (
               <div key={row.accountId} className="rounded-[18px] border border-app-line bg-app-panel p-4">
+                <div className="flex items-center gap-4">
+                  <CircularProgress total={row.total} completed={row.success + row.failed} size={64} strokeWidth={6} showLabel={false} />
+                  <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium text-app-text-strong">{row.accountText}</p>
                   <span className="text-xs text-app-text-soft">{formatDateTime(row.latestScheduledTime)}</span>
@@ -486,6 +489,8 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
                 </div>
                 <p className="mt-3 text-xs leading-6 text-app-text-soft">这里统计的是该账号今天真实生成的计划数。不同账号是否正好 5 条，取决于它绑定的任务配置，不是固定值。</p>
                 <ProgressBar total={row.total} completed={row.success} failed={row.failed} pending={row.pending} height="h-2" />
+                </div>
+              </div>
               </div>
             ))}
           </div>
