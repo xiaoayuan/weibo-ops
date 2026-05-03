@@ -43,7 +43,7 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/copy
   try {
     const existing = await prisma.copywritingTemplate.findUnique({
       where: { id },
-      select: { id: true, createdBy: true },
+      select: { id: true },
     });
 
     if (!existing) {
