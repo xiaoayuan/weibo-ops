@@ -196,7 +196,7 @@ async function runAutoExecute(now: Date) {
 
     console.log("[scheduler] runAutoExecute found", candidates.length, "candidates for user", user.id);
 
-    const queueablePlans = candidates.filter((item) => !inFlightPlanIds.has(item.id));
+    const queueablePlans = candidates.filter((item) => !inFlightPlanIds.has(item.id)).slice(0, 3);
 
     if (queueablePlans.length === 0) {
       continue;
