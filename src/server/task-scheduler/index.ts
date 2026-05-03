@@ -7,7 +7,7 @@ declare global {
 
 function getWorkerPool() {
   if (!globalThis.__taskSchedulerPool) {
-    globalThis.__taskSchedulerPool = new WorkerPool(4);
+    globalThis.__taskSchedulerPool = new WorkerPool(8);
   }
 
   return globalThis.__taskSchedulerPool;

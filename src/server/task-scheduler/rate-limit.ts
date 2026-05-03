@@ -56,14 +56,14 @@ const taskRateRules: Record<ManagedTaskType, RateLimitRule> = {
     userPerMinute: 6,
   },
   COMMENT_CONTROL: {
-    globalPerMinute: 40,
-    taskTypePerMinute: 30,
-    userPerMinute: 20,
+    globalPerMinute: 80,
+    taskTypePerMinute: 60,
+    userPerMinute: 50,
   },
   REPOST_ROTATION: {
-    globalPerMinute: 20,
-    taskTypePerMinute: 12,
-    userPerMinute: 8,
+    globalPerMinute: 40,
+    taskTypePerMinute: 25,
+    userPerMinute: 20,
   },
 };
 
