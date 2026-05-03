@@ -346,7 +346,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     }
 
     const proxyConfig = await getProxyConfigForAccount(plan.accountId);
-    const latestPosts = await fetchLatestPosts(topicUrl, cookie, 200, proxyConfig);
+    const latestPosts = await fetchLatestPosts(topicUrl, cookie, 500, proxyConfig);
     const riskRules = await getRiskRules();
 
     const locks = await prisma.firstCommentPostLock.findMany({
@@ -360,7 +360,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     });
 
     const usedIds = new Set(locks.map((item) => item.statusId));
-    const preferred = latestPosts.slice(0, 20);
+    const preferred = latestPosts.slice(0, 50);
     const expanded = latestPosts.slice(20, 200);
     const candidates = [...preferred, ...expanded];
 

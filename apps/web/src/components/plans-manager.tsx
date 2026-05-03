@@ -462,7 +462,7 @@ export function PlansManager({
                                   >
                                     编辑
                                   </button>
-                                   <button type="button" onClick={() => { const delay = 2000 + Math.floor(Math.random() * 3000); setTimeout(() => runPlanAction(plan.id, `/api/plans/${plan.id}/execute`, "计划已入队"), delay); }} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                   <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                     <Play className="mr-1.5 h-3.5 w-3.5" />执行
                                   </button>
                                   <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-danger h-10 px-4 text-xs">
