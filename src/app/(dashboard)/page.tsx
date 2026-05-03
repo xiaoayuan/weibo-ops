@@ -167,11 +167,7 @@ export default async function DashboardPage() {
     { label: "待审核", value: String(pendingPlans) },
   ];
 
-function buildAlert(log: typeof recentLogs[number]): string {
-      const name = log.account?.nickname ? log.account.nickname : "系统";
-      return name + " 执行失败。";
-    }
-    const recentAlerts: string[] = [];
+const recentAlerts: string[] = [];
     for (const log of recentLogs) {
       const name = log.account?.nickname ? log.account.nickname : "系统";
       const time = new Date(log.executedAt).toLocaleString("zh-CN");

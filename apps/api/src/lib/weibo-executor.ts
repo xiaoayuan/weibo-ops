@@ -151,7 +151,7 @@ function toNumber(value: unknown) {
   return undefined;
 }
 
-function tryExtractUidFromStatusUrl(targetUrl?: string | null) {
+function _tryExtractUidFromStatusUrl(targetUrl?: string | null) {
   if (!targetUrl) return undefined;
   const candidates: string[] = [targetUrl.trim()];
   let decoded = targetUrl;

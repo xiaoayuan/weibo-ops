@@ -7,11 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 function getJwtSecret() {
   if (!JWT_SECRET || JWT_SECRET.length < 32) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("JWT_SECRET 未配置或长度不足，生产环境拒绝启动");
-    }
-
-    return "dev-secret-for-local-development-only";
+    throw new Error("JWT_SECRET 未配置或长度不足，请确保环境变量 JWT_SECRET 至少为 32 个字符");
   }
 
   return JWT_SECRET;

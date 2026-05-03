@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { performanceMonitor } from "@/lib/performance-monitor";
 import { BarChart3 } from "lucide-react";
 import { useSmartPolling } from "@/lib/hooks/use-polling";
@@ -48,10 +48,6 @@ export function PerformanceChart() {
   };
 
   useSmartPolling(fetchChartData, { interval: 5000 });
-
-  useEffect(() => {
-    void fetchChartData();
-  }, []);
 
   return (
     <div className="app-surface">

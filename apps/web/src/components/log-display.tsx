@@ -16,7 +16,7 @@ interface LogItemProps {
   title: string;
   message: string;
   timestamp: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   onViewDetails?: () => void;
 }
 
@@ -118,9 +118,9 @@ interface TimelineLogProps {
     title: string;
     message: string;
     timestamp: string;
-    details?: Record<string, any>;
+details?: Record<string, unknown>;
   }>;
-  onViewDetails?: (log: any) => void;
+  onViewDetails?: (log: unknown) => void;
 }
 
 /**

@@ -84,36 +84,6 @@ function toDate(value?: string) {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-async function getRateLimitState(key: string) {
-  const setting = await prisma.systemSetting.findUnique({ where: { key }, select: { value: true } });
-
-  if (!setting?.value || typeof setting.value !== "object" || Array.isArray(setting.value)) {
-    return {} satisfies RateLimitState;
-  }
-
-  return setting.value as RateLimitState;
-}
-
-function toSnapshotItem(key: string, state: RateLimitState): RateLimitSnapshotItem {
-  const nextAvailableAt = toDate(state.nextAvailableAt);
-  const waitMs = Math.max(0, (nextAvailableAt?.getTime() || 0) - Date.now());
-
-  return {
-    key,
-    nextAvailableAt: nextAvailableAt?.toISOString() || null,
-    waitMs,
-    active: waitMs > 0,
-  };
-}
-
-async function saveRateLimitState(key: string, value: RateLimitState) {
-  await prisma.systemSetting.upsert({
-    where: { key },
-    create: { key, value: value as never },
-    update: { value: value as never },
-  });
-}
-
 function getEffectiveTier(taskType: ManagedTaskType, baseTier: TaskTier, delayMs: number): TaskTier {
   if (taskType === "DAILY_PLAN") {
     return "B";
@@ -271,16 +241,16 @@ export async function getRateLimitSnapshot(ownerUserId?: string): Promise<RateLi
       return {
         userId,
         username: userMap.get(userId) || null,
-        ...toSnapshotItem(item.key, stateMap.get(item.key) || {}),
+        ..._toSnapshotItem(item.key, stateMap.get(item.key) || {}),
       };
     })
     .sort((a, b) => b.waitMs - a.waitMs);
 
   return {
-    global: toSnapshotItem(globalKey, stateMap.get(globalKey) || {}),
+    global: _toSnapshotItem(globalKey, stateMap.get(globalKey) || {}),
     taskTypes: taskTypes.map((taskType) => ({
       taskType,
-      ...toSnapshotItem(stateKey("taskType", taskType), stateMap.get(stateKey("taskType", taskType)) || {}),
+      ..._toSnapshotItem(stateKey("taskType", taskType), stateMap.get(stateKey("taskType", taskType)) || {}),
     })),
     users: userEntries,
     updatedAt: new Date().toISOString(),

@@ -15,7 +15,7 @@ interface ExportButtonProps<T> {
   className?: string;
 }
 
-export function ExportButton<T extends Record<string, any>>({
+export function ExportButton<T extends Record<string, unknown>>({
   data,
   filename,
   fields,
@@ -91,7 +91,7 @@ interface ExportButtonWithFieldsProps<T> {
   className?: string;
 }
 
-export function ExportButtonWithFields<T extends Record<string, any>>({
+export function ExportButtonWithFields<T extends Record<string, unknown>>({
   data,
   filename,
   availableFields,

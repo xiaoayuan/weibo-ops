@@ -128,7 +128,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
     const proxyConfig = await getProxyConfigForAccount(plan.accountId);
     const latestPosts = await fetchLatestPosts(topicUrl, cookie, 50, proxyConfig);
-    const riskRules = await getRiskRules();
+    const _riskRules = await getRiskRules();
     const locks = await prisma.firstCommentPostLock.findMany({
       where: { planDate: plan.planDate, superTopicId: plan.task.superTopicId },
       select: { statusId: true },

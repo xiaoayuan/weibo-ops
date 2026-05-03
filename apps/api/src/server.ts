@@ -5,7 +5,27 @@ import { proxyToLegacyBackend } from "./http/proxy";
 import { CacheWarmup } from "./lib/cache-warmup";
 import { wsManager } from "./lib/websocket";
 
+/**
+ * 安全响应头中间件
+ */
+const securityHeaders = [
+  ["X-DNS-Prefetch-Control", "on"],
+  ["X-Frame-Options", "DENY"],
+  ["X-Content-Type-Options", "nosniff"],
+  ["Referrer-Policy", "strict-origin-when-cross-origin"],
+  ["X-XSS-Protection", "1; mode=block"],
+  ["Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload"],
+];
+
 const app = new Hono();
+
+// 应用安全响应头到所有响应
+app.use("*", async (c, next) => {
+  await next();
+  for (const [key, value] of securityHeaders) {
+    c.res.headers.set(key, value);
+  }
+});
 
 app.get("/", (c) => {
   return c.json({
@@ -56,5 +76,6 @@ const server = serve(
 
 // 初始化 WebSocket（使用底层 HTTP 服务器）
 if (server && typeof server === "object" && "server" in server) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   wsManager.initialize(server.server as any);
 }

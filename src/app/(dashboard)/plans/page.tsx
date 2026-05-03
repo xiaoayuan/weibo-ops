@@ -136,7 +136,7 @@ export default async function PlansPage() {
     plans.length > 0
       ? prisma.executionLog.findMany({
           where: {
-            planId: { in: plans.map((plan) => plan.id) },
+            planId: { in: plans.map((plan: typeof plans[number]) => plan.id) },
           },
           orderBy: { executedAt: "desc" },
           take: plans.length * 4,
@@ -158,21 +158,24 @@ export default async function PlansPage() {
     }
   }
 
-  const plansWithSchedule = plans.map((plan) => ({
-    ...plan,
-    scheduleNote: scheduleNoteMap.get(plan.id) || null,
-    pendingReason: getPendingReason({
-      planDateText: getBusinessDateText(plan.planDate),
-      todayText,
-      now,
-      status: plan.status,
-      scheduledTime: plan.scheduledTime,
-      autoExecuteEnabled: user?.autoExecuteEnabled ?? true,
-      autoExecuteStartTime: user?.autoExecuteStartTime || "09:00",
-      autoExecuteEndTime: user?.autoExecuteEndTime || "18:00",
-      scheduleNote: scheduleNoteMap.get(plan.id) || null,
-    }),
-  }));
+  const plansWithSchedule = plans.map((plan: typeof plans[number]) => {
+    const scheduleNote = scheduleNoteMap.get(plan.id) || null;
+    return {
+      ...plan,
+      scheduleNote,
+      pendingReason: getPendingReason({
+        planDateText: getBusinessDateText(plan.planDate),
+        todayText,
+        now,
+        status: plan.status,
+        scheduledTime: plan.scheduledTime,
+        autoExecuteEnabled: user?.autoExecuteEnabled ?? true,
+        autoExecuteStartTime: user?.autoExecuteStartTime || "09:00",
+        autoExecuteEndTime: user?.autoExecuteEndTime || "18:00",
+        scheduleNote,
+      }),
+    };
+  });
 
   return <PlansManager currentUserRole={session.role} initialPlans={plansWithSchedule} initialDate={todayText} contents={contents} />;
 }

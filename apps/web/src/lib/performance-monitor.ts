@@ -227,6 +227,7 @@ export const performanceMonitor = new PerformanceMonitor();
 
 // 在浏览器环境中暴露到 window 对象
 if (typeof window !== "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).performanceMonitor = performanceMonitor;
 }
 
@@ -235,13 +236,13 @@ if (typeof window !== "undefined") {
  */
 export function monitorApi(name: string) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       return performanceMonitor.measure(
         `${name}.${propertyKey}`,
         () => originalMethod.apply(this, args)

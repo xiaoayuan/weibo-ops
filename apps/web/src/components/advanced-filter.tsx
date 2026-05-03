@@ -17,7 +17,7 @@ export interface FilterConfig {
 /**
  * 过滤值类型
  */
-export type FilterValues = Record<string, any>;
+export type FilterValues = Record<string, unknown>;
 
 /**
  * 高级过滤组件属性
@@ -48,7 +48,7 @@ export function AdvancedFilter({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [filterName, setFilterName] = useState("");
 
-  const handleChange = (name: string, value: any) => {
+  const handleChange = (name: string, value: unknown) => {
     onChange({ ...values, [name]: value });
   };
 

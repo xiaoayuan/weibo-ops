@@ -1,7 +1,7 @@
 /**
  * 通用 API 响应类型
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -10,7 +10,7 @@ export interface ApiResponse<T = any> {
     page?: number;
     pageSize?: number;
     total?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -210,8 +210,8 @@ export interface ExecutionLog {
   planId: string | null;
   interactionTaskId: string | null;
   actionType: string;
-  requestPayload: any;
-  responsePayload: any;
+  requestPayload: unknown;
+  responsePayload: unknown;
   success: boolean;
   errorMessage: string | null;
   createdAt: string;
@@ -242,7 +242,7 @@ export interface ActionJobAccountRun {
 export interface ActionJob {
   id: string;
   jobType: ActionJobType;
-  config: any;
+  config: Record<string, unknown>;
   status: ActionJobStatus;
   totalSteps: number;
   completedSteps: number;
@@ -322,7 +322,7 @@ export interface InviteCode {
 /**
  * 类型守卫
  */
-export function isApiResponse<T>(value: any): value is ApiResponse<T> {
+export function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -331,7 +331,7 @@ export function isApiResponse<T>(value: any): value is ApiResponse<T> {
   );
 }
 
-export function isPaginatedResponse<T>(value: any): value is PaginatedResponse<T> {
+export function isPaginatedResponse<T>(value: unknown): value is PaginatedResponse<T> {
   return (
     isApiResponse(value) &&
     "meta" in value &&

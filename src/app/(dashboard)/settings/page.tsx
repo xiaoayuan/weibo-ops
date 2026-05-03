@@ -154,33 +154,32 @@ export default async function SettingsPage() {
   const accountSecretStatus = getSecretStatus(process.env.ACCOUNT_SECRET_KEY, 32);
   const databaseUrlSummary = maskDatabaseUrl(process.env.DATABASE_URL);
   const dbStatus = Array.isArray(dbHealth) ? "已连接" : "检测异常";
-  const recentFailures = [
-    ...recentFailedPlans.map((plan) => ({
-      id: plan.id,
-      type: "计划" as const,
-      title: `${plan.account.nickname} / ${
-        plan.planType === "CHECK_IN"
-          ? "签到"
-          : plan.planType === "FIRST_COMMENT"
-            ? "首评"
-            : plan.planType === "POST"
-              ? "转发"
-              : plan.planType === "COMMENT"
-                ? "回复"
-                : "点赞"
-      }`,
-      subtitle: plan.task?.superTopic.name || "未绑定超话",
-      detail: plan.resultMessage || "无失败说明",
-      occurredAt: plan.updatedAt,
-    })),
-    ...recentFailedInteractions.map((task) => ({
-      id: task.id,
-      type: "互动" as const,
-      title: `${task.account.nickname} / ${getActionTypeText(task.actionType)}`,
-      subtitle: task.target.targetUrl,
-      detail: task.resultMessage || "无失败说明",
-      occurredAt: task.updatedAt,
-    })),
+  const recentFailures: Array<{ id: string; type: "计划" | "互动"; title: string; subtitle: string; detail: string; occurredAt: Date }> = [
+    ...recentFailedPlans.map((plan: typeof recentFailedPlans[number]) => {
+      const planTypeText = plan.planType === "CHECK_IN" ? "签到" : plan.planType === "FIRST_COMMENT" ? "首评" : plan.planType === "POST" ? "转发" : plan.planType === "COMMENT" ? "回复" : "点赞";
+      const subtitle = plan.task?.superTopic ? plan.task.superTopic.name : "未绑定超话";
+      const detail = plan.resultMessage || "无失败说明";
+      return {
+        id: plan.id,
+        type: "计划" as const,
+        title: plan.account.nickname + " / " + planTypeText,
+        subtitle,
+        detail,
+        occurredAt: plan.updatedAt,
+      };
+    }),
+    ...recentFailedInteractions.map((task: typeof recentFailedInteractions[number]) => {
+      const actionText = getActionTypeText(task.actionType);
+      const detail = task.resultMessage || "无失败说明";
+      return {
+        id: task.id,
+        type: "互动" as const,
+        title: task.account.nickname + " / " + actionText,
+        subtitle: task.target.targetUrl,
+        detail,
+        occurredAt: task.updatedAt,
+      };
+    }),
   ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()).slice(0, 5);
 
   const summaryCards = [

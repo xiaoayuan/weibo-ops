@@ -44,7 +44,7 @@ export default async function ProxyCenterPage() {
       </div>
 
       <ProxyPoolForm
-        initialNodes={nodes.map((node) => ({
+        initialNodes={nodes.map((node: typeof nodes[number]) => ({
           id: node.id,
           name: node.name,
           protocol: node.protocol,
@@ -61,7 +61,7 @@ export default async function ProxyCenterPage() {
       />
 
       <ProxyBindingManager
-        initialNodes={nodes.map((node) => ({
+        initialNodes={nodes.map((node: typeof nodes[number]) => ({
           id: node.id,
           name: node.name,
           host: node.host,

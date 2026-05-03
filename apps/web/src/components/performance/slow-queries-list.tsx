@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { performanceMonitor } from "@/lib/performance-monitor";
 import { AlertTriangle } from "lucide-react";
 import { useSmartPolling } from "@/lib/hooks/use-polling";
@@ -22,10 +22,6 @@ export function SlowQueriesList() {
   };
 
   useSmartPolling(fetchSlowQueries, { interval: 3000 });
-
-  useEffect(() => {
-    void fetchSlowQueries();
-  }, [threshold]);
 
   return (
     <div className="app-surface">

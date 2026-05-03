@@ -4,10 +4,7 @@ const ACCOUNT_SECRET_KEY = process.env.ACCOUNT_SECRET_KEY;
 
 function getAccountSecretKey() {
   if (!ACCOUNT_SECRET_KEY || ACCOUNT_SECRET_KEY.length < 32) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("ACCOUNT_SECRET_KEY 未配置或长度不足，生产环境拒绝启动");
-    }
-    return "dev_account_secret_key_for_local_only";
+    throw new Error("ACCOUNT_SECRET_KEY 未配置或长度不足，请确保环境变量 ACCOUNT_SECRET_KEY 至少为 32 个字符");
   }
   return ACCOUNT_SECRET_KEY;
 }

@@ -235,7 +235,7 @@ export default async function TrafficPage() {
             {actionRows.length === 0 ? (
               <p className="text-sm text-slate-500">暂无流量数据</p>
             ) : (
-              actionRows.map((item) => (
+              actionRows.map((item: ActionBytesRow) => (
                 <div key={item.actionKey} className="flex items-center justify-between text-sm">
                   <div className="text-slate-700">{getActionTypeText(item.actionKey)}（{item.logCount} 次）</div>
                   <div className="font-medium text-slate-900">{formatBytes(toNumber(item.bytes))}</div>
@@ -251,7 +251,7 @@ export default async function TrafficPage() {
             {dailyTrend.length === 0 ? (
               <p className="text-sm text-slate-500">暂无流量数据</p>
             ) : (
-              dailyTrend.map((item) => (
+              dailyTrend.map((item: DailyBytesRow) => (
                 <div key={item.day} className="flex items-center justify-between text-sm">
                   <div className="text-slate-600">{item.day}</div>
                   <div className="font-medium text-slate-900">{formatBytes(toNumber(item.bytes))}</div>
@@ -281,7 +281,7 @@ export default async function TrafficPage() {
                 <td colSpan={4} className="px-6 py-8 text-slate-500">暂无流量明细</td>
               </tr>
             ) : (
-              recentRows.map((item) => (
+              recentRows.map((item: RecentRow) => (
                 <tr key={item.id} className="border-t border-slate-200">
                   <td className="px-6 py-4">{new Date(item.executedAt).toLocaleString("zh-CN")}</td>
                   <td className="px-6 py-4">{item.accountNickname}</td>

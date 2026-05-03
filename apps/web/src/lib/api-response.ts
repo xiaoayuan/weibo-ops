@@ -43,7 +43,7 @@ export enum ErrorCode {
 export function createSuccessResponse<T>(
   data: T,
   message?: string,
-  meta?: Record<string, any>
+  meta?: Record<string, unknown>
 ): ApiResponse<T> {
   return {
     success: true,
@@ -59,7 +59,7 @@ export function createSuccessResponse<T>(
 export function createErrorResponse(
   message: string,
   code: ErrorCode = ErrorCode.UNKNOWN,
-  meta?: Record<string, any>
+  meta?: Record<string, unknown>
 ): ApiResponse<never> {
   return {
     success: false,
@@ -147,7 +147,7 @@ export function handleApiError(error: unknown): ApiResponse<never> {
 /**
  * 验证 API 响应
  */
-export function validateApiResponse<T>(response: any): response is ApiResponse<T> {
+export function validateApiResponse<T>(response: unknown): response is ApiResponse<T> {
   return (
     typeof response === "object" &&
     response !== null &&

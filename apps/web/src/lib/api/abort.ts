@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * 自动取消请求的 Hook
@@ -6,10 +6,12 @@ import { useEffect, useRef } from "react";
  */
 export function useAbortController() {
   const controllerRef = useRef<AbortController | null>(null);
+  const [signal, setSignal] = useState<AbortSignal | undefined>(undefined);
 
   useEffect(() => {
     // 创建新的 AbortController
     controllerRef.current = new AbortController();
+    setSignal(controllerRef.current.signal);
 
     // 组件卸载时取消请求
     return () => {
@@ -19,7 +21,7 @@ export function useAbortController() {
     };
   }, []);
 
-  return controllerRef.current?.signal;
+  return signal;
 }
 
 /**

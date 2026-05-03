@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { performanceMonitor } from "@/lib/performance-monitor";
 import { Activity, TrendingUp, TrendingDown, Zap, AlertCircle, CheckCircle } from "lucide-react";
 import { useSmartPolling } from "@/lib/hooks/use-polling";
@@ -26,10 +26,6 @@ export function PerformanceOverview() {
   };
 
   useSmartPolling(fetchStats, { interval: 3000 });
-
-  useEffect(() => {
-    void fetchStats();
-  }, [timeRange]);
 
   if (!stats) {
     return <div className="text-app-text-soft">加载中...</div>;

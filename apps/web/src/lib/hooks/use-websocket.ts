@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 
 /**
  * WebSocket 消息类型
@@ -35,9 +35,13 @@ interface UseWebSocketOptions {
   onError?: (error: Event) => void;
 }
 
+// 模块级变量，供 setTimeout 回调访问最新 connect 函数
+// 避免在 onclose 中直接引用 connect 导致循环依赖
+const reconnectConnectFn = { current: (() => {}) as () => void };
+
 /**
  * WebSocket Hook
- * 
+ *
  * 提供 WebSocket 连接管理和消息处理
  */
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -54,6 +58,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isConnectedRef = useRef(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   /**
    * 连接 WebSocket
@@ -69,6 +74,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       ws.onopen = () => {
         console.log("✓ WebSocket 已连接");
         isConnectedRef.current = true;
+        setIsConnected(true);
         onOpen?.();
       };
 
@@ -84,13 +90,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       ws.onclose = () => {
         console.log("WebSocket 已断开");
         isConnectedRef.current = false;
+        setIsConnected(false);
         onClose?.();
 
-        // 自动重连
+        // 自动重连：setTimeout 回调在执行时从模块级变量读取最新的 connect 函数
         if (reconnect) {
           reconnectTimeoutRef.current = setTimeout(() => {
             console.log("尝试重新连接 WebSocket...");
-            connect();
+            reconnectConnectFn.current();
           }, reconnectInterval);
         }
       };
@@ -105,6 +112,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       console.error("WebSocket 连接失败:", error);
     }
   }, [url, reconnect, reconnectInterval, onMessage, onOpen, onClose, onError]);
+
+  // 将 connect 函数存入模块级变量，供 reconnect 时使用
+  // 通过 useEffect 更新，避免在渲染期间修改 ref
+  useEffect(() => {
+    reconnectConnectFn.current = connect;
+  }, [connect]);
 
   /**
    * 断开连接
@@ -121,12 +134,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     isConnectedRef.current = false;
+    setIsConnected(false);
   }, []);
 
   /**
    * 发送消息
    */
-  const send = useCallback((message: any) => {
+  const send = useCallback((message: WSMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     } else {
@@ -169,7 +183,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     subscribe,
     unsubscribe,
     auth,
-    isConnected: isConnectedRef.current,
+    isConnected,
     reconnect: connect,
     disconnect,
   };
@@ -177,7 +191,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
 /**
  * WebSocket 消息监听 Hook
- * 
+ *
  * 监听特定类型的消息
  */
 export function useWebSocketMessage(

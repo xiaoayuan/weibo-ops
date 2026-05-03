@@ -23,6 +23,16 @@ export interface WSMessage {
 }
 
 /**
+ * 客户端发送的消息（不含 timestamp，由客户端构造）
+ */
+export interface WSClientMessage {
+  type: string;
+  channel?: string;
+  userId?: string;
+  [key: string]: unknown;
+}
+
+/**
  * WebSocket 客户端信息
  */
 interface WSClient {
@@ -121,7 +131,7 @@ export class WebSocketManager {
   /**
    * 处理客户端消息
    */
-  private handleMessage(ws: WebSocket, message: any): void {
+  private handleMessage(ws: WebSocket, message: WSClientMessage): void {
     const client = this.clients.get(ws);
     if (!client) return;
 

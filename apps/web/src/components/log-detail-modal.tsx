@@ -8,7 +8,7 @@ import { formatDateTime } from "@/lib/date";
  * 日志详情模态框属性
  */
 interface LogDetailModalProps {
-  log: any;
+  log: unknown;
   onClose: () => void;
 }
 
@@ -45,7 +45,7 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
     });
   };
 
-  const renderJson = (data: any) => {
+  const renderJson = (data: unknown) => {
     if (!data) return <span className="text-app-text-muted">无数据</span>;
 
     try {
@@ -208,7 +208,7 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
  * 可展开的日志行
  */
 interface ExpandableLogRowProps {
-  log: any;
+  log: unknown;
   children: React.ReactNode;
   onViewDetails?: () => void;
 }

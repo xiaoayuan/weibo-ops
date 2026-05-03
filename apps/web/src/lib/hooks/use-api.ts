@@ -57,7 +57,7 @@ export function useApi<T>(
  * 使用账号列表
  */
 export function useAccounts() {
-  return useApi<any[]>("/api/accounts");
+  return useApi<unknown[]>("/api/accounts");
 }
 
 /**
@@ -65,78 +65,78 @@ export function useAccounts() {
  */
 export function usePlans(date?: string) {
   const url = date ? `/api/plans?date=${date}` : "/api/plans";
-  return useApi<any[]>(url);
+  return useApi<unknown[]>(url);
 }
 
 /**
  * 使用互动任务列表
  */
 export function useInteractionTasks() {
-  return useApi<any[]>("/api/interaction-tasks");
+  return useApi<unknown[]>("/api/interaction-tasks");
 }
 
 /**
  * 使用执行日志列表
  */
 export function useLogs(page: number = 1, pageSize: number = 50) {
-  return useApi<any>(`/api/logs?page=${page}&pageSize=${pageSize}`);
+  return useApi<unknown>(`/api/logs?page=${page}&pageSize=${pageSize}`);
 }
 
 /**
  * 使用超话列表
  */
 export function useSuperTopics() {
-  return useApi<any[]>("/api/super-topics");
+  return useApi<unknown[]>("/api/super-topics");
 }
 
 /**
  * 使用文案库列表
  */
 export function useCopywriting() {
-  return useApi<any[]>("/api/copywriting");
+  return useApi<unknown[]>("/api/copywriting");
 }
 
 /**
  * 使用任务列表
  */
 export function useTopicTasks() {
-  return useApi<any[]>("/api/topic-tasks");
+  return useApi<unknown[]>("/api/topic-tasks");
 }
 
 /**
  * 使用用户列表
  */
 export function useUsers() {
-  return useApi<any[]>("/api/users");
+  return useApi<unknown[]>("/api/users");
 }
 
 /**
  * 使用代理节点列表
  */
 export function useProxyNodes() {
-  return useApi<any[]>("/api/proxy-nodes");
+  return useApi<unknown[]>("/api/proxy-nodes");
 }
 
 /**
  * 使用评论池列表
  */
 export function useCommentPool() {
-  return useApi<any[]>("/api/comment-pool");
+  return useApi<unknown[]>("/api/comment-pool");
 }
 
 /**
  * 使用编排任务列表
  */
 export function useActionJobs() {
-  return useApi<any[]>("/api/action-jobs");
+  return useApi<unknown[]>("/api/action-jobs");
 }
 
 /**
- * POST 请求 Hook
+ * POST 请求
  */
 export async function apiPost<T>(
   url: string,
-  data?: any
+  data?: unknown
 ): Promise<ApiResponse<T>> {
   const response = await fetch(url, {
     method: "POST",
@@ -148,11 +148,11 @@ export async function apiPost<T>(
 }
 
 /**
- * PUT 请求 Hook
+ * PUT 请求
  */
 export async function apiPut<T>(
   url: string,
-  data?: any
+  data?: unknown
 ): Promise<ApiResponse<T>> {
   const response = await fetch(url, {
     method: "PUT",
@@ -164,7 +164,7 @@ export async function apiPut<T>(
 }
 
 /**
- * DELETE 请求 Hook
+ * DELETE 请求
  */
 export async function apiDelete<T>(url: string): Promise<ApiResponse<T>> {
   const response = await fetch(url, {
@@ -175,7 +175,7 @@ export async function apiDelete<T>(url: string): Promise<ApiResponse<T>> {
 }
 
 /**
- * 批量操作 Hook
+ * 批量操作
  */
 export async function apiBatch<T>(
   url: string,

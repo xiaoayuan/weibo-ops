@@ -9,7 +9,7 @@ export class DataExporter {
   /**
    * 导出为 CSV
    */
-  static exportToCSV<T extends Record<string, any>>(
+  static exportToCSV<T extends Record<string, unknown>>(
     data: T[],
     filename: string,
     fields?: (keyof T)[],
@@ -62,7 +62,7 @@ export class DataExporter {
   /**
    * 导出为 Excel（实际上是 CSV，但 Excel 可以打开）
    */
-  static exportToExcel<T extends Record<string, any>>(
+  static exportToExcel<T extends Record<string, unknown>>(
     data: T[],
     filename: string,
     fields?: (keyof T)[],

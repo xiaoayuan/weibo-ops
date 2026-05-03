@@ -10,6 +10,8 @@ export class CacheWarmup {
   private static isWarming = false;
   private static lastWarmupTime = 0;
   private static warmupInterval = 5 * 60 * 1000; // 5 分钟
+  private static intervalId: ReturnType<typeof setInterval> | null = null;
+  private static hasStarted = false;
 
   /**
    * 执行缓存预热
@@ -140,15 +142,33 @@ export class CacheWarmup {
    * 启动定时预热任务
    */
   static startScheduledWarmup(): void {
+    // 防止重复启动
+    if (this.hasStarted) {
+      return;
+    }
+    this.hasStarted = true;
+
     // 立即执行一次
     void this.warmup();
 
-    // 每 5 分钟执行一次
-    setInterval(() => {
+    // 每 5 分钟执行一次，保存 interval ID 便于清理
+    this.intervalId = setInterval(() => {
       void this.warmup();
     }, this.warmupInterval);
 
     console.log("🔥 缓存预热定时任务已启动");
+  }
+
+  /**
+   * 停止定时预热任务
+   */
+  static stopScheduledWarmup(): void {
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+      this.hasStarted = false;
+      console.log("✅ 缓存预热定时任务已停止");
+    }
   }
 
   /**

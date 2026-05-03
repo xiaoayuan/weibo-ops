@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { performanceMonitor } from "@/lib/performance-monitor";
 import { XCircle } from "lucide-react";
 import { useSmartPolling } from "@/lib/hooks/use-polling";
@@ -21,10 +21,6 @@ export function ErrorsList() {
   };
 
   useSmartPolling(fetchErrors, { interval: 3000 });
-
-  useEffect(() => {
-    void fetchErrors();
-  }, []);
 
   return (
     <div className="app-surface">

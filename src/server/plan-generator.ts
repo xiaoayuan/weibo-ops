@@ -177,7 +177,6 @@ export async function generateDailyPlansWithSummary(
     const firstCommentCount = existingPlans.filter((plan) => plan.planType === "FIRST_COMMENT").length;
     const likeCount = existingPlans.filter((plan) => plan.planType === "LIKE").length;
     const commentCount = existingPlans.filter((plan) => plan.planType === "COMMENT").length;
-    const postCount = existingPlans.filter((plan) => plan.planType === "POST").length;
     existingCount += existingPlans.length;
 
     const createPayload: Array<{
