@@ -62,6 +62,12 @@ const hostname = process.env.HOSTNAME || "0.0.0.0";
 // 启动缓存预热
 CacheWarmup.startScheduledWarmup();
 
+// 触发旧版应用启动调度器
+const legacyOrigin = process.env.LEGACY_BACKEND_ORIGIN || "http://127.0.0.1:3007";
+setTimeout(() => {
+  fetch(`${legacyOrigin}/login`, { method: "HEAD" }).catch(() => {});
+}, 2000);
+
 // 启动服务器
 const server = serve(
   {
