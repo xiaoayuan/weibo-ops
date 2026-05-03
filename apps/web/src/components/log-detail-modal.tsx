@@ -7,8 +7,19 @@ import { formatDateTime } from "@/lib/date";
 /**
  * 日志详情模态框属性
  */
+interface LogEntry {
+  id: string;
+  actionType: string;
+  createdAt: string;
+  success: boolean;
+  account?: { nickname: string } | null;
+  requestPayload?: Record<string, unknown> | null;
+  responsePayload?: Record<string, unknown> | null;
+  errorMessage?: string | null;
+}
+
 interface LogDetailModalProps {
-  log: unknown;
+  log: LogEntry;
   onClose: () => void;
 }
 
@@ -208,7 +219,7 @@ export function LogDetailModal({ log, onClose }: LogDetailModalProps) {
  * 可展开的日志行
  */
 interface ExpandableLogRowProps {
-  log: unknown;
+  log: LogEntry;
   children: React.ReactNode;
   onViewDetails?: () => void;
 }
@@ -241,7 +252,7 @@ export function ExpandableLogRow({
       {isExpanded && (
         <div className="p-4 bg-app-panel-muted space-y-3">
           {/* 请求参数 */}
-          {log.requestPayload && (
+          {log.requestPayload ? (
             <div>
               <h4 className="text-sm font-medium text-app-text-strong mb-2">
                 请求参数
@@ -250,10 +261,10 @@ export function ExpandableLogRow({
                 {JSON.stringify(log.requestPayload, null, 2)}
               </pre>
             </div>
-          )}
+          ) : null}
 
           {/* 响应结果 */}
-          {log.responsePayload && (
+          {log.responsePayload ? (
             <div>
               <h4 className="text-sm font-medium text-app-text-strong mb-2">
                 响应结果
@@ -262,7 +273,7 @@ export function ExpandableLogRow({
                 {JSON.stringify(log.responsePayload, null, 2)}
               </pre>
             </div>
-          )}
+          ) : null}
 
           {/* 查看详情按钮 */}
           {onViewDetails && (

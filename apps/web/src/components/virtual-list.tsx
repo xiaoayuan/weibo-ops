@@ -1,7 +1,7 @@
 "use client";
 
-import { FixedSizeList as List } from "react-window";
-import { useRef, useEffect, useState } from "react";
+import { List, type ListImperativeAPI } from "react-window";
+import { useRef } from "react";
 
 /**
  * 虚拟列表属性
@@ -22,25 +22,12 @@ interface VirtualListProps<T> {
 export function VirtualList<T>({
   items,
   itemHeight,
-  height = 600,
+  height = 400,
   renderItem,
   className = "",
   emptyText = "暂无数据",
 }: VirtualListProps<T>) {
-  const listRef = useRef<List>(null);
-  const [containerHeight, setContainerHeight] = useState(height);
-
-  // 自适应高度
-  useEffect(() => {
-    const updateHeight = () => {
-      const availableHeight = window.innerHeight - 300; // 减去头部和底部空间
-      setContainerHeight(Math.min(height, availableHeight));
-    };
-
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, [height]);
+  const listRef = useRef<ListImperativeAPI>(null);
 
   if (items.length === 0) {
     return (
@@ -50,21 +37,21 @@ export function VirtualList<T>({
     );
   }
 
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => (
+  const Row = ({ index, style }: { index: number; style: React.CSSProperties; ariaAttributes?: unknown }) => (
     <div style={style}>{renderItem(items[index], index)}</div>
   );
 
   return (
     <div className={className}>
       <List
-        ref={listRef}
-        height={containerHeight}
-        itemCount={items.length}
-        itemSize={itemHeight}
-        width="100%"
-      >
-        {Row}
-      </List>
+        listRef={listRef}
+        defaultHeight={height}
+        style={{ height, width: "100%" }}
+        rowCount={items.length}
+        rowHeight={itemHeight}
+        rowComponent={Row as any}
+        rowProps={{} as any}
+      />
     </div>
   );
 }

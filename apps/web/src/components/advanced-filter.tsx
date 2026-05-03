@@ -17,7 +17,7 @@ export interface FilterConfig {
 /**
  * 过滤值类型
  */
-export type FilterValues = Record<string, unknown>;
+export type FilterValues = Record<string, string | string[] | undefined>;
 
 /**
  * 高级过滤组件属性
@@ -48,7 +48,7 @@ export function AdvancedFilter({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [filterName, setFilterName] = useState("");
 
-  const handleChange = (name: string, value: unknown) => {
+  const handleChange = (name: string, value: string | string[]) => {
     onChange({ ...values, [name]: value });
   };
 
@@ -155,7 +155,8 @@ export function AdvancedFilter({
                   {filter.type === "multiSelect" && (
                     <div className="space-y-2">
                       {filter.options?.map((option) => {
-                        const selected = (values[filter.name] || []).includes(option.value);
+                        const currentArray = (Array.isArray(values[filter.name]) ? values[filter.name] : []) as string[];
+                        const selected = currentArray.includes(option.value);
                         return (
                           <label
                             key={option.value}
@@ -165,10 +166,9 @@ export function AdvancedFilter({
                               type="checkbox"
                               checked={selected}
                               onChange={(e) => {
-                                const current = values[filter.name] || [];
                                 const newValue = e.target.checked
-                                  ? [...current, option.value]
-                                  : current.filter((v: string) => v !== option.value);
+                                  ? [...currentArray, option.value]
+                                  : currentArray.filter((v: string) => v !== option.value);
                                 handleChange(filter.name, newValue);
                               }}
                               className="rounded border-app-line"

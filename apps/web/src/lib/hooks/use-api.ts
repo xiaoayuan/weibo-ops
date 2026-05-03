@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR, { type SWRConfiguration } from "swr";
-import { readJsonResponse } from "./http";
+import { readJsonResponse } from "../http";
 
 /**
  * API 响应类型

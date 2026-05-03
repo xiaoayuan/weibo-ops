@@ -11,15 +11,20 @@ export type WSMessageType =
   | "log:new"
   | "account:update"
   | "plan:update"
-  | "stats:update";
+  | "stats:update"
+  | "subscribe"
+  | "unsubscribe"
+  | "auth";
 
 /**
  * WebSocket 消息
  */
 export interface WSMessage {
   type: WSMessageType;
-  data: unknown;
-  timestamp: number;
+  data?: unknown;
+  timestamp?: number;
+  channel?: string;
+  userId?: string;
 }
 
 /**

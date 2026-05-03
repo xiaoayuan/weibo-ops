@@ -33,7 +33,6 @@ export class DataExporter {
     // 转换为 CSV
     const csv = Papa.unparse(exportData, {
       header: true,
-      encoding: "utf-8",
     });
 
     // 添加 BOM 以支持中文
