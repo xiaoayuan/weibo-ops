@@ -170,6 +170,7 @@ async function runAutoExecute(now: Date) {
 
     const candidates = await prisma.dailyPlan.findMany({
       where: {
+        planDate,
         scheduledTime: {
           lte: now,
         },
