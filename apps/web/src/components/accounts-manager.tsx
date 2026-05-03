@@ -142,6 +142,8 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
       return;
     }
 
+    let pollErrors = 0;
+
     const timer = window.setInterval(async () => {
       try {
         const response = await fetch(`/api/accounts/${qrAccountId}/session/qr/status?sessionId=${encodeURIComponent(qrSession.sessionId)}`, {
@@ -152,6 +154,9 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
         if (!response.ok || !result.data) {
           throw new Error(result.message || "查询扫码状态失败");
         }
+
+        pollErrors = 0;
+        setError(null);
 
         setQrSession((current) =>
           current
@@ -172,7 +177,10 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
           setForm(initialForm);
         }
       } catch (reason) {
-        setError(reason instanceof Error ? reason.message : "查询扫码状态失败");
+        pollErrors += 1;
+        if (pollErrors >= 5) {
+          setError(reason instanceof Error ? reason.message : "扫码状态查询多次失败，请重新生成二维码");
+        }
       }
     }, 2000);
 

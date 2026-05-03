@@ -41,7 +41,12 @@ export async function GET(request: Request, context: RouteContext<"/api/accounts
     }
 
     const encryptedCookie = encryptText(qrStatus.cookieText);
-    const checkResult = await checkWeiboSession(encryptedCookie);
+    let checkResult;
+    try {
+      checkResult = await checkWeiboSession(encryptedCookie);
+    } catch {
+      checkResult = { success: false, loginStatus: "FAILED" as const, message: "检测暂不可用", attempts: [] };
+    }
     const shouldAutoRename = Boolean(qrStatus.username && (!account.nickname.trim() || account.nickname.startsWith("未命名账号")));
 
     const updated = await prisma.weiboAccount.update({
