@@ -460,6 +460,32 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
         <StatCard label="代理绑定" value={String(proxyBoundCount)} detail={`${riskyCount} 个账号需要关注`} accent={riskyCount > 0 ? "warning" : "info"} icon={<RefreshCw className="h-5 w-5" />} />
       </section>
 
+      {qrSession ? (
+        <SurfaceCard>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-app-text-strong">扫码登录进行中</p>
+              <p className="mt-2 text-sm leading-6 text-app-text-soft">{qrSession.message || "等待扫码"}</p>
+              <p className="mt-2 text-xs text-app-text-soft">二维码有效期至 {formatDateTime(qrSession.expiresAt)}</p>
+              {qrSession.state === "SCANNED" ? <AppNotice tone="info" className="mt-3">已扫码，请在手机上确认登录。</AppNotice> : null}
+              {qrSession.state === "EXPIRED" ? <AppNotice tone="error" className="mt-3">二维码已过期，请重新生成。</AppNotice> : null}
+              {qrSession.state === "FAILED" ? <AppNotice tone="error" className="mt-3">{qrSession.message || "扫码登录失败，请重新生成二维码。"}</AppNotice> : null}
+            </div>
+            <div className="overflow-hidden rounded-[20px] border border-white/10 bg-white p-3">
+              <Image src={qrSession.qrImageDataUrl} alt="微博扫码二维码" width={180} height={180} className="h-[180px] w-[180px]" unoptimized />
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" onClick={() => qrAccountId && void startQrLogin(qrAccountId)} disabled={qrLoading} className="app-button app-button-secondary">
+              {qrLoading ? "生成中" : "重新生成二维码"}
+            </button>
+            <button type="button" onClick={() => { setQrAccountId(null); setQrSession(null); }} className="app-button app-button-secondary">
+              收起扫码面板
+            </button>
+          </div>
+        </SurfaceCard>
+      ) : null}
+
       <SurfaceCard>
         <SectionHeader title={editingId ? "编辑账号" : "新增账号"} description="填写账号信息，新增账号后可直接进入扫码登录流程。" />
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -496,32 +522,6 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
             </div>
           </div>
         ) : null}
-        {qrSession ? (
-          <div className="mt-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-app-text-strong">扫码登录进行中</p>
-                <p className="mt-2 text-sm leading-6 text-app-text-soft">{qrSession.message || "等待扫码"}</p>
-                <p className="mt-2 text-xs text-app-text-soft">二维码有效期至 {formatDateTime(qrSession.expiresAt)}</p>
-                {qrSession.state === "SCANNED" ? <AppNotice tone="info" className="mt-3">已扫码，请在手机上确认登录。</AppNotice> : null}
-                {qrSession.state === "EXPIRED" ? <AppNotice tone="error" className="mt-3">二维码已过期，请重新生成。</AppNotice> : null}
-                {qrSession.state === "FAILED" ? <AppNotice tone="error" className="mt-3">{qrSession.message || "扫码登录失败，请重新生成二维码。"}</AppNotice> : null}
-              </div>
-              <div className="overflow-hidden rounded-[20px] border border-white/10 bg-white p-3">
-                <Image src={qrSession.qrImageDataUrl} alt="微博扫码二维码" width={180} height={180} className="h-[180px] w-[180px]" unoptimized />
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button type="button" onClick={() => qrAccountId && void startQrLogin(qrAccountId)} disabled={qrLoading} className="app-button app-button-secondary">
-                {qrLoading ? "生成中" : "重新生成二维码"}
-              </button>
-              <button type="button" onClick={() => { setQrAccountId(null); setQrSession(null); }} className="app-button app-button-secondary">
-                收起扫码面板
-              </button>
-            </div>
-          </div>
-        ) : null}
-
         <div className="mt-5 flex flex-wrap justify-end gap-3">
           {editingId ? (
             <button type="button" onClick={cancelEdit} className="app-button app-button-secondary">
@@ -622,6 +622,9 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
                         </button>
                         <button type="button" onClick={() => openSessionEditor(account)} className="app-button app-button-secondary h-10 px-4 text-xs">
                           录入 Session
+                        </button>
+                        <button type="button" onClick={() => { setQrAccountId(account.id); void startQrLogin(account.id); }} disabled={qrLoading} className="app-button app-button-secondary h-10 px-4 text-xs">
+                          {qrAccountId === account.id && qrLoading ? "生成中" : "扫码"}
                         </button>
                         <button type="button" onClick={() => void deleteAccount(account.id)} disabled={deletingId === account.id} className="app-button app-button-secondary h-10 px-4 text-xs text-app-danger hover:border-app-danger/30 hover:text-app-danger">
                           {deletingId === account.id ? "删除中" : "删除账号"}
