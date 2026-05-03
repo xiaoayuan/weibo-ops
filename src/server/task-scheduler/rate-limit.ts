@@ -207,8 +207,10 @@ export async function reserveRateLimitedExecution(input: {
   // Write new states in a transaction; FOR UPDATE locks ensure no concurrent modification
   await prisma.$transaction(
     reservations.map((item) =>
-      saveRateLimitState(item.key, {
-        nextAvailableAt: new Date(slotAt + item.stepMs).toISOString(),
+      prisma.systemSetting.upsert({
+        where: { key: item.key },
+        create: { key: item.key, value: { nextAvailableAt: new Date(slotAt + item.stepMs).toISOString() } as never },
+        update: { value: { nextAvailableAt: new Date(slotAt + item.stepMs).toISOString() } as never },
       }),
     ),
   );
