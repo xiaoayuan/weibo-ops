@@ -10,7 +10,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
 import { LogDetailModal } from "@/components/log-detail-modal";
-import { AdvancedFilter, type FilterConfig, type FilterValues } from "@/components/advanced-filter";
+import { LogStats } from "@/components/log-display";
+import { ProgressBar } from "@/components/progress-indicators";
 import type { ExecutionLog, Plan } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";
@@ -357,6 +358,15 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
   const summaryRows = useMemo(() => buildSummaryRows(filteredLogs), [filteredLogs]);
   const planProgressRows = useMemo(() => buildPlanProgressRows(initialPlans), [initialPlans]);
 
+  const logStats = useMemo(() => {
+    const total = filteredLogs.length;
+    const success = filteredLogs.filter((l) => getOutcomeMeta(l).label === "执行成功").length;
+    const error = filteredLogs.filter((l) => getOutcomeMeta(l).label === "执行失败").length;
+    const warning = filteredLogs.filter((l) => getOutcomeMeta(l).label === "预检拦截").length;
+    const info = filteredLogs.filter((l) => l.success && getOutcomeMeta(l).label === "已入队").length;
+    return { total, success, error, warning, info };
+  }, [filteredLogs]);
+
   async function fetchAiSummary(key: string, actionText: string, detailText: string, topReason?: string | null) {
     if (aiSummaryMap[key]) {
       return;
@@ -422,6 +432,11 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
       {aiError ? <AppNotice tone="error">{aiError}</AppNotice> : null}
 
       <SurfaceCard>
+        <SectionHeader title="日志统计" description="基于当前筛选条件的实时统计" />
+        <LogStats total={logStats.total} success={logStats.success} error={logStats.error} warning={logStats.warning} info={logStats.info} />
+      </SurfaceCard>
+
+      <SurfaceCard>
         <SectionHeader title="今日计划完成视图" description="这里统计的是当天真实计划，不是日志动作数。每个账号当天通常会有多条计划，是否 5 条取决于任务配置。" />
         {planProgressRows.length === 0 ? (
           <div className="mt-5"><EmptyState title="今日暂无计划" description="当前业务日期下没有可统计的计划。" /></div>
@@ -443,6 +458,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
                   <StatusBadge tone="accent">执行中 {row.running}</StatusBadge>
                 </div>
                 <p className="mt-3 text-xs leading-6 text-app-text-soft">这里统计的是该账号今天真实生成的计划数。不同账号是否正好 5 条，取决于它绑定的任务配置，不是固定值。</p>
+                <ProgressBar total={row.total} completed={row.success} failed={row.failed} pending={row.pending} height="h-2" />
               </div>
             ))}
           </div>
