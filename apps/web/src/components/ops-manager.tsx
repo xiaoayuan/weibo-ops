@@ -37,6 +37,16 @@ function getJobStatusText(status: ActionJob["status"]) {
   return map[status] || status;
 }
 
+function getJobNodeLabel(job: ActionJob) {
+  const summary = job.summary && typeof job.summary === "object" && !Array.isArray(job.summary) ? (job.summary as Record<string, unknown>) : null;
+  const config = job.config && typeof job.config === "object" && !Array.isArray(job.config) ? (job.config as Record<string, unknown>) : null;
+  const claimedNode = summary?.claimedByNodeId as string | undefined;
+  const targetNode = config?.targetNodeId as string | undefined;
+  if (claimedNode) return claimedNode === "main-1" ? "主服务器" : claimedNode === "worker-1" ? "Worker" : claimedNode;
+  if (targetNode && targetNode !== "AUTO") return targetNode === "main-1" ? "主服务器" : targetNode === "worker-1" ? "Worker" : targetNode;
+  return "待分配";
+}
+
 type HotCommentPreviewItem = {
   commentId: string;
   sourceUrl: string;
@@ -704,6 +714,7 @@ export function OpsManager({
                   <th>类型</th>
                   <th>创建时间</th>
                   <th>账号数</th>
+                  <th>节点</th>
                   <th>状态</th>
                   <th>摘要</th>
                   <th>操作</th>
@@ -725,7 +736,8 @@ export function OpsManager({
                     </td>
                     <td className="font-medium text-app-text-strong">{getJobTypeText(job.jobType)}</td>
                     <td className="text-xs text-app-text-soft">{formatDateTime(job.createdAt)}</td>
-                    <td>{job.accountRuns.length}</td>
+                     <td>{job.accountRuns.length}</td>
+                    <td className="text-xs text-app-text-soft">{getJobNodeLabel(job)}</td>
                     <td>
                       <StatusBadge tone={job.status === "SUCCESS" ? "success" : job.status === "FAILED" || job.status === "PARTIAL_FAILED" ? "danger" : job.status === "RUNNING" ? "info" : job.status === "CANCELLED" ? "warning" : "neutral"}>
                         {getJobStatusText(job.status)}
