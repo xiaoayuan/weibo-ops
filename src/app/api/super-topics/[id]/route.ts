@@ -29,7 +29,8 @@ export async function PATCH(request: Request, context: RouteContext<"/api/super-
     });
 
     return Response.json({ success: true, data: topic });
-  } catch {
+  } catch (error) {
+    console.error("[super-topics/patch]", error);
     return Response.json({ success: false, message: "更新超话失败" }, { status: 500 });
   }
 }
@@ -44,9 +45,19 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/supe
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.superTopic.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return Response.json({ success: false, message: "超话不存在" }, { status: 404 });
+    }
+
     await prisma.superTopic.delete({ where: { id } });
     return Response.json({ success: true, message: "删除成功" });
-  } catch {
+  } catch (error) {
+    console.error("[super-topics/delete]", error);
     return Response.json({ success: false, message: "删除超话失败" }, { status: 500 });
   }
 }

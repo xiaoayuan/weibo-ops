@@ -422,7 +422,7 @@ export function AccountsManager({ initialAccounts }: { initialAccounts: WeiboAcc
   // 准备导出数据
   const exportData = accounts.map((account) => ({
     nickname: account.nickname || "未命名",
-    weiboUid: account.weiboUid || "",
+    weiboUid: account.uid || "",
     status: DataExporter.formatStatus(account.status),
     groupName: account.groupName || "",
     remark: account.remark || "",

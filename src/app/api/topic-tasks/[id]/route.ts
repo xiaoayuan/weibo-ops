@@ -84,7 +84,8 @@ export async function PATCH(request: Request, context: RouteContext<"/api/topic-
     });
 
     return Response.json({ success: true, data: task });
-  } catch {
+  } catch (error) {
+    console.error("[topic-tasks/patch]", error);
     return Response.json({ success: false, message: "更新任务失败" }, { status: 500 });
   }
 }
@@ -117,7 +118,8 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/topi
 
     await prisma.accountTopicTask.delete({ where: { id } });
     return Response.json({ success: true, message: "删除成功" });
-  } catch {
+  } catch (error) {
+    console.error("[topic-tasks/delete]", error);
     return Response.json({ success: false, message: "删除任务失败" }, { status: 500 });
   }
 }

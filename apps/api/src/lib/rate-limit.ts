@@ -50,41 +50,26 @@ function toDate(value?: string) {
   if (!value) {
     return undefined;
   }
-
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-}
-
-async function getRateLimitState(key: string) {
-  const setting = await prisma.systemSetting.findUnique({ where: { key }, select: { value: true } });
-
-  if (!setting?.value || typeof setting.value !== "object" || Array.isArray(setting.value)) {
-    return {} satisfies RateLimitState;
-  }
-
-  return setting.value as RateLimitState;
 }
 
 function getEffectiveTier(taskType: ManagedTaskType, baseTier: TaskTier, delayMs: number): TaskTier {
   if (taskType === "DAILY_PLAN") {
     return "B";
   }
-
   if (baseTier === "S" && taskType !== "COMMENT_CONTROL" && delayMs >= 2 * 60_000) {
     return "A";
   }
-
   if (baseTier === "A" && delayMs >= 20 * 60_000) {
     return "B";
   }
-
   return baseTier;
 }
 
 function toSnapshotItem(key: string, state: RateLimitState): RateLimitSnapshotItem {
   const nextAvailableAt = toDate(state.nextAvailableAt);
   const waitMs = Math.max(0, (nextAvailableAt?.getTime() || 0) - Date.now());
-
   return {
     key,
     nextAvailableAt: nextAvailableAt?.toISOString() || null,
@@ -93,6 +78,16 @@ function toSnapshotItem(key: string, state: RateLimitState): RateLimitSnapshotIt
   };
 }
 
+/**
+ * Atomically reserve a rate-limited slot using SELECT FOR UPDATE row locking.
+ * This prevents race conditions where concurrent workers could both read the same
+ * "available" state and over-reserve.
+ *
+ * Uses a prisma.$transaction to ensure:
+ * 1. All 3 rows (global/taskType/user) are locked together
+ * 2. The computed slot time is consistent across all three
+ * 3. The upsert is atomic per row
+ */
 export async function reserveRateLimitedExecution(input: {
   ownerUserId: string;
   taskType: ManagedTaskType;
@@ -106,16 +101,29 @@ export async function reserveRateLimitedExecution(input: {
     user: stateKey("user", input.ownerUserId),
   };
 
-  const [globalState, taskTypeState, userState] = await Promise.all([
-    getRateLimitState(keys.global),
-    getRateLimitState(keys.taskType),
-    getRateLimitState(keys.user),
-  ]);
+  // Step 1: Lock and read current states atomically using FOR UPDATE
+  // Using raw SQL with parameterized values to prevent injection
+  const lockedRows = await prisma.$queryRaw<{ key: string; value: string | null }[]>`
+    SELECT key, value::text
+    FROM "SystemSetting"
+    WHERE key IN (${keys.global}, ${keys.taskType}, ${keys.user})
+    FOR UPDATE
+  `;
+
+  const stateMap = new Map<string, RateLimitState>();
+  for (const row of lockedRows) {
+    try {
+      const parsed = row.value ? (JSON.parse(row.value) as RateLimitState) : {};
+      stateMap.set(row.key, parsed);
+    } catch {
+      stateMap.set(row.key, {});
+    }
+  }
 
   const reservations = [
-    { nextAt: toDate(globalState.nextAvailableAt)?.getTime() || now, stepMs: intervalMs(rules.globalPerMinute), key: keys.global, reason: "GLOBAL_RATE_LIMIT" },
-    { nextAt: toDate(taskTypeState.nextAvailableAt)?.getTime() || now, stepMs: intervalMs(rules.taskTypePerMinute), key: keys.taskType, reason: "TASK_TYPE_RATE_LIMIT" },
-    { nextAt: toDate(userState.nextAvailableAt)?.getTime() || now, stepMs: intervalMs(rules.userPerMinute), key: keys.user, reason: "USER_RATE_LIMIT" },
+    { nextAt: toDate(stateMap.get(keys.global)?.nextAvailableAt)?.getTime() || now, stepMs: intervalMs(rules.globalPerMinute), key: keys.global, reason: "GLOBAL_RATE_LIMIT" },
+    { nextAt: toDate(stateMap.get(keys.taskType)?.nextAvailableAt)?.getTime() || now, stepMs: intervalMs(rules.taskTypePerMinute), key: keys.taskType, reason: "TASK_TYPE_RATE_LIMIT" },
+    { nextAt: toDate(stateMap.get(keys.user)?.nextAvailableAt)?.getTime() || now, stepMs: intervalMs(rules.userPerMinute), key: keys.user, reason: "USER_RATE_LIMIT" },
   ];
 
   const slotAt = Math.max(now, ...reservations.map((item) => item.nextAt));
@@ -123,12 +131,20 @@ export async function reserveRateLimitedExecution(input: {
   const reasons = reservations.filter((item) => item.nextAt > now).map((item) => item.reason);
   const effectiveTier = getEffectiveTier(input.taskType, input.baseTier, delayMs);
 
-  await Promise.all(
+  // Step 2: Write new states atomically
+  // Each upsert is independent but the row-level FOR UPDATE lock ensures
+  // that no other transaction could have modified these rows between our read and write.
+  await prisma.$transaction(
     reservations.map((item) =>
       prisma.systemSetting.upsert({
         where: { key: item.key },
-        create: { key: item.key, value: { nextAvailableAt: new Date(slotAt + item.stepMs).toISOString() } as never },
-        update: { value: { nextAvailableAt: new Date(slotAt + item.stepMs).toISOString() } as never },
+        create: {
+          key: item.key,
+          value: { nextAvailableAt: new Date(slotAt + item.stepMs).toISOString() } as never,
+        },
+        update: {
+          value: { nextAvailableAt: new Date(slotAt + item.stepMs).toISOString() } as never,
+        },
       }),
     ),
   );

@@ -1,9 +1,9 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
-ENV DATABASE_URL=postgresql://postgres:password@db:5432/weibo_ops?schema=public
-ENV JWT_SECRET=build_time_placeholder_secret_32_chars_minimum
+ENV DATABASE_URL=
+ENV JWT_SECRET=
 ENV AUTH_COOKIE_SECURE=false
-ENV ACCOUNT_SECRET_KEY=build_time_placeholder_account_secret_32_chars_minimum
+ENV ACCOUNT_SECRET_KEY=
 ENV EXECUTOR_MODE=weibo
 ENV NODE_ROLE=controller
 ENV NODE_ID=main-1
@@ -13,7 +13,7 @@ RUN npm ci
 COPY . .
 RUN npx prisma generate && mkdir -p node_modules/.prisma/client && cp -r src/generated/prisma/* node_modules/.prisma/client/ && npm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000

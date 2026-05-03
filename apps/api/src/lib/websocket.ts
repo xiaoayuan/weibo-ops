@@ -97,7 +97,7 @@ export class WebSocketManager {
       console.error("WebSocket 错误:", error);
     });
 
-    // 心跳检测
+    // 心跳检测 - 存储 timer 引用以便在 close 事件中清理
     const heartbeat = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.ping();
@@ -108,6 +108,13 @@ export class WebSocketManager {
 
     ws.on("pong", () => {
       // 客户端响应心跳
+    });
+
+    // 处理断开 - 确保 heartbeat 被清理，防止内存泄漏
+    ws.on("close", () => {
+      clearInterval(heartbeat);
+      this.clients.delete(ws);
+      console.log(`WebSocket 客户端已断开，当前连接数: ${this.clients.size}`);
     });
   }
 

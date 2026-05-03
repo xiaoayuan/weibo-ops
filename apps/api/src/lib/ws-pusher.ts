@@ -1,5 +1,13 @@
 import { wsManager, type WSMessage, type WSMessageType } from "./websocket";
 
+function toRecord(data: unknown): Record<string, unknown> {
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+
+  return {};
+}
+
 /**
  * WebSocket 推送工具
  * 
@@ -12,7 +20,7 @@ export class WSPusher {
   static pushTaskUpdate(taskId: string, data: unknown): void {
     wsManager.broadcastToChannel("tasks", {
       type: "task:update",
-      data: { taskId, ...data },
+      data: { taskId, ...toRecord(data) },
       timestamp: Date.now(),
     });
   }
@@ -45,7 +53,7 @@ export class WSPusher {
   static pushAccountUpdate(accountId: string, data: unknown): void {
     wsManager.broadcast({
       type: "account:update",
-      data: { accountId, ...data },
+      data: { accountId, ...toRecord(data) },
       timestamp: Date.now(),
     });
   }
@@ -56,7 +64,7 @@ export class WSPusher {
   static pushPlanUpdate(planId: string, data: unknown): void {
     wsManager.broadcast({
       type: "plan:update",
-      data: { planId, ...data },
+      data: { planId, ...toRecord(data) },
       timestamp: Date.now(),
     });
   }

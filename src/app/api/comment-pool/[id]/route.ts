@@ -13,7 +13,8 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/comm
   try {
     await prisma.commentLinkPoolItem.delete({ where: { id } });
     return Response.json({ success: true, message: "删除成功" });
-  } catch {
+  } catch (error) {
+    console.error("[comment-pool/delete]", error);
     return Response.json({ success: false, message: "删除控评链接失败" }, { status: 500 });
   }
 }

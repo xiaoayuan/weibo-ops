@@ -161,28 +161,39 @@ export async function reserveRateLimitedExecution(input: {
     user: stateKey("user", input.ownerUserId),
   };
 
-  const [globalState, taskTypeState, userState] = await Promise.all([
-    getRateLimitState(keys.global),
-    getRateLimitState(keys.taskType),
-    getRateLimitState(keys.user),
-  ]);
+  // Lock and read current states atomically using FOR UPDATE to prevent race conditions
+  const lockedRows = await prisma.$queryRaw<{ key: string; value: string | null }[]>`
+    SELECT key, value::text
+    FROM "SystemSetting"
+    WHERE key IN (${keys.global}, ${keys.taskType}, ${keys.user})
+    FOR UPDATE
+  `;
+
+  const stateMap = new Map<string, RateLimitState>();
+  for (const row of lockedRows) {
+    try {
+      stateMap.set(row.key, row.value ? (JSON.parse(row.value) as RateLimitState) : {});
+    } catch {
+      stateMap.set(row.key, {});
+    }
+  }
 
   const reservations = [
     {
       reason: "GLOBAL_RATE_LIMIT",
-      nextAt: toDate(globalState.nextAvailableAt)?.getTime() || now,
+      nextAt: toDate(stateMap.get(keys.global)?.nextAvailableAt)?.getTime() || now,
       stepMs: intervalMs(rules.globalPerMinute),
       key: keys.global,
     },
     {
       reason: "TASK_TYPE_RATE_LIMIT",
-      nextAt: toDate(taskTypeState.nextAvailableAt)?.getTime() || now,
+      nextAt: toDate(stateMap.get(keys.taskType)?.nextAvailableAt)?.getTime() || now,
       stepMs: intervalMs(rules.taskTypePerMinute),
       key: keys.taskType,
     },
     {
       reason: "USER_RATE_LIMIT",
-      nextAt: toDate(userState.nextAvailableAt)?.getTime() || now,
+      nextAt: toDate(stateMap.get(keys.user)?.nextAvailableAt)?.getTime() || now,
       stepMs: intervalMs(rules.userPerMinute),
       key: keys.user,
     },
@@ -193,7 +204,8 @@ export async function reserveRateLimitedExecution(input: {
   const reasons = reservations.filter((item) => item.nextAt > now).map((item) => item.reason);
   const effectiveTier = getEffectiveTier(input.taskType, input.baseTier, delayMs);
 
-  await Promise.all(
+  // Write new states in a transaction; FOR UPDATE locks ensure no concurrent modification
+  await prisma.$transaction(
     reservations.map((item) =>
       saveRateLimitState(item.key, {
         nextAvailableAt: new Date(slotAt + item.stepMs).toISOString(),

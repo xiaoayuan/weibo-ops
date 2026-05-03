@@ -25,7 +25,8 @@ export async function PATCH(request: Request, context: RouteContext<"/api/copywr
     });
 
     return Response.json({ success: true, data: item });
-  } catch {
+  } catch (error) {
+    console.error("[copywriting/patch]", error);
     return Response.json({ success: false, message: "更新文案失败" }, { status: 500 });
   }
 }
@@ -40,9 +41,19 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/copy
   const { id } = await context.params;
 
   try {
+    const existing = await prisma.copywritingTemplate.findUnique({
+      where: { id },
+      select: { id: true, createdBy: true },
+    });
+
+    if (!existing) {
+      return Response.json({ success: false, message: "文案不存在" }, { status: 404 });
+    }
+
     await prisma.copywritingTemplate.delete({ where: { id } });
     return Response.json({ success: true, message: "删除成功" });
-  } catch {
+  } catch (error) {
+    console.error("[copywriting/delete]", error);
     return Response.json({ success: false, message: "删除文案失败" }, { status: 500 });
   }
 }
