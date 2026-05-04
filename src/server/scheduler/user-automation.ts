@@ -273,13 +273,40 @@ function scheduleNext() {
   }, 30_000);
 }
 
-export function ensureUserAutomationSchedulerStarted() {
-  const role = getActionJobNodeRole();
-  console.log("[scheduler] ensureUserAutomationSchedulerStarted called, role:", role, "started:", globalThis.__userAutomationSchedulerStarted);
+async function cleanupStuckPlans() {
+  const timeoutMinutes = 20;
+  const result = await prisma.dailyPlan.updateMany({
+    where: {
+      status: "RUNNING",
+      scheduledTime: {
+        lt: new Date(Date.now() - timeoutMinutes * 60 * 1000),
+      },
+    },
+    data: {
+      status: "FAILED",
+      resultMessage: `执行超时（超过 ${timeoutMinutes} 分钟未完成，已自动重置）`,
+    },
+  });
 
-  if (role !== "controller") {
-    return;
+  if (result.count > 0) {
+    console.log("[scheduler] cleaned up", result.count, "stuck RUNNING plans");
   }
+}
+
+function scheduleNext() {
+  setTimeout(async () => {
+    const now = new Date();
+    console.log("[scheduler] tick at", now.toISOString());
+
+    try {
+      await cleanupStuckPlans();
+      await runAutoGenerate(now);
+      await runAutoExecute(now);
+    } finally {
+      scheduleNext();
+    }
+  }, 30_000);
+}
 
   if (globalThis.__userAutomationSchedulerStarted) {
     return;
