@@ -28,7 +28,6 @@ COPY --from=builder --chown=node:node /repo/package-lock.json ./package-lock.jso
 RUN npm ci --omit=dev && apk add --no-cache netcat-openbsd
 COPY --from=builder --chown=node:node /repo/apps/api ./apps/api
 COPY --from=builder --chown=node:node /repo/src/generated ./src/generated
-RUN mkdir -p /app/apps/api/src/generated && cp -r /app/src/generated/prisma /app/apps/api/src/generated/
 COPY --from=builder --chown=node:node /repo/node_modules/.prisma ./node_modules/.prisma
 EXPOSE 3009
 USER node
