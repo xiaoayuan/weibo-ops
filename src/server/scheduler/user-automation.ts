@@ -230,18 +230,49 @@ async function runAutoExecute(now: Date) {
         run: () => executePlanById(plan.id, user.id),
       }).catch(async (error) => {
         const message = error instanceof Error ? error.message : "自动执行入队失败";
-        const friendlyMsg = message.includes("ECONNRESET") ? "网络连接被重置，请重试"
-          : message.includes("ECONNREFUSED") ? "网络连接被拒绝，请检查代理"
-          : message.includes("ETIMEDOUT") ? "网络请求超时，请重试"
-          : message.includes("ssl") || message.includes("SSL") ? "代理 SSL 异常，请更换代理"
+        const isNetworkError = message.includes("ECONNRESET") || message.includes("ECONNREFUSED")
+          || message.includes("ETIMEDOUT") || message.includes("EPIPE")
+          || message.includes("ssl") || message.includes("SSL");
+        const isNoTarget = message.includes("未命中") || message.includes("未找到");
+
+        const friendlyMsg = isNetworkError ? "网络波动，稍后自动重试"
+          : isNoTarget ? "暂未命中首评帖子，稍后自动重试"
           : message;
+
+        const retryable = isNetworkError || isNoTarget;
+
+        if (retryable) {
+          const planBeforeRetry = await prisma.dailyPlan.findUnique({ where: { id: plan.id }, select: { resultMessage: true, scheduledTime: true } });
+          const prevMsg = planBeforeRetry?.resultMessage || "";
+          const retryCount = (prevMsg.match(/第(\d+)次/g) || []).length + 1;
+          const maxRetries = isNetworkError ? 3 : 2;
+
+          if (retryCount <= maxRetries) {
+            const delayMinutes = isNetworkError ? 5 : 15;
+            const retryDelay = delayMinutes * 60 * 1000;
+            await prisma.dailyPlan.update({
+              where: { id: plan.id },
+              data: {
+                status: "PENDING",
+                scheduledTime: new Date(Date.now() + retryDelay),
+                resultMessage: `${friendlyMsg}（第${retryCount}次重试，${delayMinutes}分钟后）`,
+              },
+            });
+            await writeExecutionLog({
+              accountId: plan.accountId,
+              planId: plan.id,
+              actionType: "PLAN_EXECUTE_REQUEUED",
+              requestPayload: { trigger: "auto_retry", retryCount, maxRetries },
+              success: false,
+              errorMessage: friendlyMsg,
+            });
+            return;
+          }
+        }
 
         await prisma.dailyPlan.update({
           where: { id: plan.id },
-          data: {
-            status: "FAILED",
-            resultMessage: friendlyMsg,
-          },
+          data: { status: "FAILED", resultMessage: message },
         });
 
         await writeExecutionLog({
@@ -250,7 +281,7 @@ async function runAutoExecute(now: Date) {
           actionType: "PLAN_EXECUTE_FAILED",
           requestPayload: { trigger: "auto_schedule", planId: plan.id },
           success: false,
-          errorMessage: friendlyMsg,
+          errorMessage: message,
         });
       }).finally(() => {
         inFlightPlanIds.delete(plan.id);
