@@ -14,11 +14,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Ensure schedulers start on first module load (cannot be tree-shaken by Next.js)
-(function initSchedulers() {
-  ensureActionJobDispatcherStarted();
-  ensureUserAutomationSchedulerStarted();
-})();
+// Module-level side effects for scheduler/dispatcher startup
+// Using setTimeout prevents Next.js from tree-shaking these calls
+if (typeof setTimeout !== "undefined") {
+  setTimeout(() => {
+    ensureActionJobDispatcherStarted();
+    ensureUserAutomationSchedulerStarted();
+  }, 100);
+}
 
 export const metadata: Metadata = {
   title: "微博运营台",
