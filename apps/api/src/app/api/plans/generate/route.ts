@@ -1,3 +1,4 @@
+import { CacheManager } from "@/src/lib/cache";
 import { generateDailyPlansWithSummary } from "@/src/lib/plan-generator";
 import { requireApiRole } from "@/src/lib/permissions";
 import { generatePlansSchema } from "@/src/lib/validators";
@@ -17,6 +18,10 @@ export async function POST(request: Request) {
     }
 
     const result = await generateDailyPlansWithSummary(parsed.data.date, auth.session.id);
+
+    // 生成完成后使缓存失效，确保下次查询能获取最新数据
+    await CacheManager.delPattern(`plans:user:${auth.session.id}:*`);
+
     return Response.json({
       success: true,
       data: result.plans,
