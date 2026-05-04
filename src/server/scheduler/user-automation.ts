@@ -308,6 +308,14 @@ function scheduleNext() {
   }, 30_000);
 }
 
+export function ensureUserAutomationSchedulerStarted() {
+  const role = getActionJobNodeRole();
+  console.log("[scheduler] ensureUserAutomationSchedulerStarted called, role:", role, "started:", globalThis.__userAutomationSchedulerStarted);
+
+  if (role !== "controller") {
+    return;
+  }
+
   if (globalThis.__userAutomationSchedulerStarted) {
     return;
   }
