@@ -260,17 +260,16 @@ async function runAutoExecute(now: Date) {
 }
 
 async function cleanupStuckPlans() {
-  const timeoutMinutes = 20;
   const result = await prisma.dailyPlan.updateMany({
     where: {
       status: "RUNNING",
-      scheduledTime: {
-        lt: new Date(Date.now() - timeoutMinutes * 60 * 1000),
+      updatedAt: {
+        lt: new Date(Date.now() - 20 * 60 * 1000),
       },
     },
     data: {
       status: "FAILED",
-      resultMessage: `执行超时（超过 ${timeoutMinutes} 分钟未完成，已自动重置）`,
+      resultMessage: "执行超时（超过 20 分钟未更新，已自动重置）",
     },
   });
 
