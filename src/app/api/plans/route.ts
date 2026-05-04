@@ -2,6 +2,29 @@ import { requireApiRole } from "@/lib/permissions";
 import { toBusinessDate } from "@/lib/business-date";
 import { prisma } from "@/lib/prisma";
 
+async function maskForeignAccounts(plans: Array<{ account: { id: string; nickname: string; ownerUserId: string } }>, adminUserId: string) {
+  const foreignOwnerIds = new Set<string>();
+  for (const plan of plans) {
+    if (plan.account.ownerUserId !== adminUserId) {
+      foreignOwnerIds.add(plan.account.ownerUserId);
+    }
+  }
+  if (foreignOwnerIds.size === 0) return plans;
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: Array.from(foreignOwnerIds) } },
+    select: { id: true, username: true },
+  });
+  const userMap = new Map(users.map((u) => [u.id, u.username]));
+
+  for (const plan of plans) {
+    if (plan.account.ownerUserId !== adminUserId) {
+      plan.account.nickname = userMap.get(plan.account.ownerUserId) || plan.account.ownerUserId;
+    }
+  }
+  return plans;
+}
+
 export async function GET(request: Request) {
   const auth = await requireApiRole("VIEWER");
 
@@ -14,9 +37,13 @@ export async function GET(request: Request) {
 
   const where = {
     ...(date ? { planDate: toBusinessDate(date) } : {}),
-    account: {
-      ownerUserId: auth.session.id,
-    },
+    ...(auth.session.role !== "ADMIN"
+      ? {
+          account: {
+            ownerUserId: auth.session.id,
+          },
+        }
+      : {}),
   };
 
   const plans = await prisma.dailyPlan.findMany({
@@ -40,6 +67,10 @@ export async function GET(request: Request) {
     },
     orderBy: { scheduledTime: "asc" },
   });
+
+  if (auth.session.role === "ADMIN") {
+    await maskForeignAccounts(plans, auth.session.id);
+  }
 
   return Response.json({ success: true, data: plans });
 }
