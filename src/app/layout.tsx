@@ -14,15 +14,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Module-level side effects for scheduler/dispatcher startup
-// Using setTimeout prevents Next.js from tree-shaking these calls
-if (typeof setTimeout !== "undefined") {
-  setTimeout(() => {
-    ensureActionJobDispatcherStarted();
-    ensureUserAutomationSchedulerStarted();
-  }, 100);
-}
-
 export const metadata: Metadata = {
   title: "微博运营台",
   description: "微博多账号运营后台",
@@ -33,6 +24,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  ensureActionJobDispatcherStarted();
+  ensureUserAutomationSchedulerStarted();
+
   return (
     <html
       lang="zh-CN"
