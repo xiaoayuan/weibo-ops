@@ -14,6 +14,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Ensure schedulers start on first module load (cannot be tree-shaken by Next.js)
+(function initSchedulers() {
+  ensureActionJobDispatcherStarted();
+  ensureUserAutomationSchedulerStarted();
+})();
+
 export const metadata: Metadata = {
   title: "微博运营台",
   description: "微博多账号运营后台",
@@ -24,9 +30,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  ensureActionJobDispatcherStarted();
-  ensureUserAutomationSchedulerStarted();
-
   return (
     <html
       lang="zh-CN"
