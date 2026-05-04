@@ -259,20 +259,6 @@ async function runAutoExecute(now: Date) {
   }
 }
 
-function scheduleNext() {
-  setTimeout(async () => {
-    const now = new Date();
-    console.log("[scheduler] tick at", now.toISOString());
-
-    try {
-      await runAutoGenerate(now);
-      await runAutoExecute(now);
-    } finally {
-      scheduleNext();
-    }
-  }, 30_000);
-}
-
 async function cleanupStuckPlans() {
   const timeoutMinutes = 20;
   const result = await prisma.dailyPlan.updateMany({
