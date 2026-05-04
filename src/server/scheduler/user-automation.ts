@@ -229,12 +229,28 @@ async function runAutoExecute(now: Date) {
         lane: taskTierToLane("B"),
         run: () => executePlanById(plan.id, user.id),
       }).catch(async (error) => {
+        const message = error instanceof Error ? error.message : "自动执行入队失败";
+        const friendlyMsg = message.includes("ECONNRESET") ? "网络连接被重置，请重试"
+          : message.includes("ECONNREFUSED") ? "网络连接被拒绝，请检查代理"
+          : message.includes("ETIMEDOUT") ? "网络请求超时，请重试"
+          : message.includes("ssl") || message.includes("SSL") ? "代理 SSL 异常，请更换代理"
+          : message;
+
         await prisma.dailyPlan.update({
           where: { id: plan.id },
           data: {
             status: "FAILED",
-            resultMessage: error instanceof Error ? error.message : "自动执行入队失败",
+            resultMessage: friendlyMsg,
           },
+        });
+
+        await writeExecutionLog({
+          accountId: plan.accountId,
+          planId: plan.id,
+          actionType: "PLAN_EXECUTE_FAILED",
+          requestPayload: { trigger: "auto_schedule", planId: plan.id },
+          success: false,
+          errorMessage: friendlyMsg,
         });
       }).finally(() => {
         inFlightPlanIds.delete(plan.id);

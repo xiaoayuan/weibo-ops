@@ -22,6 +22,18 @@ function simulateTypingDelay(contentLength: number) {
   return sleep(contentLength * (60 + Math.floor(Math.random() * 90)));
 }
 
+function translateError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const m = error.message;
+  if (m.includes("ECONNRESET")) return "网络连接被重置，请重试";
+  if (m.includes("ECONNREFUSED")) return "网络连接被拒绝，请检查代理";
+  if (m.includes("ETIMEDOUT")) return "网络请求超时，请重试";
+  if (m.includes("EPIPE")) return "网络连接中断";
+  if (m.includes("ENOTFOUND")) return "域名解析失败，请检查网络";
+  if (m.includes("CERT_HAS_EXPIRED") || m.includes("SELF_SIGNED") || m.includes("ssl") || m.includes("SSL") || m.includes("wrong version")) return "代理 SSL 证书异常，请更换代理";
+  return m;
+}
+
 function parseCookieMap(cookie: string): CookieMap {
   return cookie
     .split(";")
@@ -599,7 +611,7 @@ async function resolveExecutionProxy(accountId: string, cookie: string) {
       attempts.push({
         label: candidate.label,
         ok: false,
-        message: error instanceof Error ? error.message : "连通性测试失败",
+        message: translateError(error),
       });
     }
   }
@@ -1901,7 +1913,7 @@ export class WeiboExecutor implements SocialExecutor {
         },
       );
     } catch (error) {
-      return blockedResult(error instanceof Error ? error.message : "执行计划失败");
+      return blockedResult(translateError(error));
     }
   }
 
