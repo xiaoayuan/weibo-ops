@@ -1,10 +1,10 @@
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
-async function maskForeignAccounts(logs: Array<{ account: { id: string; nickname: string; ownerUserId: string } | null }>, adminUserId: string) {
+async function maskForeignAccounts(logs: Array<{ account: { id: string; nickname: string; ownerUserId: string | null } | null }>, adminUserId: string) {
   const foreignOwnerIds = new Set<string>();
   for (const log of logs) {
-    if (log.account && log.account.ownerUserId !== adminUserId) {
+    if (log.account?.ownerUserId && log.account.ownerUserId !== adminUserId) {
       foreignOwnerIds.add(log.account.ownerUserId);
     }
   }
@@ -17,7 +17,7 @@ async function maskForeignAccounts(logs: Array<{ account: { id: string; nickname
   const userMap = new Map(users.map((u) => [u.id, u.username]));
 
   for (const log of logs) {
-    if (log.account && log.account.ownerUserId !== adminUserId) {
+    if (log.account?.ownerUserId && log.account.ownerUserId !== adminUserId) {
       log.account.nickname = userMap.get(log.account.ownerUserId) || log.account.ownerUserId;
     }
   }
