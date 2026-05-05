@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ensureActionJobDispatcherStarted } from "@/server/action-jobs/dispatcher";
 import { ensureUserAutomationSchedulerStarted } from "@/server/scheduler/user-automation";
+import { ensureDailyCheckinSchedulerStarted } from "@/server/scheduler/daily-checkin";
+import { ensureFirstCommentSchedulerStarted } from "@/server/scheduler/first-comment";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,8 +26,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  ensureActionJobDispatcherStarted();
+  // 启动所有调度器和任务分发器（仅 controller 节点运行）
   ensureUserAutomationSchedulerStarted();
+  ensureActionJobDispatcherStarted();
+  ensureDailyCheckinSchedulerStarted();
+  ensureFirstCommentSchedulerStarted();
 
   return (
     <html
