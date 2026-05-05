@@ -61,6 +61,10 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: "缺少超话链接" }, { status: 400 });
     }
 
+    if (!topicName) {
+      topicName = "超话发帖";
+    }
+
     const cookie = decryptText(account.cookieEncrypted);
     const proxyConfig = await getProxyConfigForAccount(accountId);
 
