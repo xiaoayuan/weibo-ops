@@ -232,7 +232,9 @@ async function runAutoExecute(now: Date) {
         const message = error instanceof Error ? error.message : "自动执行入队失败";
         const isNetworkError = message.includes("ECONNRESET") || message.includes("ECONNREFUSED")
           || message.includes("ETIMEDOUT") || message.includes("EPIPE")
-          || message.includes("ssl") || message.includes("SSL");
+          || message.includes("ssl") || message.includes("SSL")
+          || message.includes("TLS") || message.includes("socket disconnect")
+          || message.includes("network socket");
         const isNoTarget = message.includes("未命中") || message.includes("未找到");
 
         const friendlyMsg = isNetworkError ? "网络波动，稍后自动重试"
