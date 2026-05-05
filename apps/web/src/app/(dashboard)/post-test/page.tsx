@@ -41,11 +41,11 @@ export default function PostTestPage() {
 
         if (accountsRes.ok) {
           const data = await accountsRes.json();
-          setAccounts(data.payload?.data ?? []);
+          setAccounts(data.data ?? []);
         }
         if (topicsRes.ok) {
           const data = await topicsRes.json();
-          setTopics(data.payload?.data ?? []);
+          setTopics(data.data ?? []);
         }
       } catch {
         // 忽略
