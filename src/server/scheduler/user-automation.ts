@@ -244,7 +244,16 @@ async function runAutoExecute(now: Date) {
         const retryable = isNetworkError || isNoTarget;
 
         if (retryable) {
-          const planBeforeRetry = await prisma.dailyPlan.findUnique({ where: { id: plan.id }, select: { resultMessage: true, scheduledTime: true } });
+          const planBeforeRetry = await prisma.dailyPlan.findUnique({ where: { id: plan.id }, select: { resultMessage: true, scheduledTime: true, planDate: true } });
+          const isToday = planBeforeRetry?.planDate && new Date(planBeforeRetry.planDate).toDateString() === new Date().toDateString();
+
+          if (!isToday) {
+            await prisma.dailyPlan.update({
+              where: { id: plan.id },
+              data: { status: "FAILED", resultMessage: "历史计划已过期，不再重试" },
+            });
+            return;
+          }
           const prevMsg = planBeforeRetry?.resultMessage || "";
           const retryCount = (prevMsg.match(/第(\d+)次/g) || []).length + 1;
           const maxRetries = isNetworkError ? 3 : 2;
