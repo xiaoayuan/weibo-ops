@@ -20,6 +20,7 @@ export type ExecutePlanInput = {
   mediaAssetUrl?: string;
   targetUrl?: string;
   retryCount?: number;
+  postingUrl?: string;
 };
 
 export type ExecuteInteractionInput = {
