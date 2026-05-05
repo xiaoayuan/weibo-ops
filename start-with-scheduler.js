@@ -5,8 +5,9 @@ const http = require("http");
 // 启动调度器和任务分发器（仅 controller/worker 角色运行）
 const role = process.env.NODE_ROLE || "controller";
 if (role === "controller" || role === "worker") {
-  // 动态引入 auto-start，它会在内部调用 ensureUserAutomationSchedulerStarted 和 ensureActionJobDispatcherStarted
-  const { ensureSchedulerStarted } = require("./src/server/auto-start");
+  // standalone 构建把 server 代码编译到 .next/server/ 目录下
+  // 从 /app/start-with-scheduler.js 引用就是 ./.next/server/auto-start
+  const { ensureSchedulerStarted } = require("./.next/server/auto-start");
   ensureSchedulerStarted();
   console.log("[start-with-scheduler] Scheduler auto-start initialized, role:", role);
 }
