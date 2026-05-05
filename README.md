@@ -71,6 +71,8 @@ npm run dev
 - 用户名：`admin`
 - 密码：`admin123456`
 
+> ⚠️ **安全警告**：首次部署后请立即修改默认密码。生产环境请通过 `docs/ops-runbook.md` 中的"重置 admin 登录密码"流程修改。
+
 ## Docker 启动
 
 直接启动完整环境：

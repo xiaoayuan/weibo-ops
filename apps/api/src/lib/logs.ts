@@ -22,7 +22,7 @@ export async function listVisibleExecutionLogs(
   pagination?: PaginationParams
 ): Promise<PaginatedResult<Awaited<ReturnType<typeof prisma.executionLog.findMany>>[0]>> {
   const page = pagination?.page || 1;
-  const pageSize = Math.min(pagination?.pageSize || 50, 100); // 最大 100 条
+  const pageSize = Math.min(pagination?.pageSize || 50, 100);
   const skip = (page - 1) * pageSize;
 
   const where =
@@ -63,6 +63,28 @@ export async function listVisibleExecutionLogs(
     }),
     prisma.executionLog.count({ where }),
   ]);
+
+  // ADMIN 查看时，将非本人的微博账号 nickname 替换为所属用户名，防止信息泄露
+  if (session.role === "ADMIN" && data.length > 0) {
+    const foreignOwnerIds = new Set<string>();
+    for (const log of data) {
+      if (log.account?.ownerUserId && log.account.ownerUserId !== session.id) {
+        foreignOwnerIds.add(log.account.ownerUserId);
+      }
+    }
+    if (foreignOwnerIds.size > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: Array.from(foreignOwnerIds) } },
+        select: { id: true, username: true },
+      });
+      const userMap = new Map(users.map((u) => [u.id, u.username]));
+      for (const log of data) {
+        if (log.account?.ownerUserId && log.account.ownerUserId !== session.id) {
+          log.account.nickname = userMap.get(log.account.ownerUserId) || log.account.ownerUserId;
+        }
+      }
+    }
+  }
 
   return {
     data,

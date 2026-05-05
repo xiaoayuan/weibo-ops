@@ -164,7 +164,7 @@ async function runAutoExecute(now: Date) {
   });
 
   for (const user of users) {
-    if (!isAfterOrEqualHm(hm, user.autoExecuteStartTime) || hm > user.autoExecuteEndTime) {
+    if (!isAfterOrEqualHm(hm, user.autoExecuteStartTime) || hm >= user.autoExecuteEndTime) {
       continue;
     }
 
@@ -318,22 +318,40 @@ async function runAutoExecute(now: Date) {
 }
 
 async function cleanupStuckPlans() {
-  const result = await prisma.dailyPlan.updateMany({
-    where: {
-      status: "RUNNING",
-      updatedAt: {
-        lt: new Date(Date.now() - 20 * 60 * 1000),
-      },
-    },
-    data: {
-      status: "FAILED",
-      resultMessage: "执行超时（超过 20 分钟未更新，已自动重置）",
-    },
-  });
+  const now = Date.now();
+  const runningTimeout = 20 * 60 * 1000;
+  const pendingTimeout = 60 * 60 * 1000; // PENDING 超过 1 小时视为卡死
 
-  if (result.count > 0) {
-    console.log("[scheduler] cleaned up", result.count, "stuck RUNNING plans");
+  const [runningResult, pendingResult] = await Promise.all([
+    prisma.dailyPlan.updateMany({
+      where: {
+        status: "RUNNING",
+        updatedAt: { lt: new Date(now - runningTimeout) },
+      },
+      data: {
+        status: "FAILED",
+        resultMessage: "执行超时（超过 20 分钟未更新，已自动重置）",
+      },
+    }),
+    prisma.dailyPlan.updateMany({
+      where: {
+        status: "PENDING",
+        createdAt: { lt: new Date(now - pendingTimeout) },
+      },
+      data: {
+        status: "FAILED",
+        resultMessage: "入队超时（超过 1 小时未开始执行，已自动重置）",
+      },
+    }),
+  ]);
+
+  if (runningResult.count > 0) {
+    console.log("[scheduler] cleaned up", runningResult.count, "stuck RUNNING plans");
   }
+  if (pendingResult.count > 0) {
+    console.log("[scheduler] cleaned up", pendingResult.count, "stuck PENDING plans");
+  }
+  return runningResult.count + pendingResult.count;
 }
 
 function scheduleNext() {
@@ -365,5 +383,31 @@ export function ensureUserAutomationSchedulerStarted() {
 
   globalThis.__userAutomationSchedulerStarted = true;
   console.log("[scheduler] starting scheduler loop");
+
+  // 启动时清理 inFlightPlanIds 中已不在 RUNNING 状态的计划，防止进程重启后误跳过仍在排队的计划
+  void cleanupInFlightPlanIdsOnStart();
+
   scheduleNext();
+}
+
+/** 启动时清理孤立计划：将不再处于 RUNNING 的计划 ID 从 inFlightPlanIds 移除 */
+async function cleanupInFlightPlanIdsOnStart() {
+  const inFlight = getAutoExecuteInFlightPlanIds();
+  if (inFlight.size === 0) return;
+
+  const staleIds = await prisma.dailyPlan.findMany({
+    where: { id: { in: Array.from(inFlight) }, status: "RUNNING" },
+    select: { id: true },
+  });
+  const stillRunning = new Set(staleIds.map((p) => p.id));
+  let cleaned = 0;
+  for (const id of inFlight) {
+    if (!stillRunning.has(id)) {
+      inFlight.delete(id);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`[scheduler] cleaned ${cleaned} stale plan ids from in-flight set on startup`);
+  }
 }

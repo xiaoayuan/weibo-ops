@@ -35,10 +35,11 @@ async function getCancelledPlan(id: string) {
   return plan;
 }
 
-function toCancelledResult(plan: Awaited<ReturnType<typeof getCancelledPlan>>) {
+function toCancelledResult(plan: Awaited<ReturnType<typeof getCancelledPlan>>, commentSuccess?: boolean) {
   return {
     ok: true as const,
-    success: false,
+    // 如果评论已经成功发送，即使计划随后被取消也应报告成功
+    success: commentSuccess === true,
     message: plan?.resultMessage || "计划已停止",
     data: plan,
   };
@@ -423,16 +424,22 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         traffic: commentResult.traffic,
       };
 
-      const cancelledAfterComment = await getCancelledPlan(id);
-
-      if (cancelledAfterComment) {
-        return toCancelledResult(cancelledAfterComment);
-      }
-
       if (commentResult.success) {
         executed = true;
         message = `首评成功：${plan.account.nickname}`;
+
+        // 评论成功后也要检查是否被取消——即使取消也要报告评论已发出
+        const cancelledAfterComment = await getCancelledPlan(id);
+        if (cancelledAfterComment) {
+          return toCancelledResult(cancelledAfterComment, commentResult.success);
+        }
+
         break;
+      }
+
+      const cancelledAfterComment = await getCancelledPlan(id);
+      if (cancelledAfterComment) {
+        return toCancelledResult(cancelledAfterComment, false);
       }
 
       message = `首评请求失败，HTTP ${commentResult.status}`;

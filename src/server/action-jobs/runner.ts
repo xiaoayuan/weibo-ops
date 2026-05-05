@@ -505,11 +505,9 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
   const accountState = new Map(input.accountIds.map((accountId) => [accountId, { successCount: 0, failedCount: 0, latestError: "", started: false }]));
   const duplicateLikeTargets = new Map<string, Set<string>>();
 
-  for (const accountId of input.accountIds) {
-    const waveDelayMs = delayMap.get(accountId) || 0;
-    if (waveDelayMs > 0) {
-      await sleep(waveDelayMs);
-    }
+  const maxDelay = Math.max(0, ...input.accountIds.map((id) => delayMap.get(id) || 0));
+  if (maxDelay > 0) {
+    await sleep(maxDelay);
   }
 
   for (const round of rounds) {

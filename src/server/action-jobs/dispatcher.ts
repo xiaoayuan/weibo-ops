@@ -7,9 +7,28 @@ declare global {
 }
 
 const POLL_INTERVAL_MS = 5_000;
+const MAX_CONSECUTIVE_ERRORS = 10;
 
 function shouldRunDispatcher() {
   return getActionJobNodeRole() === "controller" || getActionJobNodeRole() === "worker";
+}
+
+/** 记录连续错误计数，达到阈值后暂停调度 */
+let __consecutiveErrorCount = 0;
+let __dispatcherPausedUntil: number | 0 = 0;
+
+function recordDispatchError() {
+  __consecutiveErrorCount++;
+  if (__consecutiveErrorCount >= MAX_CONSECUTIVE_ERRORS) {
+    // 暂停 5 分钟，避免持续空转
+    __dispatcherPausedUntil = Date.now() + 5 * 60 * 1000;
+    __consecutiveErrorCount = 0;
+    console.warn(`[dispatcher] 连续 ${MAX_CONSECUTIVE_ERRORS} 次失败，已暂停调度 5 分钟`);
+  }
+}
+
+function recordDispatchSuccess() {
+  __consecutiveErrorCount = 0;
 }
 
 async function claimNextActionJob(nodeId: string) {
@@ -62,10 +81,16 @@ async function claimNextActionJob(nodeId: string) {
 }
 
 async function dispatchOnce() {
+  // 暂停期间跳过调度
+  if (__dispatcherPausedUntil > 0 && Date.now() < __dispatcherPausedUntil) {
+    return;
+  }
+
   const nodeId = getCurrentNodeId();
   const claimed = await claimNextActionJob(nodeId);
 
   if (!claimed) {
+    recordDispatchSuccess();
     return;
   }
 
@@ -88,6 +113,7 @@ async function dispatchOnce() {
         poolItems,
         urgency: (config.urgency as "S" | "A" | "B" | undefined) || "S",
       });
+      recordDispatchSuccess();
       return;
     }
 
@@ -101,8 +127,10 @@ async function dispatchOnce() {
         intervalSec: toIntervalSec(config.intervalSec),
         urgency: (config.urgency as "S" | "A" | "B" | undefined) || "S",
       });
+      recordDispatchSuccess();
     }
   } catch (error) {
+    recordDispatchError();
     await prisma.actionJob.update({
       where: { id: job.id },
       data: {
