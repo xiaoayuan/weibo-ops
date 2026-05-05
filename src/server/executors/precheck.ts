@@ -40,8 +40,8 @@ export function validatePlanPrecheck(input: ExecutePlanInput, executor: Executor
     });
   }
 
-  // POST 计划：有 planId 说明来自每日计划（保持屏蔽），无 planId 说明来自测试页面（放行）
-  if (input.planType === "POST" && input.planId) {
+  // POST 计划：来自每日计划的 planId 正常屏蔽，测试帖（planId 为 "test-..." 或无 planId）放行
+  if (input.planType === "POST" && input.planId && !input.planId.startsWith("test-")) {
     return buildBlockedResult("发帖功能已下线，请改用互动任务中的转发动作。", executor, "POST_DISABLED", {
       planId: input.planId,
       planType: input.planType,
