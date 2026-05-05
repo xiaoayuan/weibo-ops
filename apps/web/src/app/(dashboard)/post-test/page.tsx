@@ -199,7 +199,8 @@ export default function PostTestPage() {
               {result.success ? "✓ 发帖成功" : "✗ 发帖失败"}
             </p>
             <p className="mt-2 text-sm text-app-text-muted">{result.message}</p>
-        </div>
+          </div>
+        </SurfaceCard>
       ) : null}
     </div>
   );
