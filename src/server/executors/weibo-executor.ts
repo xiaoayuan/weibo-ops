@@ -1232,7 +1232,7 @@ async function sendRepostRequest(targetUrl: string, cookie: string, repostConten
   };
 }
 
-async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, cookie: string, proxyConfig?: ProxyConfig | null) {
+async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, postingUrl: string | undefined, cookie: string, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
   const endpoints = getPostEndpoints();
@@ -1244,10 +1244,12 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
   const appAuthorization = process.env.WEIBO_APP_AUTHORIZATION;
   const appSessionId = process.env.WEIBO_APP_SESSION_ID;
   const appLogUid = process.env.WEIBO_APP_LOG_UID;
-  const topicObjectId = toTopicObjectId(topicUrl);
-  const topicRawId = toTopicRawId(topicUrl);
-  const superTagId = extractSuperTagId(topicUrl);
-  const shouldUseSuperPostOnly = Boolean(topicUrl && appAuthorization && topicObjectId && superTagId && topicRawId);
+  // 优先使用专门的的发帖链接（含板块 superTagId），否则用超话链接
+  const effectiveUrl = postingUrl || topicUrl;
+  const topicObjectId = toTopicObjectId(effectiveUrl);
+  const topicRawId = toTopicRawId(effectiveUrl);
+  const superTagId = extractSuperTagId(effectiveUrl);
+  const shouldUseSuperPostOnly = Boolean(effectiveUrl && appAuthorization && topicObjectId && superTagId && topicRawId);
 
   if (appAuthorization && topicObjectId && superTagId && topicRawId) {
     const appBody = new URLSearchParams();
@@ -1787,7 +1789,7 @@ export class WeiboExecutor implements SocialExecutor {
 
       if (input.planType === "POST" && input.content) {
         await simulateTypingDelay(input.content.length);
-        const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, account.cookie, proxyConfig);
+        const postResult = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, input.postingUrl, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(postResult.summary);
 
         if (!postResult.ok || businessOk === false) {

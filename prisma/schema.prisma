@@ -216,10 +216,11 @@ model SuperTopic {
   name       String
   boardName  String?
   topicUrl   String?
+  postingUrl String?
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
 
-  topicTasks AccountTopicTask[]
+  topicTasks       AccountTopicTask[]
   firstCommentLocks FirstCommentPostLock[]
 }
 

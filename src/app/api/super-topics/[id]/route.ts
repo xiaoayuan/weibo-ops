@@ -25,6 +25,7 @@ export async function PATCH(request: Request, context: RouteContext<"/api/super-
         name: parsed.data.name,
         boardName: parsed.data.boardName === "" ? null : parsed.data.boardName,
         topicUrl: parsed.data.topicUrl === "" ? null : parsed.data.topicUrl,
+        postingUrl: parsed.data.postingUrl === "" ? null : parsed.data.postingUrl,
       },
     });
 

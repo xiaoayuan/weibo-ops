@@ -36,6 +36,7 @@ export async function POST(request: Request) {
         name: parsed.data.name,
         boardName: parsed.data.boardName || null,
         topicUrl: parsed.data.topicUrl || null,
+        postingUrl: parsed.data.postingUrl || null,
       },
     });
 

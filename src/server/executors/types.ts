@@ -16,6 +16,7 @@ export type ExecutePlanInput = {
   planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
   topicName: string;
   topicUrl: string;
+  postingUrl?: string;
   content?: string;
   mediaAssetUrl?: string;
   targetUrl?: string;

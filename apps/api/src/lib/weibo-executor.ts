@@ -623,7 +623,7 @@ async function fetchRepostCount(cookie: string, referer: string, statusId: strin
   };
 }
 
-async function sendPostRequest(content: string, topicName: string | undefined, _topicUrl: string | undefined, cookie: string, proxyConfig?: ProxyConfig | null) {
+async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, postingUrl: string | undefined, cookie: string, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
   const topicUrl = _topicUrl;
@@ -635,10 +635,11 @@ async function sendPostRequest(content: string, topicName: string | undefined, _
   const appAuthorization = process.env.WEIBO_APP_AUTHORIZATION;
   const appSessionId = process.env.WEIBO_APP_SESSION_ID;
   const appLogUid = process.env.WEIBO_APP_LOG_UID;
-  const topicObjectId = toTopicObjectId(topicUrl);
-  const topicRawId = toTopicRawId(topicUrl);
-  const superTagId = extractSuperTagId(topicUrl);
-  const shouldUseSuperPostOnly = Boolean(topicUrl && appAuthorization && topicObjectId && superTagId && topicRawId);
+  const effectiveUrl = postingUrl || topicUrl;
+  const topicObjectId = toTopicObjectId(effectiveUrl);
+  const topicRawId = toTopicRawId(effectiveUrl);
+  const superTagId = extractSuperTagId(effectiveUrl);
+  const shouldUseSuperPostOnly = Boolean(effectiveUrl && appAuthorization && topicObjectId && superTagId && topicRawId);
 
   if (appAuthorization && topicObjectId && superTagId && topicRawId) {
     const appBody = new URLSearchParams();
@@ -851,7 +852,7 @@ export class WeiboExecutor implements SocialExecutor {
       }
 
       if (input.planType === "POST" && input.content) {
-        const result = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, account.cookie, proxyConfig);
+        const result = await sendPostRequest(input.content, input.topicName ?? undefined, input.topicUrl ?? undefined, input.postingUrl, account.cookie, proxyConfig);
         const businessOk = tryExtractBusinessOk(result.summary);
         if (!result.ok || businessOk === false || !isPostConfirmed(result.summary)) {
           return blockedResult("发帖请求未通过，请检查文案与账号登录态。", withFailurePayload({ code: "POST_REQUEST_FAILED", reason: "POST_REQUEST_FAILED", raw: result.summary, traffic: mergeTraffic(probe.traffic, result.traffic), probe, result }));

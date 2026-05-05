@@ -266,6 +266,7 @@ export type SuperTopic = {
   name: string;
   boardName: string | null;
   topicUrl: string | null;
+  postingUrl: string | null;
 };
 
 export type ProxyNode = {

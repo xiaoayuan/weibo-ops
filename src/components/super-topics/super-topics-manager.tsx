@@ -9,12 +9,14 @@ type FormState = {
   name: string;
   boardName: string;
   topicUrl: string;
+  postingUrl: string;
 };
 
 const initialForm: FormState = {
   name: "",
   boardName: "",
   topicUrl: "",
+  postingUrl: "",
 };
 
 export function SuperTopicsManager({ currentUserRole, initialTopics }: { currentUserRole: AppRole; initialTopics: SuperTopic[] }) {
@@ -76,6 +78,7 @@ export function SuperTopicsManager({ currentUserRole, initialTopics }: { current
       name: topic.name,
       boardName: topic.boardName || "",
       topicUrl: topic.topicUrl || "",
+      postingUrl: (topic as unknown as { postingUrl?: string }).postingUrl || "",
     });
     setError(null);
   }
@@ -134,7 +137,13 @@ export function SuperTopicsManager({ currentUserRole, initialTopics }: { current
             value={form.topicUrl}
             onChange={(event) => setForm((current) => ({ ...current, topicUrl: event.target.value }))}
             className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
-            placeholder="超话链接"
+            placeholder="超话链接（签到用）"
+          />
+          <input
+            value={form.postingUrl}
+            onChange={(event) => setForm((current) => ({ ...current, postingUrl: event.target.value }))}
+            className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-400"
+            placeholder="发帖链接（指定板块发帖用，可留空）"
           />
           <div className="md:col-span-2 flex items-center justify-between gap-3">
             {error ? <p className="text-sm text-rose-600">{error}</p> : <div />}

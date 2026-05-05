@@ -214,6 +214,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     planType: plan.planType,
     topicName: plan.task?.superTopic?.name || "未绑定超话",
     topicUrl: plan.task?.superTopic?.topicUrl || "https://weibo.com/",
+    postingUrl: plan.task?.superTopic?.postingUrl || undefined,
     content: plan.content?.content,
     targetUrl: plan.targetUrl || undefined,
   });

@@ -14,12 +14,14 @@ type FormState = {
   name: string;
   boardName: string;
   topicUrl: string;
+  postingUrl: string;
 };
 
 const initialForm: FormState = {
   name: "",
   boardName: "",
   topicUrl: "",
+  postingUrl: "",
 };
 
 export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopic[] }) {
@@ -117,7 +119,8 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="app-input" placeholder="超话名称" />
           <input value={form.boardName} onChange={(event) => setForm((current) => ({ ...current, boardName: event.target.value }))} className="app-input" placeholder="板块名称" />
-          <input value={form.topicUrl} onChange={(event) => setForm((current) => ({ ...current, topicUrl: event.target.value }))} className="app-input md:col-span-2" placeholder="超话链接" />
+          <input value={form.topicUrl} onChange={(event) => setForm((current) => ({ ...current, topicUrl: event.target.value }))} className="app-input md:col-span-2" placeholder="超话链接（签到用）" />
+          <input value={form.postingUrl} onChange={(event) => setForm((current) => ({ ...current, postingUrl: event.target.value }))} className="app-input md:col-span-2" placeholder="发帖链接（指定板块发帖用，可留空）" />
         </div>
 
         {error ? <AppNotice tone="error" className="mt-4">{error}</AppNotice> : null}
@@ -192,6 +195,7 @@ export function SuperTopicsManager({ initialTopics }: { initialTopics: SuperTopi
                               name: topic.name,
                               boardName: topic.boardName || "",
                               topicUrl: topic.topicUrl || "",
+                              postingUrl: topic.postingUrl || "",
                             });
                           }}
                           className="app-button app-button-secondary h-10 px-4 text-xs"

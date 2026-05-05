@@ -591,6 +591,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
           content: plan.content?.content ?? undefined,
           topicName: plan.task?.superTopic.name ?? "",
           topicUrl: plan.task?.superTopic.topicUrl ?? "",
+          postingUrl: plan.task?.superTopic.postingUrl ?? undefined,
         });
 
   const riskRules = await getRiskRules();
