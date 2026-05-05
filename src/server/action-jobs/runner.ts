@@ -148,9 +148,37 @@ function buildWaveDelayMap(accountIds: string[], urgency: "S" | "A" | "B", strat
 }
 
 function sleep(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * @deprecated 已废弃，请使用 simulateBrowsePause() 或 simulateTypingDelay()
+ * 仅保留原签名用于兼容已调用 sleep(simulateBrowsePauseMs()) 的旧代码。
+ */
+function simulateBrowsePauseMs() {
+  console.warn("[runner] simulateBrowsePauseMs() 已废弃，请改用 await simulateBrowsePause()");
+  return 1000 + Math.floor(Math.random() * 4000);
+}
+
+/**
+ * @deprecated 已废弃，请使用 simulateTypingDelay() 或 simulateTypingDelayMs() 同步版本
+ * 仅保留用于兼容已调用 sleep(simulateTypingDelayMs()) 的旧代码。
+ */
+function simulateTypingDelayMs(_contentLength: number) {
+  console.warn("[runner] simulateTypingDelayMs() 已废弃，请改用 await simulateTypingDelay()");
+  return 0;
+}
+
+/** 拟人化浏览暂停（异步，推荐） */
+async function simulateBrowsePause(): Promise<void> {
+  const ms = 1000 + Math.floor(Math.random() * 4000);
+  await sleep(ms);
+}
+
+/** 拟人化输入延迟（异步，推荐） */
+async function simulateTypingDelay(contentLength: number): Promise<void> {
+  const ms = contentLength * (60 + Math.floor(Math.random() * 90));
+  await sleep(ms);
 }
 
 function shouldRetryBusy(result: { success: boolean; message: string; responsePayload?: unknown }) {
@@ -286,13 +314,6 @@ function getCommentLikeStepJitterMs(urgency: "S" | "A" | "B") {
   return 1000 + Math.floor(Math.random() * 4000);
 }
 
-function simulateBrowsePauseMs() {
-  return 1000 + Math.floor(Math.random() * 4000);
-}
-
-function simulateTypingDelayMs(contentLength: number) {
-  return contentLength * (60 + Math.floor(Math.random() * 90));
-}
 
 function isDuplicateLikeFailure(message: string) {
   return message.includes("已点赞") || message.includes("点过赞") || message.includes("重复点赞");
@@ -578,7 +599,7 @@ export async function runCommentLikeJob(input: StartCommentLikeJobInput) {
 
       await sleep(getCommentLikeStepJitterMs(urgency));
 
-      await sleep(simulateBrowsePauseMs());
+      await simulateBrowsePause();
 
       const timing = await waitForAccountExecutionWindow(accountId, `action-job:${input.jobId}:comment-like:${step.id}`, {
         scheduleWindowEnabled: account.scheduleWindowEnabled,
@@ -837,7 +858,7 @@ export async function runRepostRotationJob(input: StartRepostRotationJobInput) {
 
       const payload = (step.payload || {}) as { repostContent?: string };
       if (payload.repostContent) {
-        await sleep(simulateTypingDelayMs(payload.repostContent.length));
+        await simulateTypingDelay(payload.repostContent.length);
       }
       let result = await executor.executeInteraction({
         interactionTaskId: step.id,

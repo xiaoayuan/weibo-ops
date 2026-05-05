@@ -12,6 +12,12 @@ if (!connectionString) {
   throw new Error("缺少 DATABASE_URL 环境变量");
 }
 
+// 生产环境禁止执行 seed，防止误覆盖数据
+if (process.env.NODE_ENV === "production") {
+  console.error("禁止在生产环境执行 seed 脚本！请确认操作后，手动设置 NODE_ENV=development 再执行。");
+  process.exit(1);
+}
+
 const pool = new Pool({ connectionString });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 

@@ -27,26 +27,34 @@ Copywriting and AI features are auxiliary. Do not let them override the core exe
 
 ## Infrastructure Model
 
-The project currently uses a two-node model:
+当前项目使用**三层架构 + 双节点执行**模型：
 
-- Main server: `controller`
-- Second server: `worker`
+### 三层架构
 
-Rules:
+```
+浏览器 → web(3008) → api(3009) → app(3007)
+```
 
-- The main server is the only management entrypoint.
-- The main server owns the primary database.
-- The second server executes distributed `action-job` workloads.
-- Do not casually change secrets shared across servers.
+- `app`（根目录）：旧后端主体，承载数据库、调度、执行器
+- `api`（`apps/api`）：独立 API 骨架，逐步原生化新后端入口
+- `web`（`apps/web`）：独立前端，通过 `api` 访问后端
+
+### 双节点执行
+
+- 主服务器 `controller`：承担主数据库、主后台、每日计划生成与调度
+- 第二台服务器 `worker`：共享主服务器数据库，执行分布式 `action-job`（控评/轮转）
+
+> 注意：上述"三层架构"是**部署架构**，双节点是**执行架构**，两者描述的是不同维度，不要混淆。
 
 ## Secrets Safety
 
-Do not rotate or rewrite these values without explicit user approval:
+以下密钥在所有节点（controller / worker）之间必须保持一致，不要随意修改：
 
-- `ACCOUNT_SECRET_KEY`
 - `JWT_SECRET`
+- `ACCOUNT_SECRET_KEY`
+- 若两边都启用 AI，则 AI 接口密钥也要一致
 
-Changing either can break existing sessions or encrypted account cookies.
+修改任何一个都可能导致登录失效或 Cookie 解密失败。
 
 ## Session Handoff
 

@@ -1,11 +1,27 @@
 # API 客户端和状态管理使用指南
 
-## 1. 使用统一的 API 客户端
+> 注意：本项目存在**两套 API 客户端**，职责不同，请根据场景选择使用。
+
+## 两套 client 的职责边界
+
+| 客户端 | 所在文件 | 适用场景 | 返回值 |
+|--------|----------|----------|--------|
+| **裸数据 client** | `apps/web/src/lib/api/client.ts` | 页面级数据获取、单次请求、工具函数 | 直接返回 `data`（抛出 ApiError） |
+| **SWR Hooks client** | `apps/web/src/lib/hooks/use-api.ts` | 需要缓存、自动刷新、轮询的场景 | `{ data, error, isLoading, mutate }` |
+| **状态管理 hooks** | `apps/web/src/lib/api/hooks.ts` | 表单提交、批量操作、手动控制状态 | `{ mutate, loading, error }` |
+
+> **规则**：优先使用 `apps/web/src/lib/api/client.ts` + `apps/web/src/lib/api/hooks.ts`，这两套是推荐组合。`apps/web/src/lib/hooks/use-api.ts`（SWR 风格）用于需要缓存和自动刷新的场景。
+
+---
+
+## 1. 裸数据 API Client（推荐）
+
+文件：`apps/web/src/lib/api/client.ts`
 
 ### 基本用法
 
 ```typescript
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api/client";
+import { apiGet, apiPost, apiPatch, apiDelete, handleApiError } from "@/lib/api/client";
 
 // GET 请求
 const accounts = await apiGet<WeiboAccount[]>("/api/accounts");
@@ -41,7 +57,11 @@ try {
 }
 ```
 
-## 2. 使用 API Hooks
+---
+
+## 2. 状态管理 Hooks（推荐用于表单）
+
+文件：`apps/web/src/lib/api/hooks.ts`
 
 ### useApiData - 数据获取
 
@@ -49,7 +69,7 @@ try {
 import { useApiData } from "@/lib/api/hooks";
 
 function AccountsList() {
-  const { data, loading, error, fetch } = useApiData<WeiboAccount[]>("/api/accounts");
+  const { data, loading, error, fetch, refetch } = useApiData<WeiboAccount[]>("/api/accounts");
 
   useEffect(() => {
     fetch();
@@ -95,7 +115,72 @@ function CreateAccountForm() {
 }
 ```
 
-## 3. 使用全局状态管理
+---
+
+## 3. SWR Hooks（用于需要缓存和自动刷新的场景）
+
+文件：`apps/web/src/lib/hooks/use-api.ts`
+
+### useApi - 带缓存的数据获取
+
+```typescript
+import { useApi } from "@/lib/hooks/use-api";
+
+function SuperTopicsList() {
+  const { data, error, isLoading, refresh } = useApi<unknown[]>("/api/super-topics");
+
+  if (isLoading) return <div>加载中...</div>;
+  if (error) return <div>错误: {error.message}</div>;
+
+  return (
+    <div>
+      {data?.map(topic => (
+        <div key={topic.id}>{topic.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+### useAccounts / usePlans 等快捷 Hook
+
+```typescript
+import { useAccounts, usePlans, useLogs, useSuperTopics } from "@/lib/hooks/use-api";
+
+// 账号列表（自动缓存 + 轮询）
+const { data: accounts } = useAccounts();
+
+// 计划列表（带日期筛选）
+const { data: plans } = usePlans("2026-05-03");
+
+// 执行日志
+const { data: logs } = useLogs(1, 50);
+
+// 超话列表
+const { data: topics } = useSuperTopics();
+```
+
+### POST/PUT/DELETE 请求
+
+```typescript
+import { apiPost, apiPut, apiDelete } from "@/lib/hooks/use-api";
+
+// POST（返回完整 ApiResponse）
+const result = await apiPost<FormData, Result>("/api/accounts", formData);
+if (result.success) {
+  console.log("创建成功:", result.data);
+}
+
+// 批量操作
+import { apiBatch } from "@/lib/hooks/use-api";
+const batchResult = await apiBatch("/api/accounts/batch-delete", ["id1", "id2"]);
+```
+
+---
+
+## 4. 全局状态管理
+
+文件：`apps/web/src/stores/app-store.ts`
 
 ### 基本用法
 
@@ -121,7 +206,7 @@ function AccountsPage() {
 }
 ```
 
-### 更新数据
+### 更新数据（乐观更新）
 
 ```typescript
 function AccountItem({ account }: { account: WeiboAccount }) {
@@ -164,55 +249,26 @@ function SomeComponent() {
 }
 ```
 
-## 4. 迁移现有代码
+---
 
-### 旧代码
+## 5. 选择指南
 
-```typescript
-const [loading, setLoading] = useState(false);
-const [error, setError] = useState<string | null>(null);
+| 场景 | 推荐方式 |
+|------|----------|
+| 页面加载时获取数据 | `useApiData`（手动控制） |
+| 需要缓存和轮询 | `useApi`（SWR 风格） |
+| 表单提交 | `useApiMutation` + `apiPost` 等 |
+| 一次性工具请求 | `apiGet` / `apiPost` 等 |
+| 全局共享数据（账号、计划） | `useAppStore` |
+| 批量操作 | `apiBatch` 或 `useApiMutation` |
 
-async function fetchData() {
-  setLoading(true);
-  try {
-    const response = await fetch("/api/accounts");
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "请求失败");
-    }
-    setData(result.data);
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "请求失败");
-  } finally {
-    setLoading(false);
-  }
-}
-```
+---
 
-### 新代码
+## 6. 已废弃的 API Client
 
-```typescript
-const { data, loading, error, fetch } = useApiData<Account[]>("/api/accounts");
+以下文件**已被取代**，请勿在新代码中使用：
 
-useEffect(() => {
-  fetch();
-}, [fetch]);
-```
+- ~~`src/lib/api/client.ts`~~ → 使用 `apps/web/src/lib/api/client.ts`
+- ~~`src/lib/hooks/use-api.ts`~~ → 已迁移到 `apps/web/src/lib/hooks/use-api.ts`
 
-## 5. 优势
-
-1. **代码更简洁**：减少 80% 的样板代码
-2. **类型安全**：完整的 TypeScript 支持
-3. **统一错误处理**：一致的错误消息格式
-4. **全局状态**：避免重复请求，数据共享
-5. **乐观更新**：更好的用户体验
-6. **易于测试**：集中的 API 逻辑
-
-## 6. 最佳实践
-
-1. **使用 useAppStore 管理全局数据**（账号、文案、计划等）
-2. **使用 useApiData 获取页面级数据**
-3. **使用 useApiMutation 提交表单数据**
-4. **使用 apiGet/apiPost 等方法进行一次性请求**
-5. **始终处理错误**，使用 handleApiError 获取友好消息
-6. **使用乐观更新**提升用户体验
+所有 API 客户端已统一在 `apps/web/src/lib/` 目录下。

@@ -1,5 +1,27 @@
 # Changelog
 
+## [2026-05-06] - 代码质量修复
+
+### 🐛 Bug 修复
+
+#### seed.ts 生产环境保护 (bXXXXXX)
+- 新增 `NODE_ENV` 检测，生产环境禁止执行 seed 脚本
+- 防止误执行导致数据被覆盖
+
+#### runner.ts 拟人化延迟修复 (bXXXXXX)
+- `simulateBrowsePause()` 和 `simulateTypingDelay()` 改为异步函数，真正生效
+- 原函数 `simulateBrowsePauseMs()` 和 `simulateTypingDelayMs()` 标记为 `@deprecated`
+- 修复后执行链路具备真实的拟人化延迟，降低被微博检测风险
+
+### 📝 文档更新
+
+#### API_USAGE.md 重写
+- 明确三套 API client 的职责边界
+- 补充推荐使用场景说明
+- 标记已废弃的文件路径
+
+---
+
 ## [2026-05-03] - 性能与用户体验优化
 
 ### 🚀 性能优化
