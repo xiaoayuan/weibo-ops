@@ -97,28 +97,30 @@ export async function POST(request: Request) {
 
     // 调试：检查 executePlan 返回的完整 responsePayload（过滤不可序列化的字段）
     let debugSummary = "N/A";
+    let stage = result.stage ?? "UNKNOWN";
+    let status = result.status ?? "UNKNOWN";
     try {
       const safePayload = result.responsePayload && typeof result.responsePayload === "object"
         ? filterUnserializable(result.responsePayload as Record<string, unknown>)
         : result.responsePayload;
       debugSummary = JSON.stringify(safePayload).substring(0, 2000);
-    } catch {
-      debugSummary = `序列化失败: ${result.message}`;
+    } catch (e) {
+      debugSummary = `序列化失败: ${e instanceof Error ? e.message : String(e)}`;
     }
-    console.log("[test-post] result.success:", result.success, "| message:", result.message, "| summary:", debugSummary.substring(0, 500));
+    console.log(`[test-post] success=${result.success} stage=${stage} status=${status} message=${result.message} summary=${debugSummary.substring(0, 800)}`);
 
     await writeExecutionLog({
       accountId,
       actionType: result.success ? "PLAN_EXECUTE_SUCCESS" : "PLAN_EXECUTE_BLOCKED",
       requestPayload: { source: "test-post", topicName, topicUrl: effectiveTopicUrl, postingUrl, content: content.trim() },
-      responsePayload: { success: result.success, message: result.message, stage: result.stage, status: result.status, summary: debugSummary },
+      responsePayload: { success: result.success, message: result.message, stage, status, summary: debugSummary },
       success: result.success,
       errorMessage: result.success ? undefined : result.message,
     });
 
     return Response.json({
       success: result.success,
-      data: { message: result.message, stage: result.stage, status: result.status },
+      data: { message: result.message, stage, status },
       message: result.message,
     });
   } catch (error) {
