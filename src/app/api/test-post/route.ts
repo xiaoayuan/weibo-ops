@@ -1,8 +1,22 @@
-import { decryptText } from "@/lib/encrypt";
+import { decryptText, getDecryptErrorMessage } from "@/lib/encrypt";
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
+
+/** 过滤不可 JSON 序列化的字段（如函数、undefined、BigInt） */
+function filterUnserializable(obj: Record<string, unknown>): Record<string, unknown> {
+  const seen = new WeakSet();
+  function replacer(_key: string, value: unknown): unknown {
+    if (typeof value === "function" || typeof value === "undefined" || typeof value === "bigint") return undefined;
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value as object)) return "[Circular]";
+      seen.add(value as object);
+    }
+    return value;
+  }
+  return JSON.parse(JSON.stringify(obj, replacer));
+}
 
 /**
  * 测试发帖 API
@@ -81,17 +95,30 @@ export async function POST(request: Request) {
       content: content.trim(),
     });
 
+    // 调试：检查 executePlan 返回的完整 responsePayload（过滤不可序列化的字段）
+    let debugSummary = "N/A";
+    try {
+      const safePayload = result.responsePayload && typeof result.responsePayload === "object"
+        ? filterUnserializable(result.responsePayload as Record<string, unknown>)
+        : result.responsePayload;
+      debugSummary = JSON.stringify(safePayload).substring(0, 2000);
+    } catch {
+      debugSummary = `序列化失败: ${result.message}`;
+    }
+    console.log("[test-post] result.success:", result.success, "| message:", result.message, "| summary:", debugSummary.substring(0, 500));
+
     await writeExecutionLog({
       accountId,
       actionType: result.success ? "PLAN_EXECUTE_SUCCESS" : "PLAN_EXECUTE_BLOCKED",
       requestPayload: { source: "test-post", topicName, topicUrl: effectiveTopicUrl, postingUrl, content: content.trim() },
+      responsePayload: { success: result.success, message: result.message, stage: result.stage, status: result.status, summary: debugSummary },
       success: result.success,
       errorMessage: result.success ? undefined : result.message,
     });
 
     return Response.json({
       success: result.success,
-      data: { message: result.message },
+      data: { message: result.message, stage: result.stage, status: result.status },
       message: result.message,
     });
   } catch (error) {
