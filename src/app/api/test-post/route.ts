@@ -1,6 +1,7 @@
 import { decryptText } from "@/lib/encrypt";
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { writeExecutionLog } from "@/server/logs";
 import { getProxyConfigForAccount } from "@/server/proxy-config";
 
 /**
@@ -74,6 +75,14 @@ export async function POST(request: Request) {
       topicUrl: effectiveTopicUrl,
       postingUrl,
       content: content.trim(),
+    });
+
+    await writeExecutionLog({
+      accountId,
+      actionType: result.success ? "PLAN_EXECUTE_SUCCESS" : "PLAN_EXECUTE_BLOCKED",
+      requestPayload: { source: "test-post", topicName, topicUrl: effectiveTopicUrl, postingUrl, content: content.trim() },
+      success: result.success,
+      errorMessage: result.success ? undefined : result.message,
     });
 
     return Response.json({
