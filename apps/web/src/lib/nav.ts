@@ -28,6 +28,7 @@ export const navItems: NavItem[] = [
   { href: "/accounts", label: "账号管理", description: "查看账号状态、分组和登录健康。", icon: "users" },
   { href: "/super-topics", label: "超话管理", description: "统一管理超话资源和基础配置。", icon: "tags" },
   { href: "/topic-tasks", label: "任务配置", description: "为账号与超话绑定执行策略。", icon: "clipboard-list" },
+  { href: "/post-test", label: "发帖测试", description: "独立测试发帖功能，验证发帖链路。", icon: "file-text" },
   { href: "/copywriting", label: "文案库", description: "集中维护可用文案与 AI 生成内容。", icon: "file-text" },
   { href: "/plans", label: "每日计划", description: "查看业务时区下的执行计划与状态。", icon: "calendar-range" },
   { href: "/interactions", label: "互动任务", description: "维护互动任务和执行结果。", icon: "message-circle-heart" },

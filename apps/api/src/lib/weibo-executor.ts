@@ -623,10 +623,10 @@ async function fetchRepostCount(cookie: string, referer: string, statusId: strin
   };
 }
 
-async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, postingUrl: string | undefined, cookie: string, proxyConfig?: ProxyConfig | null) {
+async function sendPostRequest(content: string, topicName: string | undefined, topicUrl: string | undefined, _postingUrl: string | undefined, cookie: string, proxyConfig?: ProxyConfig | null) {
   const cookieMap = parseCookieMap(cookie);
   const xsrfToken = getXsrfToken(cookieMap);
-  const topicUrl = _topicUrl;
+  const effectiveUrl = topicUrl || "";
   const endpoints = [process.env.WEIBO_POST_ENDPOINT || "https://weibo.com/ajax/statuses/update"];
   const text = topicName ? `${content}\n#${topicName}#` : content;
   const attempts: Array<{ endpoint: string; mode: string; ok: boolean; status: number; summary: unknown; businessOk?: boolean }> = [];
@@ -635,7 +635,6 @@ async function sendPostRequest(content: string, topicName: string | undefined, t
   const appAuthorization = process.env.WEIBO_APP_AUTHORIZATION;
   const appSessionId = process.env.WEIBO_APP_SESSION_ID;
   const appLogUid = process.env.WEIBO_APP_LOG_UID;
-  const effectiveUrl = postingUrl || topicUrl;
   const topicObjectId = toTopicObjectId(effectiveUrl);
   const topicRawId = toTopicRawId(effectiveUrl);
   const superTagId = extractSuperTagId(effectiveUrl);
@@ -963,4 +962,22 @@ export class WeiboExecutor implements SocialExecutor {
       return blockedResult(error instanceof Error ? error.message : "执行互动任务失败", withFailurePayload({ code: "INTERACTION_EXECUTION_EXCEPTION", reason: "INTERACTION_EXECUTION_EXCEPTION", raw: error instanceof Error ? error.message : "执行互动任务失败" }));
     }
   }
+}
+
+/**
+ * 导出函数，供测试页面直接调用（绕过计划系统）
+ */
+export async function executeSinglePost(
+  content: string,
+  topicName: string,
+  topicUrl: string,
+  cookie: string,
+  proxyConfig?: ProxyConfig | null,
+): Promise<{ ok: boolean; message: string; attempts: unknown[]; traffic: unknown }> {
+  const result = await sendPostRequest(content, topicName, topicUrl, undefined, cookie, proxyConfig);
+  const latest = result.attempts[result.attempts.length - 1];
+  const msg = result.ok
+    ? "发帖成功"
+    : `发帖失败：${typeof latest?.summary === "string" ? latest.summary : JSON.stringify(latest?.summary ?? "未知错误")}`;
+  return { ok: result.ok, message: msg, attempts: result.attempts, traffic: result.traffic };
 }
