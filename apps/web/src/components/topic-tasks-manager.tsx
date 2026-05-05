@@ -304,6 +304,12 @@ export function TopicTasksManager({
             <input type="number" min={30} max={86400} value={form.likeIntervalSec} onChange={(event) => setForm((current) => ({ ...current, likeIntervalSec: Number(event.target.value) || 30 }))} className="app-input h-12" placeholder="点赞间隔秒" />
             <input type="number" min={0} max={200} value={form.repostPerDay} onChange={(event) => setForm((current) => ({ ...current, repostPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="转发/天" />
             <input type="number" min={60} max={86400} value={form.repostIntervalSec} onChange={(event) => setForm((current) => ({ ...current, repostIntervalSec: Number(event.target.value) || 60 }))} className="app-input h-12" placeholder="转发间隔秒" />
+            <label className="app-option-card">
+              <input type="checkbox" checked={form.postEnabled} onChange={(event) => setForm((current) => ({ ...current, postEnabled: event.target.checked }))} />
+              发帖启用
+            </label>
+            <input type="number" min={0} max={50} value={form.minPostsPerDay} onChange={(event) => setForm((current) => ({ ...current, minPostsPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="最少发帖/天" />
+            <input type="number" min={0} max={50} value={form.maxPostsPerDay} onChange={(event) => setForm((current) => ({ ...current, maxPostsPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="最多发帖/天" />
             <input type="number" min={0} max={100} value={form.commentPerDay} onChange={(event) => setForm((current) => ({ ...current, commentPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="回复/天" />
             <input type="number" min={60} max={86400} value={form.commentIntervalSec} onChange={(event) => setForm((current) => ({ ...current, commentIntervalSec: Number(event.target.value) || 60 }))} className="app-input h-12" placeholder="回复间隔秒" />
           </div>
