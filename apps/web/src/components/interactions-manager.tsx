@@ -224,6 +224,12 @@ export function InteractionsManager({
     }
   }
 
+  function toggleAllTasks() {
+    setSelectedTaskIds((current) =>
+      current.length === filteredTasks.length ? [] : filteredTasks.map((t) => t.id),
+    );
+  }
+
   const stats = {
     total: tasks.length,
     pending: tasks.filter((task) => task.status === "PENDING" || task.status === "READY").length,
@@ -327,7 +333,14 @@ export function InteractionsManager({
             <table className="app-table min-w-[1280px]">
               <thead>
                 <tr>
-                  <th>选择</th>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={filteredTasks.length > 0 && selectedTaskIds.length === filteredTasks.length}
+                      onChange={toggleAllTasks}
+                      title="全选/取消全选"
+                    />
+                  </th>
                   <th>动作</th>
                   <th>账号</th>
                   <th>目标</th>
