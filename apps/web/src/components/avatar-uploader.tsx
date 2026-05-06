@@ -11,12 +11,64 @@ type AvatarUploaderProps = {
 };
 
 const MAX_SIZE_BYTES = 200 * 1024;
+const MAX_DIM = 256;
+
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const { width, height } = img;
+        let w = width;
+        let h = height;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w > h) {
+            h = Math.round((h / w) * MAX_DIM);
+            w = MAX_DIM;
+          } else {
+            w = Math.round((w / h) * MAX_DIM);
+            h = MAX_DIM;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas 初始化失败"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+
+        let quality = 0.8;
+        const tryCompress = () => {
+          const result = canvas.toDataURL("image/jpeg", quality);
+          const byteSize = Math.ceil((result.length - result.indexOf(",") - 1) * 0.75);
+          if (byteSize <= MAX_SIZE_BYTES || quality <= 0.1) {
+            resolve(result);
+            return;
+          }
+          quality -= 0.1;
+          tryCompress();
+        };
+        tryCompress();
+      };
+      img.onerror = () => reject(new Error("图片加载失败"));
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => reject(new Error("图片读取失败"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function AvatarUploader({ username, currentBase64, onChange }: AvatarUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [compressing, setCompressing] = useState(false);
 
-  function handleFileSelect(file: File) {
+  async function handleFileSelect(file: File) {
     setError(null);
 
     if (!file.type.startsWith("image/")) {
@@ -24,19 +76,15 @@ export function AvatarUploader({ username, currentBase64, onChange }: AvatarUplo
       return;
     }
 
-    if (file.size > MAX_SIZE_BYTES) {
-      setError("图片大小不能超过 200KB");
-      return;
+    try {
+      setCompressing(true);
+      const compressed = await compressImage(file);
+      onChange(compressed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "图片处理失败");
+    } finally {
+      setCompressing(false);
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange(reader.result as string);
-    };
-    reader.onerror = () => {
-      setError("图片读取失败");
-    };
-    reader.readAsDataURL(file);
   }
 
   function handleDrop(event: React.DragEvent) {
@@ -69,15 +117,15 @@ export function AvatarUploader({ username, currentBase64, onChange }: AvatarUplo
           </div>
         </div>
         <div className="space-y-2">
-          <button type="button" onClick={() => inputRef.current?.click()} className="app-button app-button-secondary h-10 px-4 text-xs">
-            上传头像
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={compressing} className="app-button app-button-secondary h-10 px-4 text-xs">
+            {compressing ? "压缩中…" : "上传头像"}
           </button>
           {currentBase64 && (
             <button type="button" onClick={handleRemove} className="app-button app-button-secondary h-10 px-4 text-xs ml-2">
               移除头像
             </button>
           )}
-          <p className="text-xs text-app-text-soft">支持 JPG/PNG/GIF，不超过 200KB，可拖拽上传</p>
+          <p className="text-xs text-app-text-soft">支持任意尺寸图片，自动压缩缩放至 200KB / 256px 以内，可拖拽上传</p>
         </div>
       </div>
       <input
