@@ -10,7 +10,7 @@ import { getRiskRules } from "@/server/risk/rules";
 import { isAccountCircuitOpen, isProxyCircuitOpen, recordExecutionOutcome } from "@/server/risk/circuit-breaker";
 import { waitForAccountExecutionWindow } from "@/server/task-scheduler/account-timing";
 import { reserveRateLimitedExecution, resolvePlanTaskType } from "@/server/task-scheduler/rate-limit";
-import { checkStatusIsZeroComments, extractStatusIdFromUrl, fetchLatestPosts, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
+import { checkStatusIsZeroComments, extractStatusIdFromUrl, fetchLatestPosts, fetchLatestPostsIncremental, pickRandomTemplate, sendFirstComment } from "@/server/plans/first-comment-plan";
 
 const planInclude = {
   account: true,
