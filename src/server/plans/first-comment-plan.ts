@@ -249,60 +249,100 @@ async function fetchLatestPostsFromTopicPage(topicUrl: string, cookie: string, l
   }));
 }
 
-export async function fetchLatestPosts(topicUrl: string, cookie: string, limit: number, proxyConfig?: ProxyConfig | null) {
-  const pagePosts = await fetchLatestPostsFromTopicPage(topicUrl, cookie, limit, proxyConfig);
+// 渐进式获取：分批获取帖子，快速失败
+export async function fetchLatestPostsIncremental(
+  topicUrl: string,
+  cookie: string,
+  proxyConfig?: ProxyConfig | null,
+  options: {
+    batchSizes?: number[];
+    onBatch?: (count: number, total: number) => void;
+  } = {},
+): Promise<CandidatePost[]> {
+  const batchSizes = options.batchSizes ?? [10, 30, 60, 100];
+  const allPosts: CandidatePost[] = [];
+  const seen = new Set<string>();
 
-  if (pagePosts.length >= limit) {
-    return pagePosts.slice(0, limit);
-  }
+  for (let i = 0; i < batchSizes.length; i++) {
+    const targetSize = batchSizes[i];
+    const needed = targetSize - allPosts.length;
 
-  const containerId = extractTopicContainerId(topicUrl);
-  const endpoints = getTimelineEndpoints(topicUrl, containerId);
-  const allPosts: CandidatePost[] = [...pagePosts];
+    if (needed <= 0) {
+      break;
+    }
 
-  for (const endpoint of endpoints) {
-    try {
-      const response = await sendHttpRequestWithRetry(
-        {
-          url: endpoint,
-          method: "GET",
-          headers: {
-            Cookie: cookie,
-            Referer: topicUrl,
-            "X-Requested-With": "XMLHttpRequest",
-          },
-          timeoutMs: 12_000,
-          proxyConfig,
-        },
-        {
-          retries: 1,
-        },
-      );
+    // 第一批：直接从页面 HTML 提取（最快）
+    const pagePosts = await fetchLatestPostsFromTopicPage(topicUrl, cookie, needed, proxyConfig);
 
-      const payload = response.json ?? response.text;
-      const posts = collectCandidatePosts(payload, topicUrl);
-
-      if (posts.length > 0) {
-        allPosts.push(...posts);
-
-        if (allPosts.length >= limit) {
-          break;
-        }
+    for (const post of pagePosts) {
+      if (!seen.has(post.id)) {
+        seen.add(post.id);
+        allPosts.push(post);
       }
-    } catch {
-      continue;
     }
+
+    if (allPosts.length >= targetSize) {
+      options.onBatch?.(allPosts.length, targetSize);
+      break;
+    }
+
+    // 后续批次：从 API 获取更多帖子
+    const containerId = extractTopicContainerId(topicUrl);
+    const endpoints = getTimelineEndpoints(topicUrl, containerId);
+    const remaining = targetSize - allPosts.length;
+
+    for (const endpoint of endpoints) {
+      if (allPosts.length >= targetSize) {
+        break;
+      }
+
+      try {
+        const response = await sendHttpRequestWithRetry(
+          {
+            url: endpoint,
+            method: "GET",
+            headers: {
+              Cookie: cookie,
+              Referer: topicUrl,
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            timeoutMs: 12_000,
+            proxyConfig,
+          },
+          {
+            retries: 1,
+          },
+        );
+
+        const payload = response.json ?? response.text;
+        const posts = collectCandidatePosts(payload, topicUrl);
+
+        for (const post of posts) {
+          if (!seen.has(post.id)) {
+            seen.add(post.id);
+            allPosts.push(post);
+          }
+
+          if (allPosts.length >= targetSize) {
+            break;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    options.onBatch?.(allPosts.length, targetSize);
   }
 
-  const deduped = new Map<string, CandidatePost>();
+  return allPosts;
+}
 
-  for (const post of allPosts) {
-    if (!deduped.has(post.id)) {
-      deduped.set(post.id, post);
-    }
-  }
-
-  return Array.from(deduped.values()).slice(0, limit);
+// 兼容旧接口
+export async function fetchLatestPosts(topicUrl: string, cookie: string, limit: number, proxyConfig?: ProxyConfig | null) {
+  return fetchLatestPostsIncremental(topicUrl, cookie, proxyConfig, {
+    batchSizes: [limit],
+  });
 }
 
 function isCommentCreated(payload: unknown) {

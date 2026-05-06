@@ -7,7 +7,9 @@ declare global {
 
 function getWorkerPool() {
   if (!globalThis.__taskSchedulerPool) {
-    globalThis.__taskSchedulerPool = new WorkerPool(8);
+    const workerCount = Math.max(4, Math.min(16, Number(process.env.TASK_SCHEDULER_WORKERS) || 8));
+    globalThis.__taskSchedulerPool = new WorkerPool(workerCount);
+    console.log(`[WorkerPool] 初始化完成，使用 ${workerCount} 个 worker`);
   }
 
   return globalThis.__taskSchedulerPool;

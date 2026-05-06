@@ -33,6 +33,8 @@ export async function GET(request: Request) {
     }
   }
 
+  // 管理员只看自己账号的计划，不显示其他用户的计划
+  // 如需查看其他用户数据，请使用执行日志页面
   const where = {
     ...(date ? { planDate: toBusinessDate(date) } : {}),
     account: {

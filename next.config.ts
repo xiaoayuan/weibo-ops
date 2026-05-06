@@ -33,10 +33,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // 减小 bundle 体积
-  compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
-  },
+  // 保留 console 输出，方便生产环境排查问题
   // 优化包导入
   experimental: {
     optimizePackageImports: ["lucide-react", "dayjs", "zod", "sonner"],
