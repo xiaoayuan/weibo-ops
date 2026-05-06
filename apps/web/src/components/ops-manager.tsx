@@ -573,7 +573,12 @@ export function OpsManager({
                   </div>
 
                   <div className="app-subpanel">
-                    <p className="text-sm text-app-text-muted">选择执行账号</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-app-text-muted">选择执行账号</p>
+                      <button type="button" onClick={() => setSelectedPoolAccountIds(selectedPoolAccountIds.length === accounts.length ? [] : accounts.map(a => a.id))} className="app-button app-button-secondary h-9 px-3 text-xs">
+                        {selectedPoolAccountIds.length === accounts.length ? "取消全选" : "全选"}
+                      </button>
+                    </div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       {accounts.map((account) => (
                         <label key={account.id} className={`app-option-card ${selectedPoolAccountIds.includes(account.id) ? "app-option-card-active" : ""}`}>
@@ -615,7 +620,12 @@ export function OpsManager({
               </div>
 
               <div className="mt-5">
-                <p className="text-sm text-app-text-muted">选择执行账号</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-app-text-muted">选择执行账号</p>
+                  <button type="button" onClick={() => setSelectedRotationAccountIds(selectedRotationAccountIds.length === accounts.length ? [] : accounts.map(a => a.id))} className="app-button app-button-secondary h-9 px-3 text-xs">
+                    {selectedRotationAccountIds.length === accounts.length ? "取消全选" : "全选"}
+                  </button>
+                </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {accounts.map((account) => (
                     <label key={account.id} className={`app-option-card ${selectedRotationAccountIds.includes(account.id) ? "app-option-card-active" : ""}`}>
