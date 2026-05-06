@@ -34,22 +34,26 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId")?.trim() || undefined;
 
+  const isAdmin = auth.session.role === "ADMIN";
+
   const logs = await prisma.executionLog.findMany({
     where:
-      auth.session.role === "ADMIN"
+      isAdmin
         ? {
             ...(userId
               ? {
-                  account: {
-                    ownerUserId: userId,
-                  },
+                  OR: [
+                    { account: { ownerUserId: userId } },
+                    { userId },
+                  ],
                 }
               : {}),
           }
         : {
-            account: {
-              ownerUserId: auth.session.id,
-            },
+            OR: [
+              { account: { ownerUserId: auth.session.id } },
+              { userId: auth.session.id },
+            ],
           },
     include: {
       account: {
@@ -67,7 +71,7 @@ export async function GET(request: Request) {
     take: 50,
   });
 
-  if (auth.session.role === "ADMIN") {
+  if (isAdmin) {
     await maskForeignAccounts(logs, auth.session.id);
   }
 

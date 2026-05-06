@@ -14,6 +14,7 @@ import { TableSkeleton } from "@/components/skeleton";
 import { usePaginatedData } from "@/lib/api/use-paginated-data";
 import type { ExecutionLog } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
+import { getActionTypeText } from "@/lib/text";
 
 export function LogsManagerPaginated() {
   const {
@@ -100,7 +101,7 @@ export function LogsManagerPaginated() {
                         )}
                       </td>
                       <td>
-                        <span className="app-chip">{log.actionType}</span>
+                        <span className="app-chip">{getActionTypeText(log.actionType)}</span>
                       </td>
                       <td>
                         <StatusBadge tone={log.success ? "success" : "danger"}>

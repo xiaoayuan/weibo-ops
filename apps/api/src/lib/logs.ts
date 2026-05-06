@@ -30,16 +30,18 @@ export async function listVisibleExecutionLogs(
       ? {
           ...(userId
             ? {
-                account: {
-                  ownerUserId: userId,
-                },
+                OR: [
+                  { account: { ownerUserId: userId } },
+                  { userId },
+                ],
               }
             : {}),
         }
       : {
-          account: {
-            ownerUserId: session.id,
-          },
+          OR: [
+            { account: { ownerUserId: session.id } },
+            { userId: session.id },
+          ],
         };
 
   const [data, total] = await Promise.all([
