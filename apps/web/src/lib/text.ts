@@ -1,7 +1,7 @@
 export function getPlanStatusText(status: string) {
   const map: Record<string, string> = {
     PENDING: "待执行",
-    READY: "待确认",
+    READY: "已入队",
     RUNNING: "执行中",
     SUCCESS: "成功",
     FAILED: "失败",

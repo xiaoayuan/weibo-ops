@@ -303,7 +303,7 @@ export function PlansManager({
                 <option value="ALL">全部状态</option>
                 <option value="INCOMPLETE">未完成</option>
                 <option value="PENDING">待执行</option>
-                <option value="READY">待确认</option>
+                <option value="READY">已入队</option>
                 <option value="RUNNING">执行中</option>
                 <option value="SUCCESS">已成功</option>
                 <option value="FAILED">已失败</option>
@@ -399,7 +399,7 @@ export function PlansManager({
                       </td>
                       <td>
                         <StatusBadge tone={plan.status === "SUCCESS" ? "success" : plan.status === "FAILED" ? "danger" : plan.status === "RUNNING" ? "info" : plan.status === "READY" ? "accent" : "neutral"}>
-                          {plan.status === "PENDING" ? "待执行" : plan.status === "READY" ? "待确认" : plan.status === "RUNNING" ? "执行中" : plan.status === "SUCCESS" ? "已成功" : plan.status === "FAILED" ? "已失败" : "已取消"}
+                          {plan.status === "PENDING" ? "待执行" : plan.status === "READY" ? "已入队" : plan.status === "RUNNING" ? "执行中" : plan.status === "SUCCESS" ? "已成功" : plan.status === "FAILED" ? "已失败" : "已取消"}
                         </StatusBadge>
                         {plan.status === "FAILED" && plan.error ? (
                           <p className="mt-2 text-xs leading-relaxed text-app-danger">{plan.error}</p>
@@ -420,8 +420,8 @@ export function PlansManager({
                             </>
                           ) : (
                             <>
-                              {/* 待确认状态：显示编辑、通过、驳回、删除 */}
-                              {plan.status === "READY" && (
+                              {/* 已入队/待执行状态：显示编辑、执行、删除 */}
+                              {["READY", "PENDING"].includes(plan.status) && (
                                 <>
                                   <button
                                     type="button"
@@ -435,34 +435,7 @@ export function PlansManager({
                                   >
                                     编辑
                                   </button>
-                                  <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/approve`, "计划已确认")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
-                                    通过
-                                  </button>
-                                  <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/reject`, "计划已驳回")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
-                                    驳回
-                                  </button>
-                                  <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-danger h-10 px-4 text-xs">
-                                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />删除
-                                  </button>
-                                </>
-                              )}
-
-                              {/* 待执行状态：显示编辑、执行、删除 */}
-                              {plan.status === "PENDING" && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingId(plan.id);
-                                      setScheduledTime(toLocalDateTimeValue(plan.scheduledTime));
-                                      setContentId(plan.contentId || "");
-                                    }}
-                                    disabled={submittingPlanIds.has(plan.id)}
-                                    className="app-button app-button-secondary h-10 px-4 text-xs"
-                                  >
-                                    编辑
-                                  </button>
-                                   <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
+                                  <button type="button" onClick={() => void runPlanAction(plan.id, `/api/plans/${plan.id}/execute`, "计划已入队")} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-secondary h-10 px-4 text-xs">
                                     <Play className="mr-1.5 h-3.5 w-3.5" />执行
                                   </button>
                                   <button type="button" onClick={() => void deletePlan(plan.id)} disabled={submittingPlanIds.has(plan.id)} className="app-button app-button-danger h-10 px-4 text-xs">
