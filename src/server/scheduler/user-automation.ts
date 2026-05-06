@@ -67,6 +67,7 @@ async function runAutoGenerate(now: Date) {
       username: true,
       autoGenerateWindowStart: true,
       autoGenerateWindowEnd: true,
+      autoGenerateTime: true,
     },
   });
 
