@@ -29,7 +29,13 @@ async function runAutoCheckInOnce() {
   const dateText = getBusinessDateText(now);
 
   const generated = await generateDailyPlans(dateText);
-  const checkInPlans = generated.filter((plan) => plan.planType === "CHECK_IN" && (plan.status === "PENDING" || plan.status === "READY"));
+  // 只有 scheduledTime 已到的计划才执行，不要在 scheduledTime 之前就执行
+  const checkInPlans = generated.filter(
+    (plan) =>
+      plan.planType === "CHECK_IN" &&
+      (plan.status === "PENDING" || plan.status === "READY") &&
+      plan.scheduledTime <= now,
+  );
 
   let success = 0;
   let failed = 0;

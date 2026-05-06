@@ -38,6 +38,10 @@ async function runAutoFirstCommentOnce() {
       status: {
         in: ["PENDING", "READY"],
       },
+      // 只选择 scheduledTime 已到的计划
+      scheduledTime: {
+        lte: now,
+      },
     },
     orderBy: {
       scheduledTime: "asc",

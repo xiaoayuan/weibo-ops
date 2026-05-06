@@ -339,7 +339,9 @@ async function cleanupStuckPlans() {
     prisma.dailyPlan.updateMany({
       where: {
         status: "PENDING",
-        createdAt: { lt: new Date(now - pendingTimeout) },
+        // 用 updatedAt 而不是 createdAt：createdAt 是计划创建时间，
+        // 如果计划是前一天生成的，即使 scheduledTime 在未来也会被误杀
+        updatedAt: { lt: new Date(now - pendingTimeout) },
       },
       data: {
         status: "FAILED",
