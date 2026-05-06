@@ -328,7 +328,7 @@ async function runAutoExecute(now: Date) {
 async function cleanupStuckPlans() {
   const now = Date.now();
   const runningTimeout = 20 * 60 * 1000;
-  const pendingTimeout = 4 * 60 * 60 * 1000; // PENDING 超过 4 小时视为卡死
+  const pendingTimeout = 4 * 60 * 60 * 1000;
 
   const [runningResult, pendingResult] = await Promise.all([
     prisma.dailyPlan.updateMany({
@@ -344,13 +344,12 @@ async function cleanupStuckPlans() {
     prisma.dailyPlan.updateMany({
       where: {
         status: "PENDING",
-        // 用 updatedAt 而不是 createdAt：createdAt 是计划创建时间，
-        // 如果计划是前一天生成的，即使 scheduledTime 在未来也会被误杀
         updatedAt: { lt: new Date(now - pendingTimeout) },
+        scheduledTime: { lt: new Date(now - pendingTimeout) },
       },
       data: {
         status: "FAILED",
-        resultMessage: "入队超时（超过 1 小时未开始执行，已自动重置）",
+        resultMessage: "入队超时（超过 4 小时未开始执行，已自动重置）",
       },
     }),
   ]);
