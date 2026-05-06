@@ -25,9 +25,6 @@ type FormState = {
   repostIntervalSec: number;
   commentPerDay: number;
   commentIntervalSec: number;
-  postEnabled: boolean;
-  minPostsPerDay: number;
-  maxPostsPerDay: number;
   startTime: string;
   endTime: string;
   status: boolean;
@@ -48,9 +45,6 @@ function createInitialForm(accounts: WeiboAccount[], topics: SuperTopic[]): Form
     repostIntervalSec: 1800,
     commentPerDay: 0,
     commentIntervalSec: 1800,
-    postEnabled: false,
-    minPostsPerDay: 0,
-    maxPostsPerDay: 0,
     startTime: "01:00",
     endTime: "18:00",
     status: true,
@@ -114,9 +108,6 @@ export function TopicTasksManager({
             repostIntervalSec: form.repostIntervalSec,
             commentPerDay: form.commentPerDay,
             commentIntervalSec: form.commentIntervalSec,
-            postEnabled: form.postEnabled,
-            minPostsPerDay: form.minPostsPerDay,
-            maxPostsPerDay: form.maxPostsPerDay,
             startTime: form.startTime,
             endTime: form.endTime,
             status: form.status,
@@ -134,9 +125,6 @@ export function TopicTasksManager({
             repostIntervalSec: form.repostIntervalSec,
             commentPerDay: form.commentPerDay,
             commentIntervalSec: form.commentIntervalSec,
-            postEnabled: form.postEnabled,
-            minPostsPerDay: form.minPostsPerDay,
-            maxPostsPerDay: form.maxPostsPerDay,
             startTime: form.startTime,
             endTime: form.endTime,
             status: form.status,
@@ -305,11 +293,7 @@ export function TopicTasksManager({
             <input type="number" min={0} max={200} value={form.repostPerDay} onChange={(event) => setForm((current) => ({ ...current, repostPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="转发/天" />
             <input type="number" min={60} max={86400} value={form.repostIntervalSec} onChange={(event) => setForm((current) => ({ ...current, repostIntervalSec: Number(event.target.value) || 60 }))} className="app-input h-12" placeholder="转发间隔秒" />
             <label className="app-option-card">
-              <input type="checkbox" checked={form.postEnabled} onChange={(event) => setForm((current) => ({ ...current, postEnabled: event.target.checked }))} />
-              发帖启用
             </label>
-            <input type="number" min={0} max={50} value={form.minPostsPerDay} onChange={(event) => setForm((current) => ({ ...current, minPostsPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="最少发帖/天" />
-            <input type="number" min={0} max={50} value={form.maxPostsPerDay} onChange={(event) => setForm((current) => ({ ...current, maxPostsPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="最多发帖/天" />
             <input type="number" min={0} max={100} value={form.commentPerDay} onChange={(event) => setForm((current) => ({ ...current, commentPerDay: Number(event.target.value) || 0 }))} className="app-input h-12" placeholder="回复/天" />
             <input type="number" min={60} max={86400} value={form.commentIntervalSec} onChange={(event) => setForm((current) => ({ ...current, commentIntervalSec: Number(event.target.value) || 60 }))} className="app-input h-12" placeholder="回复间隔秒" />
           </div>
@@ -395,9 +379,6 @@ export function TopicTasksManager({
                               repostIntervalSec: task.repostIntervalSec,
                               commentPerDay: task.commentPerDay,
                               commentIntervalSec: task.commentIntervalSec,
-                              postEnabled: task.postEnabled,
-                              minPostsPerDay: task.minPostsPerDay,
-                              maxPostsPerDay: task.maxPostsPerDay,
                               startTime: task.startTime || "01:00",
                               endTime: task.endTime || "18:00",
                               status: task.status,
