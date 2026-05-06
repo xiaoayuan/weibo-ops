@@ -83,12 +83,13 @@ async function runAutoGenerate(now: Date) {
       continue;
     }
 
-    const triggerMinutes = startMinutes + (stableHash(`${user.id}:${dateText}`) % (endMinutes - startMinutes + 1));
+    const triggerMinutes = parseHmToMinutes(user.autoGenerateTime) ?? startMinutes;
 
     if (nowMinutes < triggerMinutes) {
       continue;
     }
 
+    // 只在触发分钟的第一个周期执行（30秒内）
     const lockKey = `auto-generate:${user.id}:${dateText}`;
     const lockExists = await prisma.systemSetting.findUnique({ where: { key: lockKey }, select: { id: true } });
 
@@ -197,21 +198,24 @@ async function runAutoExecute(now: Date) {
 
     console.log("[scheduler] runAutoExecute found", candidates.length, "candidates for user", user.id);
 
-    const queueablePlans = candidates.filter((item) => !inFlightPlanIds.has(item.id)).slice(0, 3);
+    const queueablePlans = candidates.filter((item) => !inFlightPlanIds.has(item.id));
+    // 每账号最多取 1 条，避免同一账号的任务堆积排队
+    const seenAccounts = new Set<string>();
+    const cappedPlans = queueablePlans.filter((p) => {
+      if (seenAccounts.has(p.accountId)) return false;
+      seenAccounts.add(p.accountId);
+      return true;
+    });
 
-    if (queueablePlans.length === 0) {
+    if (cappedPlans.length === 0) {
       continue;
     }
 
-    const ids = queueablePlans.map((item) => item.id);
+    const ids = cappedPlans.map((item) => item.id);
     await prisma.dailyPlan.updateMany({
       where: {
-        id: {
-          in: ids,
-        },
-        status: {
-          in: ["PENDING", "READY"],
-        },
+        id: { in: ids },
+        status: { in: ["PENDING", "READY"] },
       },
       data: {
         status: "PENDING",
@@ -219,7 +223,7 @@ async function runAutoExecute(now: Date) {
       },
     });
 
-    for (const plan of queueablePlans) {
+    for (const plan of cappedPlans) {
       inFlightPlanIds.add(plan.id);
       void scheduleTask({
         kind: "PLAN",
@@ -313,7 +317,7 @@ async function runAutoExecute(now: Date) {
         windowEnd: user.autoExecuteEndTime,
       },
       responsePayload: {
-        queuedCount: queueablePlans.length,
+        queuedCount: cappedPlans.length,
       },
       success: true,
     });
@@ -323,7 +327,7 @@ async function runAutoExecute(now: Date) {
 async function cleanupStuckPlans() {
   const now = Date.now();
   const runningTimeout = 20 * 60 * 1000;
-  const pendingTimeout = 60 * 60 * 1000; // PENDING 超过 1 小时视为卡死
+  const pendingTimeout = 4 * 60 * 60 * 1000; // PENDING 超过 4 小时视为卡死
 
   const [runningResult, pendingResult] = await Promise.all([
     prisma.dailyPlan.updateMany({

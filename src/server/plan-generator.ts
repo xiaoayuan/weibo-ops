@@ -277,49 +277,16 @@ export async function generateDailyPlansWithSummary(
           accountId: task.accountId,
           planDate,
           planType: "REPOST",
-          targetUrl: topicUrl,
-          contentId: pickRandomId(contentIds),
           scheduledTime,
           status: "PENDING",
-        });
-      }
-    }
-
-    const postTarget = task.postEnabled
-      ? randomInt(task.minPostsPerDay || 0, Math.max(task.minPostsPerDay || 0, task.maxPostsPerDay || 0))
-      : 0;
-    const postCountToCheck = existingPlans.filter((plan) => plan.planType === "POST").length;
-    const missingPost = Math.max(0, postTarget - postCountToCheck);
-
-    if (missingPost > 0 && contentIds.length > 0) {
-      const times = randomTimesWithInterval(planDate, startTime, endTime, missingPost, task.repostIntervalSec || 1800);
-
-      for (const scheduledTime of times) {
-        createPayload.push({
-          taskId: task.id,
-          accountId: task.accountId,
-          planDate,
-          planType: "POST",
           contentId: pickRandomId(contentIds),
-          scheduledTime,
-          status: "PENDING",
         });
       }
     }
 
     if (createPayload.length > 0) {
-      await prisma.dailyPlan.createMany({
-        data: createPayload,
-      });
+      await prisma.dailyPlan.createMany({ data: createPayload });
       createdCount += createPayload.length;
-
-      await writeExecutionLog({
-        accountId: task.accountId,
-        actionType: "PLAN_GENERATED",
-        requestPayload: { taskId: task.id, date: dateText },
-        responsePayload: { count: createPayload.length },
-        success: true,
-      });
     }
   }
 
