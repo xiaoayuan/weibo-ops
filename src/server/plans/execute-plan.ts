@@ -75,17 +75,19 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
   if (!plan) {
     return {
-      ok: false as const,
-      status: 404,
-      message: "计划不存在",
+      ok: true as const,
+      success: false as const,
+      message: "计划不存在或已被删除",
+      data: null,
     };
   }
 
   if (ownerUserId && plan.account.ownerUserId !== ownerUserId) {
     return {
-      ok: false as const,
-      status: 404,
-      message: "计划不存在",
+      ok: true as const,
+      success: false as const,
+      message: "计划不存在或已被删除",
+      data: null,
     };
   }
 
@@ -171,6 +173,13 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       },
     });
     await sleep(scheduleDecision.delayMs);
+    // 限速等待结束后，刷新状态让用户知道正在执行
+    await prisma.dailyPlan.update({
+      where: { id },
+      data: {
+        resultMessage: "执行中，正在获取候选帖子...",
+      },
+    });
   }
 
   const timing = await waitForAccountExecutionWindow(plan.account.id, `plan:${plan.id}`, {
@@ -373,6 +382,12 @@ export async function executePlanById(id: string, ownerUserId?: string) {
         postsSearched = count;
         console.log(`[首评] 已获取 ${count}/${total} 篇候选帖子，继续扩大搜索范围`);
       },
+    });
+
+    // 帖子获取完毕，开始遍历检查
+    await prisma.dailyPlan.update({
+      where: { id },
+      data: { resultMessage: `执行中，已获取 ${allCandidates.length} 篇候选，正在逐个检查 0 回复...` },
     });
 
     // 优先检查最新帖子（排序靠前的），然后再看扩展区

@@ -235,10 +235,13 @@ async function runAutoExecute(now: Date) {
           || message.includes("ssl") || message.includes("SSL")
           || message.includes("TLS") || message.includes("socket disconnect")
           || message.includes("network socket");
+        // P2025: plan was deleted/cancelled while in the queue - not retryable
+        const isPlanNotFound = message.includes("P2025") || message.includes("Record to update not found") || message.includes("No record was found");
         const isNoTarget = message.includes("未命中") || message.includes("未找到");
 
         const friendlyMsg = isNetworkError ? "网络波动，稍后自动重试"
           : isNoTarget ? "暂未命中首评帖子，稍后自动重试"
+          : isPlanNotFound ? "计划已被删除或取消，不再重试"
           : message;
 
         const retryable = isNetworkError || isNoTarget;

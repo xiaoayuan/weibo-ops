@@ -76,6 +76,8 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       errorMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行`,
     });
     await sleep(scheduleDecision.delayMs);
+    // 限速等待结束后，刷新状态让用户知道正在执行
+    await prisma.dailyPlan.update({ where: { id }, data: { resultMessage: "执行中，正在获取候选帖子..." } });
   }
 
   const timing = await waitForAccountExecutionWindow(plan.account.id, `plan:${plan.id}`, {
@@ -128,6 +130,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
     const proxyConfig = await getProxyConfigForAccount(plan.accountId);
     const latestPosts = await fetchLatestPosts(topicUrl, cookie, 50, proxyConfig);
+    await prisma.dailyPlan.update({ where: { id }, data: { resultMessage: `执行中，已获取 ${latestPosts.length} 篇候选，正在逐个检查...` } });
     const _riskRules = await getRiskRules();
     const locks = await prisma.firstCommentPostLock.findMany({
       where: { planDate: plan.planDate, superTopicId: plan.task.superTopicId },

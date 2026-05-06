@@ -59,7 +59,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
         workerId: scheduled.workerId,
         userConcurrency: scheduled.userConcurrency,
         queueDepth: scheduled.queueDepth,
-      }, { status: result.status });
+      }, { status: (result as { status?: number }).status ?? 404 });
     }
 
     return Response.json({
