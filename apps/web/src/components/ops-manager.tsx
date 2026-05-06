@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { AppNotice } from "@/components/app-notice";
 import { EmptyState } from "@/components/empty-state";
 import { HotCommentsExtractor } from "@/components/hot-comments-extractor";
-import { InteractionTargetParser } from "@/components/interaction-target-parser";
 import { PageHeader } from "@/components/page-header";
 import { RepostRotationForm } from "@/components/repost-rotation-form";
 import { SectionHeader } from "@/components/section-header";
@@ -508,23 +507,8 @@ export function OpsManager({
               </div>
             </div>
 
-            <div className="mt-5 app-subpanel space-y-3">
-              <h2 className="text-lg font-semibold tracking-[-0.03em] text-app-text-strong">提取热门评论</h2>
-              <div className="grid gap-4 lg:grid-cols-4">
-                <input value={hotCommentTargetUrl} onChange={(event) => setHotCommentTargetUrl(event.target.value)} className="app-input lg:col-span-2" placeholder="目标微博链接" />
-                <input type="number" min={1} max={50} value={hotCommentLimit} onChange={(event) => setHotCommentLimit(Number(event.target.value) || 1)} className="app-input" placeholder="数量" />
-                <input value={hotCommentKeywords} onChange={(event) => setHotCommentKeywords(event.target.value)} className="app-input" placeholder="关键词，逗号分隔" />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={() => void fetchHotComments()} disabled={hotCommentLoading} className="app-button app-button-secondary">
-                  {hotCommentLoading ? "提取中..." : "提取热门评论"}
-                </button>
-                {hotCommentPreview.length > 0 ? (
-                  <button type="button" onClick={() => void importSelectedHotComments()} disabled={submitting} className="app-button app-button-primary">
-                    导入已选评论
-                  </button>
-                ) : null}
-              </div>
+            <div className="mt-5">
+              <HotCommentsExtractor onImported={handlePoolChanged} />
             </div>
 
             <SurfaceCard className="mt-5 rounded-[20px] p-5">
@@ -613,11 +597,6 @@ export function OpsManager({
                 </div>
               )}
             </SurfaceCard>
-
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <HotCommentsExtractor onImported={handlePoolChanged} />
-              <InteractionTargetParser onImported={handlePoolChanged} />
-            </div>
           </div>
         ) : (
           <div className="mt-5 space-y-5">
