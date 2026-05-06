@@ -1,6 +1,6 @@
 import { formatBusinessHm, getBusinessDateText, toBusinessDate } from "@/lib/business-date";
 import { prisma } from "@/lib/prisma";
-import { getActionJobNodeRole } from "@/server/action-job-nodes";
+import { getActionJobNodeRole, writeNodeHeartbeat } from "@/server/action-job-nodes";
 import { writeExecutionLog } from "@/server/logs";
 import { generateDailyPlansWithSummary } from "@/server/plan-generator";
 import { executePlanById } from "@/server/plans/execute-plan";
@@ -370,6 +370,7 @@ function scheduleNext() {
     console.log("[scheduler] tick at", now.toISOString());
 
     try {
+      await writeNodeHeartbeat();
       await cleanupStuckPlans();
       await runAutoGenerate(now);
       await runAutoExecute(now);

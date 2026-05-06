@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { runCommentLikeJob, runRepostRotationJob } from "@/server/action-jobs/runner";
-import { getActionJobNodeRole, getCurrentNodeId } from "@/server/action-job-nodes";
+import { getActionJobNodeRole, getCurrentNodeId, writeNodeHeartbeat } from "@/server/action-job-nodes";
 
 declare global {
   var __actionJobDispatcherStarted: boolean | undefined;
@@ -87,6 +87,7 @@ async function dispatchOnce() {
   }
 
   const nodeId = getCurrentNodeId();
+  void writeNodeHeartbeat().catch(() => {});
   const claimed = await claimNextActionJob(nodeId);
 
   if (!claimed) {

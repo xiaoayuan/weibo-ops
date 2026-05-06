@@ -133,7 +133,8 @@ export async function POST(request: Request) {
     });
 
     return Response.json({ success: true, data: finalJob, workerId: targetNodeId });
-  } catch {
-    return Response.json({ success: false, message: "创建控评点赞任务失败" }, { status: 500 });
+  } catch (err) {
+    console.error("[comment-like] 创建失败", err instanceof Error ? err.message : err);
+    return Response.json({ success: false, message: "创建控评点赞任务失败", detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

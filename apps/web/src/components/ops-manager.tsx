@@ -322,7 +322,7 @@ export function OpsManager({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "创建控评任务失败");
+        throw new Error(result.detail || result.message || "创建控评任务失败");
       }
 
       setJobs((current) => [result.data, ...current]);
@@ -370,7 +370,7 @@ export function OpsManager({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "创建轮转任务失败");
+        throw new Error(result.detail || result.message || "创建轮转任务失败");
       }
 
       setJobs((current) => [result.data, ...current]);
