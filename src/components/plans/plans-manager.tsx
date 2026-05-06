@@ -38,7 +38,7 @@ type PlanBatch = {
 
 const statusText: Record<PlanStatus, string> = {
   PENDING: "待执行",
-  READY: "待确认",
+  READY: "已入队",
   RUNNING: "执行中",
   SUCCESS: "成功",
   FAILED: "失败",
