@@ -9,6 +9,11 @@ export async function GET() {
   }
 
   const rawTasks = await prisma.interactionTask.findMany({
+    where: {
+      account: {
+        ownerUserId: auth.session.id,
+      },
+    },
     include: {
       account: {
         select: {
@@ -25,11 +30,7 @@ export async function GET() {
 
   const tasks = rawTasks.map((task) => ({
     ...task,
-    isOwned: task.account.ownerUserId === auth.session.id,
-    account: {
-      id: task.account.id,
-      nickname: task.account.ownerUserId === auth.session.id ? task.account.nickname : "其他用户账号",
-    },
+    isOwned: true,
   }));
 
   return Response.json({ success: true, data: tasks });
