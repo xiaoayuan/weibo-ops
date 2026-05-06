@@ -98,7 +98,7 @@ async function getAliveNodeIds(): Promise<Set<string>> {
 export async function assignActionJobNode(preferredNodeId?: string | null) {
   const nodes = getActionJobNodeOptions();
 
-  if (preferredNodeId) {
+  if (preferredNodeId && preferredNodeId !== "AUTO") {
     const matched = nodes.find((item) => item.id === preferredNodeId);
     if (!matched) {
       throw new Error("指定的执行节点不存在");
