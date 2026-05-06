@@ -2,9 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { ActionJobsManager } from "@/components/action-jobs-manager";
 import { AppNotice } from "@/components/app-notice";
-import { CommentControlBatchForm } from "@/components/comment-control-batch-form";
 import { EmptyState } from "@/components/empty-state";
 import { HotCommentsExtractor } from "@/components/hot-comments-extractor";
 import { InteractionTargetParser } from "@/components/interaction-target-parser";
@@ -64,7 +62,7 @@ export function OpsManager({
   initialPoolItems: CommentPoolItem[];
   initialJobs: ActionJob[];
 }) {
-  const [activeTab, setActiveTab] = useState<"POOL" | "HOT" | "TARGET" | "ROTATION">("POOL");
+  const [activeTab, setActiveTab] = useState<"POOL" | "ROTATION">("POOL");
   const [poolItems, setPoolItems] = useState(initialPoolItems);
   const [jobs, setJobs] = useState(initialJobs);
   const [selectedPoolIds, setSelectedPoolIds] = useState<string[]>([]);
@@ -483,9 +481,7 @@ export function OpsManager({
 
       <SurfaceCard>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setActiveTab("POOL")} className={`app-button ${activeTab === "POOL" ? "app-button-primary" : "app-button-secondary"}`}>评论池</button>
-          <button type="button" onClick={() => setActiveTab("HOT")} className={`app-button ${activeTab === "HOT" ? "app-button-primary" : "app-button-secondary"}`}>热评提取</button>
-          <button type="button" onClick={() => setActiveTab("TARGET")} className={`app-button ${activeTab === "TARGET" ? "app-button-primary" : "app-button-secondary"}`}>互动目标</button>
+          <button type="button" onClick={() => setActiveTab("POOL")} className={`app-button ${activeTab === "POOL" ? "app-button-primary" : "app-button-secondary"}`}>控评池</button>
           <button type="button" onClick={() => setActiveTab("ROTATION")} className={`app-button ${activeTab === "ROTATION" ? "app-button-primary" : "app-button-secondary"}`}>轮转转发</button>
         </div>
 
@@ -617,14 +613,11 @@ export function OpsManager({
                 </div>
               )}
             </SurfaceCard>
-          </div>
-        ) : activeTab === "HOT" ? (
-          <div className="mt-5">
-            <HotCommentsExtractor onImported={handlePoolChanged} />
-          </div>
-        ) : activeTab === "TARGET" ? (
-          <div className="mt-5">
-            <InteractionTargetParser onImported={handlePoolChanged} />
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <HotCommentsExtractor onImported={handlePoolChanged} />
+              <InteractionTargetParser onImported={handlePoolChanged} />
+            </div>
           </div>
         ) : (
           <div className="mt-5 space-y-5">
@@ -761,24 +754,6 @@ export function OpsManager({
           </TableShell>
         )}
       </SurfaceCard>
-
-      <SectionHeader title="专业模式" description="独立封装的增强组件，支持更精细的配置。" />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SurfaceCard>
-          <SectionHeader title="控评批次（专业版）" description="选择账号和评论池链接，创建控评点赞批次，可配置 AI 风险评估。" />
-          <div className="mt-4">
-            <CommentControlBatchForm initialAccounts={accounts} />
-          </div>
-        </SurfaceCard>
-        <SurfaceCard>
-          <SectionHeader title="轮转转发（专业版）" description="选择账号和目标微博，配置转发次数和间隔，创建轮转转发批次。" />
-          <div className="mt-4">
-            <RepostRotationForm initialAccounts={accounts} />
-          </div>
-        </SurfaceCard>
-      </div>
-
-      <ActionJobsManager initialJobs={jobs} />
     </div>
   );
 }
