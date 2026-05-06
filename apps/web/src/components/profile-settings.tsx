@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
+import { AvatarUploader } from "@/components/avatar-uploader";
 import type { ProfileSettingsData } from "@/lib/app-data";
 import { readJsonResponse } from "@/lib/http";
 
@@ -35,6 +36,7 @@ function getProxyStatusText(settings: {
 
 export function ProfileSettings({ initial }: { initial: ProfileSettingsData }) {
   const [username, setUsername] = useState(initial.username);
+  const [avatarBase64, setAvatarBase64] = useState<string | null>(initial.avatarBase64 ?? null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [proxyEnabled, setProxyEnabled] = useState(initial.proxyEnabled);
@@ -72,6 +74,7 @@ export function ProfileSettings({ initial }: { initial: ProfileSettingsData }) {
     const numericProxyPort = proxyPort.trim() === "" ? undefined : Number(proxyPort);
     const hasUsernameChange = trimmedUsername !== initial.username;
     const hasPasswordChange = newPassword !== "";
+    const hasAvatarChange = avatarBase64 !== (initial.avatarBase64 ?? null);
     const hasSettingsChange =
       proxyEnabled !== initial.proxyEnabled ||
       proxyProtocol !== initial.proxyProtocol ||
@@ -87,7 +90,7 @@ export function ProfileSettings({ initial }: { initial: ProfileSettingsData }) {
       autoExecuteStartTime !== (initial.autoExecuteStartTime ?? "01:00") ||
       autoExecuteEndTime !== (initial.autoExecuteEndTime ?? "18:00");
 
-    if (!hasUsernameChange && !hasPasswordChange && !hasSettingsChange) {
+    if (!hasUsernameChange && !hasPasswordChange && !hasAvatarChange && !hasSettingsChange) {
       setError("请至少修改一个设置项");
       setMessage(null);
       return;
@@ -122,6 +125,7 @@ export function ProfileSettings({ initial }: { initial: ProfileSettingsData }) {
         body: JSON.stringify({
           username: hasUsernameChange ? trimmedUsername : undefined,
           password: hasPasswordChange ? newPassword : undefined,
+          avatarBase64: hasAvatarChange ? avatarBase64 : undefined,
           proxyEnabled,
           proxyProtocol,
           proxyHost: trimmedProxyHost,
@@ -206,6 +210,12 @@ export function ProfileSettings({ initial }: { initial: ProfileSettingsData }) {
           <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="app-input h-12" placeholder="再次输入新密码" />
         </label>
       </div>
+
+      <AvatarUploader
+        username={username}
+        currentBase64={avatarBase64}
+        onChange={setAvatarBase64}
+      />
 
       <div className="rounded-[18px] border border-app-line bg-app-panel-muted p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

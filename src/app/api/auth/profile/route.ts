@@ -15,6 +15,7 @@ function toProfilePayload(user: {
   id: string;
   username: string;
   role: string;
+  avatarBase64: string | null;
   proxyEnabled: boolean | null;
   proxyProtocol: "HTTP" | "HTTPS" | "SOCKS5" | null;
   proxyHost: string | null;
@@ -33,6 +34,7 @@ function toProfilePayload(user: {
     id: user.id,
     username: user.username,
     role: user.role,
+    avatarBase64: user.avatarBase64,
     ...sanitizeProxySettings({
       proxyEnabled: user.proxyEnabled ?? undefined,
       proxyProtocol: user.proxyProtocol ?? undefined,
@@ -64,6 +66,7 @@ export async function GET() {
       id: true,
       username: true,
       role: true,
+      avatarBase64: true,
       proxyEnabled: true,
       proxyProtocol: true,
       proxyHost: true,
@@ -121,6 +124,7 @@ export async function PATCH(request: Request) {
       data: {
         username: nextUsername || undefined,
         passwordHash: nextPassword && nextPassword !== "" ? await hashPassword(nextPassword) : undefined,
+        avatarBase64: parsed.data.avatarBase64 !== undefined ? parsed.data.avatarBase64 : undefined,
         proxyEnabled: parsed.data.proxyEnabled,
         proxyProtocol: parsed.data.proxyProtocol,
         proxyHost,
@@ -144,6 +148,7 @@ export async function PATCH(request: Request) {
         id: true,
         username: true,
         role: true,
+        avatarBase64: true,
         proxyEnabled: true,
         proxyProtocol: true,
         proxyHost: true,

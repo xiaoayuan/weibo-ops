@@ -52,6 +52,7 @@ export const updateProfileSchema = z
   .object({
     username: z.string().min(3, "用户名至少 3 位").max(50, "用户名过长").optional(),
     password: z.string().min(6, "密码至少 6 位").max(100, "密码过长").optional().or(z.literal("")),
+    avatarBase64: z.string().max(300_000, "头像文件过大").nullable().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyProtocol: proxyProtocolSchema.optional(),
     proxyHost: z.string().max(255, "代理主机过长").optional().or(z.literal("")),
@@ -67,7 +68,7 @@ export const updateProfileSchema = z
     autoExecuteEndTime: hhmmSchema.optional(),
   })
   .superRefine((data, ctx) => {
-    const hasProfileChange = (data.username && data.username.trim() !== "") || (data.password && data.password !== "");
+    const hasProfileChange = (data.username && data.username.trim() !== "") || (data.password && data.password !== "") || data.avatarBase64 !== undefined;
     const hasProxyChange =
       data.proxyEnabled !== undefined ||
       data.proxyProtocol !== undefined ||

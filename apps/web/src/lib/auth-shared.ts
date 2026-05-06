@@ -4,6 +4,7 @@ export type SessionUser = {
   id: string;
   username: string;
   role: AppRole;
+  avatarBase64: string | null;
 };
 
 const roleWeight: Record<AppRole, number> = {

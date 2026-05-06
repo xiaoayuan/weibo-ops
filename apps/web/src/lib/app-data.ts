@@ -339,6 +339,7 @@ export type ProfileSettingsData = {
   id: string;
   username: string;
   role: "ADMIN" | "OPERATOR" | "VIEWER";
+  avatarBase64: string | null;
   proxyEnabled: boolean;
   proxyProtocol: "HTTP" | "HTTPS" | "SOCKS5";
   proxyHost: string;

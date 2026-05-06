@@ -32,6 +32,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { WebSocketIndicator } from "@/components/websocket-indicator";
+import { UserAvatar } from "@/components/user-avatar";
 import { ConfirmProvider } from "@/lib/confirm-context";
 import { getRoleText, hasRequiredRole, type SessionUser } from "@/lib/auth-shared";
 import { navItems } from "@/lib/nav";
@@ -52,10 +53,6 @@ const iconMap = {
   tags: Tags,
   users: Users,
 };
-
-function getInitials(username: string) {
-  return username.slice(0, 2).toUpperCase();
-}
 
 export function DashboardFrame({ children, session }: { children: React.ReactNode; session: SessionUser }) {
   const pathname = usePathname();
@@ -138,9 +135,7 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
               <div className="flex items-center gap-3">
                 <ThemeToggle />
                 <div className="hidden items-center gap-3 rounded-[16px] border border-app-line bg-app-panel-muted px-3 py-2 md:flex">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[12px] text-sm font-bold text-white" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
-                    {getInitials(session.username)}
-                  </div>
+                  <UserAvatar base64={session.avatarBase64} username={session.username} size={40} />
                   <div>
                     <p className="text-sm font-medium text-app-text-strong">{session.username}</p>
                     <p className="text-[11px] uppercase tracking-[0.16em] text-app-accent">{getRoleText(session.role)}</p>
@@ -209,9 +204,7 @@ export function DashboardFrame({ children, session }: { children: React.ReactNod
 
             <div className="space-y-4 border-t border-app-line px-5 py-5">
               <div className="flex items-center gap-3 rounded-[18px] border border-app-line bg-app-panel-muted px-4 py-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] text-sm font-bold text-white" style={{background: 'linear-gradient(135deg, #ff7b6d 0%, #ff6355 100%)'}}>
-                  {getInitials(session.username)}
-                </div>
+                <UserAvatar base64={session.avatarBase64} username={session.username} size={40} />
                 <div>
                   <p className="text-sm font-medium text-app-text-strong">{session.username}</p>
                   <p className="text-[11px] uppercase tracking-[0.16em] text-app-accent">{getRoleText(session.role)}</p>
