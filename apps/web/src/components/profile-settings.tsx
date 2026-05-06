@@ -48,8 +48,8 @@ export function ProfileSettings({ initial }: { initial: ProfileSettingsData }) {
   const [proxyPasswordConfigured, setProxyPasswordConfigured] = useState(initial.proxyPasswordConfigured);
   const [taskConcurrency, setTaskConcurrency] = useState(String(initial.taskConcurrency ?? 1));
   const [autoGenerateEnabled, setAutoGenerateEnabled] = useState(initial.autoGenerateEnabled ?? false);
-  const [autoGenerateWindowStart, setAutoGenerateWindowStart] = useState(initial.autoGenerateWindowStart ?? "00:30");
-  const [autoGenerateWindowEnd, setAutoGenerateWindowEnd] = useState(initial.autoGenerateWindowEnd ?? "03:00");
+  const [autoGenerateWindowStart, setAutoGenerateWindowStart] = useState(initial.autoGenerateWindowStart ?? "00:00");
+  const [autoGenerateWindowEnd, setAutoGenerateWindowEnd] = useState(initial.autoGenerateWindowEnd ?? "01:00");
   const [autoExecuteEnabled, setAutoExecuteEnabled] = useState(initial.autoExecuteEnabled ?? false);
   const [autoExecuteStartTime, setAutoExecuteStartTime] = useState(initial.autoExecuteStartTime ?? "01:00");
   const [autoExecuteEndTime, setAutoExecuteEndTime] = useState(initial.autoExecuteEndTime ?? "18:00");
@@ -84,8 +84,8 @@ export function ProfileSettings({ initial }: { initial: ProfileSettingsData }) {
       proxyPassword !== "" ||
       Number(taskConcurrency) !== (initial.taskConcurrency ?? 1) ||
       autoGenerateEnabled !== (initial.autoGenerateEnabled ?? false) ||
-      autoGenerateWindowStart !== (initial.autoGenerateWindowStart ?? "00:30") ||
-      autoGenerateWindowEnd !== (initial.autoGenerateWindowEnd ?? "03:00") ||
+      autoGenerateWindowStart !== (initial.autoGenerateWindowStart ?? "00:00") ||
+      autoGenerateWindowEnd !== (initial.autoGenerateWindowEnd ?? "01:00") ||
       autoExecuteEnabled !== (initial.autoExecuteEnabled ?? false) ||
       autoExecuteStartTime !== (initial.autoExecuteStartTime ?? "01:00") ||
       autoExecuteEndTime !== (initial.autoExecuteEndTime ?? "18:00");
