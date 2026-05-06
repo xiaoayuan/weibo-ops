@@ -300,6 +300,15 @@ export function OpsManager({
       setError(null);
       setNotice(null);
 
+      if (selectedPoolIds.length === 0) {
+        setError("请先选择至少一条评论链接");
+        return;
+      }
+      if (selectedPoolAccountIds.length === 0) {
+        setError("请先选择至少一个执行账号");
+        return;
+      }
+
       const response = await fetch("/api/action-jobs/comment-like", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -330,6 +339,15 @@ export function OpsManager({
       setSubmitting(true);
       setError(null);
       setNotice(null);
+
+      if (selectedRotationAccountIds.length === 0) {
+        setError("请先选择至少一个执行账号");
+        return;
+      }
+      if (!rotationTargetUrl.trim()) {
+        setError("请输入目标微博链接");
+        return;
+      }
 
       const copywritingTexts = rotationCopyTexts
         .split("\n")
