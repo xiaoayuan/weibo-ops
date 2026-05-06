@@ -5,9 +5,11 @@ import { requireSession } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 export default async function OpsPage() {
-  await requireSession();
+  const session = await requireSession();
 
-  const [accounts, poolItems, jobs] = await Promise.all([getAccounts(), getCommentPoolItems(), getActionJobs()]);
+  const [allAccounts, poolItems, jobs] = await Promise.all([getAccounts(), getCommentPoolItems(), getActionJobs()]);
+
+  const accounts = allAccounts.filter((a) => a.ownerUserId === session.id);
 
   return <OpsManager accounts={accounts} initialPoolItems={poolItems} initialJobs={jobs} />;
 }

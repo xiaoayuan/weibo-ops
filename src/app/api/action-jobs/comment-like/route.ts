@@ -40,7 +40,7 @@ export async function POST(request: Request) {
         id: {
           in: parsed.data.accountIds,
         },
-        ...(auth.session.role !== "ADMIN" ? { ownerUserId: auth.session.id } : {}),
+        ownerUserId: auth.session.id,
       },
       select: {
         id: true,
