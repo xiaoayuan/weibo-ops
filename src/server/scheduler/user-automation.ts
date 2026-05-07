@@ -253,7 +253,7 @@ async function runAutoExecute(now: Date) {
 
         if (retryable) {
           const planBeforeRetry = await prisma.dailyPlan.findUnique({ where: { id: plan.id }, select: { resultMessage: true, scheduledTime: true, planDate: true } });
-          const isToday = planBeforeRetry?.planDate && new Date(planBeforeRetry.planDate).toDateString() === new Date().toDateString();
+          const isToday = planBeforeRetry?.planDate && getBusinessDateText(new Date(planBeforeRetry.planDate)) === getBusinessDateText();
 
           if (!isToday) {
             await prisma.dailyPlan.update({
