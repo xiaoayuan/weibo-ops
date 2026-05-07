@@ -239,7 +239,8 @@ async function runAutoExecute(now: Date) {
           || message.includes("ETIMEDOUT") || message.includes("EPIPE")
           || message.includes("ssl") || message.includes("SSL")
           || message.includes("TLS") || message.includes("socket disconnect")
-          || message.includes("network socket");
+          || message.includes("network socket")
+          || message.includes("aborted") || message.includes("ABORT_ERR");
         // P2025: plan was deleted/cancelled while in the queue - not retryable
         const isPlanNotFound = message.includes("P2025") || message.includes("Record to update not found") || message.includes("No record was found");
         const isNoTarget = message.includes("未命中") || message.includes("未找到");
