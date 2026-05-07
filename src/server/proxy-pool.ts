@@ -91,19 +91,25 @@ export async function deleteProxyNode(ownerUserId: string, id: string) {
 }
 
 export async function getAutoAssignableProxyNode(ownerUserId: string, excludedNodeIds: string[] = []) {
-  const nodes = await prisma.proxyNode.findMany({
-    where: {
-      ownerUserId,
-      enabled: true,
-      ...(excludedNodeIds.length > 0 ? { id: { notIn: excludedNodeIds } } : {}),
-    },
-    include: {
-      _count: {
-        select: { accounts: true },
-      },
-    },
+  const whereBase = {
+    enabled: true,
+    ...(excludedNodeIds.length > 0 ? { id: { notIn: excludedNodeIds } } : {}),
+  };
+
+  let nodes = await prisma.proxyNode.findMany({
+    where: { ...whereBase, ownerUserId },
+    include: { _count: { select: { accounts: true } } },
     orderBy: [{ createdAt: "asc" }],
   });
+
+  // 如果本用户没代理，回退到全局代理池
+  if (nodes.length === 0) {
+    nodes = await prisma.proxyNode.findMany({
+      where: whereBase,
+      include: { _count: { select: { accounts: true } } },
+      orderBy: [{ createdAt: "asc" }],
+    });
+  }
 
   if (nodes.length === 0) {
     throw new Error("暂无可用代理，请先在系统设置中添加并启用代理节点");
