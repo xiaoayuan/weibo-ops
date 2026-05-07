@@ -74,12 +74,15 @@ async function performRequest(options: RequestOptions, redirectCount = 0): Promi
   const requestBytes = estimateRequestBytes(requestMethod, requestUrl, requestHeaders, options.body);
 
   return new Promise<HttpClientResult>((resolve, reject) => {
+    const timeoutMs = options.timeoutMs ?? 15_000;
+
     const request = requestFn(
       requestUrl,
         {
           method: requestMethod,
           headers: requestHeaders,
           agent,
+          signal: AbortSignal.timeout(timeoutMs),
         },
       (response) => {
         const status = response.statusCode ?? 0;
@@ -137,7 +140,7 @@ async function performRequest(options: RequestOptions, redirectCount = 0): Promi
     );
 
     request.on("error", reject);
-    request.setTimeout(options.timeoutMs ?? 15_000, () => {
+    request.setTimeout(timeoutMs, () => {
       request.destroy(new Error("请求超时"));
     });
 
