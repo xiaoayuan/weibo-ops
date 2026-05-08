@@ -8,6 +8,32 @@
 - 即使某次改动看起来只影响主服务器，也要明确说明 `worker` 是否需要同步 `git pull`。
 - 如果不确定，默认两台都执行 `git pull origin main`，避免代码版本漂移。
 
+### 推荐直接使用脚本
+
+主服务器：
+
+```bash
+bash /root/weibo-ops/scripts/update-controller.sh
+```
+
+需要重建镜像时：
+
+```bash
+bash /root/weibo-ops/scripts/update-controller.sh --build
+```
+
+第二台 worker 服务器：
+
+```bash
+bash /opt/weibo-ops/scripts/update-worker.sh
+```
+
+需要重建 worker 镜像时：
+
+```bash
+bash /opt/weibo-ops/scripts/update-worker.sh --build
+```
+
 ### 主服务器
 
 ```bash
@@ -33,6 +59,7 @@ docker compose -f docker-compose.worker.yml ps
 - worker 后续不要再使用 `/opt/weibo-ops/docker-compose.yml` 做日常更新或重启
 - worker 的唯一维护入口是 `/opt/weibo-ops/docker-compose.worker.yml`
 - 如果误执行了 `docker compose -f /opt/weibo-ops/docker-compose.yml up -d`，会把 `web` / `api` 重新启动
+- 推荐后续统一用仓库内脚本 `/opt/weibo-ops/scripts/update-worker.sh`
 
 ## 推荐答复格式
 
