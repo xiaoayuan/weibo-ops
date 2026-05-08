@@ -1,15 +1,15 @@
 import Redis from "ioredis";
 
 // Redis 配置
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
-const REDIS_ENABLED = process.env.REDIS_ENABLED !== "false";
+const REDIS_URL = process.env.REDIS_URL?.trim() || null;
+const REDIS_ENABLED = process.env.REDIS_ENABLED === "true" && Boolean(REDIS_URL);
 
 // 创建 Redis 客户端
 let redis: Redis | null = null;
 
 if (REDIS_ENABLED) {
   try {
-    redis = new Redis(REDIS_URL, {
+    redis = new Redis(REDIS_URL!, {
       maxRetriesPerRequest: 3,
       retryStrategy: (times) => {
         if (times > 3) {

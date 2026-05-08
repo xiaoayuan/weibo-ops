@@ -35,12 +35,84 @@ async function getCancelledPlan(id: string) {
   return plan;
 }
 
+async function getCurrentPlan(id: string) {
+  return prisma.dailyPlan.findUnique({
+    where: { id },
+    include: planInclude,
+  });
+}
+
+async function updateRunningPlan(id: string, data: { status?: "RUNNING"; resultMessage?: string }) {
+  const result = await prisma.dailyPlan.updateMany({
+    where: {
+      id,
+      status: "RUNNING",
+    },
+    data,
+  });
+
+  return result.count > 0;
+}
+
+async function claimPlanExecution(id: string) {
+  const result = await prisma.dailyPlan.updateMany({
+    where: {
+      id,
+      status: {
+        in: ["PENDING", "READY", "FAILED"],
+      },
+    },
+    data: {
+      status: "RUNNING",
+      resultMessage: "执行中，支持手动停止",
+    },
+  });
+
+  return result.count > 0;
+}
+
 function toCancelledResult(plan: Awaited<ReturnType<typeof getCancelledPlan>>, commentSuccess?: boolean) {
   return {
     ok: true as const,
     // 如果评论已经成功发送，即使计划随后被取消也应报告成功
     success: commentSuccess === true,
     message: plan?.resultMessage || "计划已停止",
+    data: plan,
+  };
+}
+
+function toCurrentPlanResult(plan: Awaited<ReturnType<typeof getCurrentPlan>>) {
+  if (!plan) {
+    return {
+      ok: true as const,
+      success: false as const,
+      message: "计划不存在或已被删除",
+      data: null,
+    };
+  }
+
+  if (plan.status === "SUCCESS") {
+    return {
+      ok: true as const,
+      success: true as const,
+      message: plan.resultMessage || "计划已执行成功",
+      data: plan,
+    };
+  }
+
+  if (plan.status === "RUNNING") {
+    return {
+      ok: true as const,
+      success: false as const,
+      message: plan.resultMessage || "计划已在执行中",
+      data: plan,
+    };
+  }
+
+  return {
+    ok: true as const,
+    success: false as const,
+    message: plan.resultMessage || "计划当前不可执行",
     data: plan,
   };
 }
@@ -151,13 +223,11 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     };
   }
 
-  await prisma.dailyPlan.update({
-    where: { id },
-    data: {
-      status: "RUNNING",
-      resultMessage: "执行中，支持手动停止",
-    },
-  });
+  const claimed = await claimPlanExecution(id);
+
+  if (!claimed) {
+    return toCurrentPlanResult(await getCurrentPlan(id));
+  }
 
   const scheduleDecision = await reserveRateLimitedExecution({
     ownerUserId: plan.account.ownerUserId || `account:${plan.accountId}`,
@@ -166,20 +236,30 @@ export async function executePlanById(id: string, ownerUserId?: string) {
   });
 
   if (scheduleDecision.delayMs > 0) {
-    await prisma.dailyPlan.update({
-      where: { id },
-      data: {
-        resultMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行`,
-      },
+    const markedDelayed = await updateRunningPlan(id, {
+      resultMessage: `调度限速生效，已延后 ${Math.ceil(scheduleDecision.delayMs / 1000)} 秒执行`,
     });
+
+    if (!markedDelayed) {
+      return toCurrentPlanResult(await getCurrentPlan(id));
+    }
+
     await sleep(scheduleDecision.delayMs);
+
+    const planAfterDelay = await getCurrentPlan(id);
+
+    if (!planAfterDelay || planAfterDelay.status !== "RUNNING") {
+      return toCurrentPlanResult(planAfterDelay);
+    }
+
     // 限速等待结束后，刷新状态让用户知道正在执行
-    await prisma.dailyPlan.update({
-      where: { id },
-      data: {
-        resultMessage: "执行中，正在获取候选帖子...",
-      },
+    const refreshedAfterDelay = await updateRunningPlan(id, {
+      resultMessage: "执行中，正在获取候选帖子...",
     });
+
+    if (!refreshedAfterDelay) {
+      return toCurrentPlanResult(await getCurrentPlan(id));
+    }
   }
 
   const timing = await waitForAccountExecutionWindow(plan.account.id, `plan:${plan.id}`, {
@@ -189,10 +269,14 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     baseJitterSec: plan.account.baseJitterSec,
   });
 
-  const cancelledAfterWait = await getCancelledPlan(id);
+  const planAfterWait = await getCurrentPlan(id);
 
-  if (cancelledAfterWait) {
-    return toCancelledResult(cancelledAfterWait);
+  if (!planAfterWait || planAfterWait.status !== "RUNNING") {
+    if (planAfterWait?.status === "CANCELLED") {
+      return toCancelledResult(planAfterWait);
+    }
+
+    return toCurrentPlanResult(planAfterWait);
   }
 
   if (plan.planType === "FIRST_COMMENT") {

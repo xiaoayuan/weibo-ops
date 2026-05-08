@@ -1,4 +1,4 @@
-import { generateDailyPlansWithSummary } from "@/server/plan-generator";
+import { generateDailyPlansWithSummary, PlanGenerationLockedError } from "@/server/plan-generator";
 import { generatePlansSchema } from "@/server/validators/plan";
 import { requireApiRole } from "@/lib/permissions";
 
@@ -31,7 +31,13 @@ export async function POST(request: Request) {
           ? `已为 ${parsed.data.date} 新增 ${result.createdCount} 条计划`
           : `${parsed.data.date} 已存在计划，本次未新增`,
     });
-  } catch {
-    return Response.json({ success: false, message: "生成计划失败" }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof PlanGenerationLockedError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : "生成计划失败";
+    const status = error instanceof PlanGenerationLockedError ? 409 : 500;
+    return Response.json({ success: false, message }, { status });
   }
 }

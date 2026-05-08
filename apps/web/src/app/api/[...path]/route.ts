@@ -14,7 +14,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 ]);
 
 const BODYLESS_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-const PROXIED_RESPONSE_HEADERS = new Set(["content-type", "set-cookie"]);
+const PROXIED_RESPONSE_HEADERS = new Set(["content-type", "location", "set-cookie"]);
 
 type RouteContext = {
   params: Promise<{ path?: string[] }>;

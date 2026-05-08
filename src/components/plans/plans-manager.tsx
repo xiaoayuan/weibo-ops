@@ -55,6 +55,10 @@ function getPlanTypeText(planType: DailyPlan["planType"]) {
   }
 
   if (planType === "POST") {
+    return "发帖";
+  }
+
+  if (planType === "REPOST") {
     return "转发";
   }
 

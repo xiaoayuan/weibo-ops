@@ -156,7 +156,7 @@ export default async function SettingsPage() {
   const dbStatus = Array.isArray(dbHealth) ? "已连接" : "检测异常";
   const recentFailures: Array<{ id: string; type: "计划" | "互动"; title: string; subtitle: string; detail: string; occurredAt: Date }> = [
     ...recentFailedPlans.map((plan: typeof recentFailedPlans[number]) => {
-      const planTypeText = plan.planType === "CHECK_IN" ? "签到" : plan.planType === "FIRST_COMMENT" ? "首评" : plan.planType === "POST" ? "转发" : plan.planType === "COMMENT" ? "回复" : "点赞";
+      const planTypeText = plan.planType === "CHECK_IN" ? "签到" : plan.planType === "FIRST_COMMENT" ? "首评" : plan.planType === "POST" ? "发帖" : plan.planType === "REPOST" ? "转发" : plan.planType === "COMMENT" ? "回复" : "点赞";
       const subtitle = plan.task?.superTopic ? plan.task.superTopic.name : "未绑定超话";
       const detail = plan.resultMessage || "无失败说明";
       return {
