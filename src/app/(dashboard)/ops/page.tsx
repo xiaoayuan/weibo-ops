@@ -1,12 +1,17 @@
 import { OpsManager } from "@/components/ops/ops-manager";
 import { requirePageRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { isBuildPhase } from "@/lib/runtime-env";
 import { getActionJobNodeOptions } from "@/server/action-job-nodes";
-import { getExecutionStrategy } from "@/server/strategy/config";
+import { defaultExecutionStrategy, getExecutionStrategy } from "@/server/strategy/config";
 
 export const dynamic = "force-dynamic";
 
 export default async function OpsPage() {
+  if (isBuildPhase()) {
+    return <OpsManager accounts={[]} currentUserRole="ADMIN" initialJobs={[]} initialPoolItems={[]} initialStrategy={defaultExecutionStrategy} nodeOptions={[]} />;
+  }
+
   const session = await requirePageRole("VIEWER");
 
   const [accounts, poolItems, rawJobs, executionStrategy, nodeOptions] = await Promise.all([

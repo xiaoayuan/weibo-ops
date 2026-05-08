@@ -4,6 +4,7 @@ import { ensureActionJobDispatcherStarted } from "@/server/action-jobs/dispatche
 import { ensureUserAutomationSchedulerStarted } from "@/server/scheduler/user-automation";
 import { ensureDailyCheckinSchedulerStarted } from "@/server/scheduler/daily-checkin";
 import { ensureFirstCommentSchedulerStarted } from "@/server/scheduler/first-comment";
+import { shouldRunRuntimeSideEffects } from "@/lib/runtime-env";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,11 +27,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 启动所有调度器和任务分发器（仅 controller 节点运行）
-  ensureUserAutomationSchedulerStarted();
-  ensureActionJobDispatcherStarted();
-  ensureDailyCheckinSchedulerStarted();
-  ensureFirstCommentSchedulerStarted();
+  if (shouldRunRuntimeSideEffects()) {
+    // 启动所有调度器和任务分发器（仅 controller 节点运行）
+    ensureUserAutomationSchedulerStarted();
+    ensureActionJobDispatcherStarted();
+    ensureDailyCheckinSchedulerStarted();
+    ensureFirstCommentSchedulerStarted();
+  }
 
   return (
     <html
