@@ -11,9 +11,10 @@
 ### 主服务器
 
 ```bash
-cd /opt/weibo-ops
+cd /root/weibo-ops
 git pull origin main
-docker compose up -d
+docker compose build app api web
+docker compose up -d app api web
 ```
 
 ### 第二台 worker 服务器
@@ -21,8 +22,17 @@ docker compose up -d
 ```bash
 cd /opt/weibo-ops
 git pull origin main
-docker compose up -d
+docker compose -f docker-compose.worker.yml up -d --no-build app
+docker compose -f docker-compose.worker.yml ps
 ```
+
+重要说明：
+
+- worker 服务器现在是纯执行节点，只保留 `app`
+- worker 不再运行 `web` / `api`
+- worker 后续不要再使用 `/opt/weibo-ops/docker-compose.yml` 做日常更新或重启
+- worker 的唯一维护入口是 `/opt/weibo-ops/docker-compose.worker.yml`
+- 如果误执行了 `docker compose -f /opt/weibo-ops/docker-compose.yml up -d`，会把 `web` / `api` 重新启动
 
 ## 推荐答复格式
 
@@ -55,6 +65,21 @@ ACTION_JOB_NODES="main-1:主服务器,worker-1:第二执行节点"
 NODE_ROLE="worker"
 NODE_ID="worker-1"
 ACTION_JOB_NODES="main-1:主服务器,worker-1:第二执行节点"
+```
+
+### worker 专用 compose 约定
+
+- 文件路径：`/opt/weibo-ops/docker-compose.worker.yml`
+- 服务名：`app`
+- 容器名：`weibo-ops-worker`
+- 查看 worker 状态时优先用：
+
+```bash
+cd /opt/weibo-ops
+docker compose -f docker-compose.worker.yml ps
+docker compose -f docker-compose.worker.yml logs app --since=5m
+docker exec weibo-ops-worker printenv NODE_ROLE
+docker exec weibo-ops-worker printenv NODE_ID
 ```
 
 ## 必须保持一致的密钥

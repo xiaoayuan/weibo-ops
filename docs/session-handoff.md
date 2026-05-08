@@ -25,6 +25,19 @@
 - 共享主服务器数据库
 - 负责分布式执行 `action-job`
 - 目前主要用于控评和轮转执行
+- 只保留执行容器，不再部署 `web` / `api`
+- 维护入口必须使用 `/opt/weibo-ops/docker-compose.worker.yml`
+- 不要在 worker 机器上再执行 `/opt/weibo-ops/docker-compose.yml up -d`，否则会把 `web` / `api` 重新拉起来
+
+### 当前节点维护约定
+
+- 主服务器项目目录：`/root/weibo-ops`
+- 主服务器使用：`/root/weibo-ops/docker-compose.yml`
+- 主服务器承担：`app + api + web + db`
+- worker 项目目录：`/opt/weibo-ops`
+- worker 使用：`/opt/weibo-ops/docker-compose.worker.yml`
+- worker 当前容器名：`weibo-ops-worker`
+- worker 只跑 `app`，`NODE_ROLE=worker`，`NODE_ID=worker-1`
 
 ### 必须保持一致的密钥
 
