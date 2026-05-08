@@ -1,6 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import type { ScheduledTaskLane } from "@/server/task-scheduler/types";
 
+async function withDeadlockRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (i < maxRetries && (msg.includes("40P01") || msg.includes("deadlock"))) {
+        await new Promise((r) => setTimeout(r, 50 * (i + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("unreachable");
+}
+
 type PlanType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
 type ActionJobType = "COMMENT_LIKE_BATCH" | "REPOST_ROTATION";
 type InteractionActionType = "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
@@ -123,6 +139,7 @@ export async function reserveRateLimitedExecution(input: {
   taskType: ManagedTaskType;
   baseTier: TaskTier;
 }) {
+  return withDeadlockRetry(async () => {
   const now = Date.now();
   const rules = taskRateRules[input.taskType];
   const keys = {
@@ -193,6 +210,7 @@ export async function reserveRateLimitedExecution(input: {
     delayMs,
     reasons,
   } satisfies RateLimitDecision;
+  });
 }
 
 function _toSnapshotItem(key: string, state: RateLimitState): Omit<RateLimitSnapshotItem, "waitMs" | "active"> & { waitMs: number; active: boolean } {
