@@ -54,6 +54,7 @@ services:
       dockerfile: Dockerfile
       args:
         BACKEND_ORIGIN: http://api:3009
+        NEXT_PUBLIC_WS_ORIGIN: ${NEXT_PUBLIC_WS_ORIGIN:-}
     container_name: weibo-ops-web
     restart: unless-stopped
     depends_on:
@@ -70,6 +71,7 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: 3008
       BACKEND_ORIGIN: http://api:3009
+      NEXT_PUBLIC_WS_ORIGIN: ${NEXT_PUBLIC_WS_ORIGIN:-}
     ports:
       - "${WEB_APP_PORT:-3008}:3008"
 

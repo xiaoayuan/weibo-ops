@@ -44,6 +44,43 @@ interface UseWebSocketOptions {
 // 避免在 onclose 中直接引用 connect 导致循环依赖
 const reconnectConnectFn = { current: (() => {}) as () => void };
 
+function normalizeWebSocketUrl(input: string, fallbackProtocol: "ws:" | "wss:") {
+  if (input.startsWith("ws://") || input.startsWith("wss://")) {
+    return input;
+  }
+
+  if (input.startsWith("http://") || input.startsWith("https://")) {
+    const parsed = new URL(input);
+    parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
+    return parsed.toString();
+  }
+
+  if (typeof window !== "undefined" && input.startsWith("/")) {
+    return `${fallbackProtocol}//${window.location.host}${input}`;
+  }
+
+  return input;
+}
+
+function resolveWebSocketUrl() {
+  if (typeof window === "undefined") {
+    return "ws://localhost:3009/ws";
+  }
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const configured = process.env.NEXT_PUBLIC_WS_ORIGIN?.trim();
+
+  if (configured) {
+    return normalizeWebSocketUrl(configured, protocol as "ws:" | "wss:");
+  }
+
+  if (window.location.port === "3008") {
+    return `${protocol}//${window.location.hostname}:3009/ws`;
+  }
+
+  return `${protocol}//${window.location.host}/ws`;
+}
+
 /**
  * WebSocket Hook
  *
@@ -51,7 +88,7 @@ const reconnectConnectFn = { current: (() => {}) as () => void };
  */
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const {
-    url = `ws://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:3009/ws`,
+    url = resolveWebSocketUrl(),
     reconnect = true,
     reconnectInterval = 3000,
     onMessage,
