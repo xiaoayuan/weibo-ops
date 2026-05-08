@@ -4,13 +4,23 @@ import { getActionJobNodeRole, getCurrentNodeId, writeNodeHeartbeat } from "@/se
 
 declare global {
   var __actionJobDispatcherStarted: boolean | undefined;
+  var __actionJobRunningIds: Set<string> | undefined;
 }
 
 const POLL_INTERVAL_MS = 5_000;
 const MAX_CONSECUTIVE_ERRORS = 10;
+const ACTION_JOB_NODE_CONCURRENCY = Math.max(1, Number(process.env.ACTION_JOB_NODE_CONCURRENCY) || 2);
 
 function shouldRunDispatcher() {
   return getActionJobNodeRole() === "controller" || getActionJobNodeRole() === "worker";
+}
+
+function getRunningActionJobIds() {
+  if (!globalThis.__actionJobRunningIds) {
+    globalThis.__actionJobRunningIds = new Set<string>();
+  }
+
+  return globalThis.__actionJobRunningIds;
 }
 
 /** 记录连续错误计数，达到阈值后暂停调度 */
@@ -80,22 +90,11 @@ async function claimNextActionJob(nodeId: string) {
   return null;
 }
 
-async function dispatchOnce() {
-  // 暂停期间跳过调度
-  if (__dispatcherPausedUntil > 0 && Date.now() < __dispatcherPausedUntil) {
-    return;
-  }
-
-  const nodeId = getCurrentNodeId();
-  void writeNodeHeartbeat().catch(() => {});
-  const claimed = await claimNextActionJob(nodeId);
-
-  if (!claimed) {
-    recordDispatchSuccess();
-    return;
-  }
-
+async function runClaimedJob(claimed: NonNullable<Awaited<ReturnType<typeof claimNextActionJob>>>, nodeId: string) {
   const { job, config } = claimed;
+  const runningIds = getRunningActionJobIds();
+
+  runningIds.add(job.id);
 
   try {
     if (job.jobType === "COMMENT_LIKE_BATCH") {
@@ -143,6 +142,51 @@ async function dispatchOnce() {
         },
       },
     });
+  } finally {
+    runningIds.delete(job.id);
+  }
+}
+
+async function dispatchOnce() {
+  // 暂停期间跳过调度
+  if (__dispatcherPausedUntil > 0 && Date.now() < __dispatcherPausedUntil) {
+    return;
+  }
+
+  const nodeId = getCurrentNodeId();
+  const runningIds = getRunningActionJobIds();
+  void writeNodeHeartbeat().catch(() => {});
+
+  const availableSlots = Math.max(0, ACTION_JOB_NODE_CONCURRENCY - runningIds.size);
+
+  if (availableSlots <= 0) {
+    recordDispatchSuccess();
+    return;
+  }
+
+  const claimedJobs: Array<NonNullable<Awaited<ReturnType<typeof claimNextActionJob>>>> = [];
+
+  for (let index = 0; index < availableSlots; index += 1) {
+    const claimed = await claimNextActionJob(nodeId);
+
+    if (!claimed) {
+      break;
+    }
+
+    if (runningIds.has(claimed.job.id)) {
+      continue;
+    }
+
+    claimedJobs.push(claimed);
+  }
+
+  if (claimedJobs.length === 0) {
+    recordDispatchSuccess();
+    return;
+  }
+
+  for (const claimed of claimedJobs) {
+    void runClaimedJob(claimed, nodeId);
   }
 }
 
