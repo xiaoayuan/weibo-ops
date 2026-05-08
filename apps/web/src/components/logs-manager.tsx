@@ -86,6 +86,7 @@ function getLogStage(log: ExecutionLog): LogStage {
 
 function getActionText(log: ExecutionLog) {
   const payload = log.requestPayload && typeof log.requestPayload === "object" ? (log.requestPayload as Record<string, unknown>) : null;
+  const planType = typeof payload?.planType === "string" ? payload.planType : log.plan?.planType;
 
   if (log.actionType === "ACTION_JOB_SCHEDULED") {
     return payload?.jobType === "REPOST_ROTATION" ? "轮转任务入队" : "控评任务入队";
@@ -106,7 +107,37 @@ function getActionText(log: ExecutionLog) {
     if (actionType === "COMMENT") return "互动回复";
   }
 
+  if (log.actionType === "PLAN_EXECUTE_PRECHECKED" || log.actionType === "PLAN_EXECUTE_BLOCKED") {
+    if (planType === "CHECK_IN") return "签到";
+    if (planType === "FIRST_COMMENT") return "首评";
+    if (planType === "LIKE") return "点赞";
+    if (planType === "COMMENT") return "评论";
+    if (planType === "POST") return "发帖";
+    if (planType === "REPOST") return "转发";
+  }
+
   return getActionTypeText(log.actionType);
+}
+
+function extractSummaryText(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    const msg = typeof parsed.msg === "string" ? parsed.msg : null;
+    const tipMessage = parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data) && typeof (parsed.data as Record<string, unknown>).tipMessage === "string"
+      ? (parsed.data as Record<string, unknown>).tipMessage as string
+      : null;
+    const alertTitle = parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data) && typeof (parsed.data as Record<string, unknown>).alert_title === "string"
+      ? (parsed.data as Record<string, unknown>).alert_title as string
+      : null;
+
+    return [msg, tipMessage, alertTitle].filter(Boolean).join(" / ") || value;
+  } catch {
+    return value;
+  }
 }
 
 function getDetailText(log: ExecutionLog) {
@@ -130,7 +161,7 @@ function getDetailText(log: ExecutionLog) {
   }
 
   if (typeof responsePayload?.summary === "string") {
-    return responsePayload.summary;
+    return extractSummaryText(responsePayload.summary) || responsePayload.summary;
   }
 
   if (typeof responsePayload?.message === "string") {
@@ -142,6 +173,10 @@ function getDetailText(log: ExecutionLog) {
 
 function getTargetText(log: ExecutionLog) {
   const payload = log.requestPayload && typeof log.requestPayload === "object" ? (log.requestPayload as Record<string, unknown>) : null;
+
+  if (typeof log.plan?.task?.superTopic?.name === "string" && log.plan.task.superTopic.name.trim() !== "") {
+    return log.plan.task.superTopic.name.trim();
+  }
 
   if (typeof payload?.topicName === "string" && payload.topicName.trim() !== "") {
     return payload.topicName.trim();
@@ -155,7 +190,23 @@ function getTargetText(log: ExecutionLog) {
     return payload.topicUrl.trim();
   }
 
+  if (typeof log.plan?.targetUrl === "string" && log.plan.targetUrl.trim() !== "") {
+    return log.plan.targetUrl.trim();
+  }
+
   return "-";
+}
+
+function getAccountText(log: ExecutionLog, isAdmin: boolean, userFilter: string) {
+  if (!log.account) {
+    return "系统";
+  }
+
+  if (isAdmin && userFilter !== "ALL" && log.account.ownerUserId === userFilter && log.account.actualNickname?.trim()) {
+    return log.account.actualNickname;
+  }
+
+  return log.account.nickname || "系统";
 }
 
 function getStageText(stage: LogStage) {
@@ -614,7 +665,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
                   return (
                     <tr key={log.id}>
                       {isAdmin ? <td>{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
-                      <td>{log.account?.nickname || "系统"}</td>
+                      <td>{getAccountText(log, isAdmin, userFilter)}</td>
                       <td className="max-w-[280px] break-all text-xs text-app-text-soft">{getTargetText(log)}</td>
                       <td className="font-medium text-app-text-strong">{getActionText(log)}</td>
                       <td><StatusBadge tone={getOutcomeMeta(log).tone}>{getOutcomeMeta(log).label}</StatusBadge></td>

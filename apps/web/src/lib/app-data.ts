@@ -108,10 +108,17 @@ export type ExecutionLog = {
     id: string;
     planType: string;
     scheduledTime: string;
+    targetUrl?: string | null;
+    task?: {
+      superTopic?: {
+        name: string;
+      } | null;
+    } | null;
   } | null;
   account: {
     id: string;
     nickname: string;
+    actualNickname?: string | null;
     status: string;
     loginStatus: string;
     ownerUserId: string;
