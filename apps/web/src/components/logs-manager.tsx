@@ -140,6 +140,24 @@ function getDetailText(log: ExecutionLog) {
   return "-";
 }
 
+function getTargetText(log: ExecutionLog) {
+  const payload = log.requestPayload && typeof log.requestPayload === "object" ? (log.requestPayload as Record<string, unknown>) : null;
+
+  if (typeof payload?.topicName === "string" && payload.topicName.trim() !== "") {
+    return payload.topicName.trim();
+  }
+
+  if (typeof payload?.targetUrl === "string" && payload.targetUrl.trim() !== "") {
+    return payload.targetUrl.trim();
+  }
+
+  if (typeof payload?.topicUrl === "string" && payload.topicUrl.trim() !== "") {
+    return payload.topicUrl.trim();
+  }
+
+  return "-";
+}
+
 function getStageText(stage: LogStage) {
   if (stage === "PRECHECK_BLOCKED") return "预检拦截";
   if (stage === "PRECHECK_PASSED") return "预检通过";
@@ -321,7 +339,7 @@ function buildPlanProgressRows(plans: Plan[]) {
 }
 
 export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { initialLogs: ExecutionLog[]; initialPlans: Plan[]; users: UserOption[]; isAdmin: boolean }) {
-  const [viewMode, setViewMode] = useState<"SUMMARY" | "DETAIL" | "TIMELINE">("SUMMARY");
+  const [viewMode, setViewMode] = useState<"SUMMARY" | "DETAIL" | "TIMELINE">("DETAIL");
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [actionFilter, setActionFilter] = useState("ALL");
@@ -359,7 +377,9 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
         log.actionType.toLowerCase().includes(normalizedKeyword) ||
         getActionText(log).toLowerCase().includes(normalizedKeyword) ||
         (log.account?.nickname || "").toLowerCase().includes(normalizedKeyword) ||
-        (log.errorMessage || "").toLowerCase().includes(normalizedKeyword);
+        (log.errorMessage || "").toLowerCase().includes(normalizedKeyword) ||
+        getTargetText(log).toLowerCase().includes(normalizedKeyword) ||
+        getDetailText(log).toLowerCase().includes(normalizedKeyword);
       const matchesAction = actionFilter === "ALL" || log.actionType === actionFilter;
       const matchesResult = resultFilter === "ALL" || (resultFilter === "SUCCESS" ? log.success : !log.success);
       const matchesStage = stageFilter === "ALL" || getLogStage(log) === stageFilter;
@@ -409,12 +429,12 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <PageHeader title="执行日志分析" description="查看执行日志明细，支持筛选、按账号汇总和 AI 总结，快速定位失败原因。" />
+      <PageHeader title="执行日志分析" description="默认优先展示业务动作结果，系统汇总与时间线放在次级视图。" />
 
       <SurfaceCard>
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => setViewMode("SUMMARY")} className={`app-button ${viewMode === "SUMMARY" ? "app-button-primary" : "app-button-secondary"}`}>汇总视图</button>
-          <button type="button" onClick={() => setViewMode("DETAIL")} className={`app-button ${viewMode === "DETAIL" ? "app-button-primary" : "app-button-secondary"}`}>明细视图</button>
+          <button type="button" onClick={() => setViewMode("SUMMARY")} className={`app-button ${viewMode === "SUMMARY" ? "app-button-primary" : "app-button-secondary"}`}>系统汇总</button>
+          <button type="button" onClick={() => setViewMode("DETAIL")} className={`app-button ${viewMode === "DETAIL" ? "app-button-primary" : "app-button-secondary"}`}>业务明细</button>
           <button type="button" onClick={() => setViewMode("TIMELINE")} className={`app-button ${viewMode === "TIMELINE" ? "app-button-primary" : "app-button-secondary"}`}>时间线</button>
         </div>
         <div className={`mt-5 grid gap-3 ${isAdmin ? "md:grid-cols-7" : "md:grid-cols-6"}`}>
@@ -586,19 +606,26 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
           <div className="mt-5"><EmptyState title="当前筛选下暂无日志" description="调整筛选条件后再试。" /></div>
         ) : (
           <TableShell className="mt-5">
-            <table className="app-table min-w-[1280px]">
-              <thead><tr>{isAdmin ? <th>用户</th> : null}<th>动作</th><th>账号</th><th>结果</th><th>阶段</th><th>详情</th><th>时间</th></tr></thead>
+            <table className="app-table min-w-[1380px]">
+              <thead><tr>{isAdmin ? <th>用户</th> : null}<th>账号</th><th>超话/目标</th><th>动作</th><th>结果</th><th>原因/说明</th><th>时间</th></tr></thead>
               <tbody>
                 {filteredLogs.map((log) => {
                   const summaryKey = `${log.id}:detail`;
                   return (
                     <tr key={log.id}>
                       {isAdmin ? <td>{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
-                      <td className="font-medium text-app-text-strong">{getActionText(log)}</td>
                       <td>{log.account?.nickname || "系统"}</td>
+                      <td className="max-w-[280px] break-all text-xs text-app-text-soft">{getTargetText(log)}</td>
+                      <td className="font-medium text-app-text-strong">{getActionText(log)}</td>
                       <td><StatusBadge tone={getOutcomeMeta(log).tone}>{getOutcomeMeta(log).label}</StatusBadge></td>
-                      <td>{getStageText(getLogStage(log))}</td>
-                      <td className="max-w-[360px] text-xs text-app-text-soft">{getDetailText(log)} {aiSummaryMap[summaryKey] ? ` | ${aiSummaryMap[summaryKey].summary}` : ""}<button type="button" onClick={() => void fetchAiSummary(summaryKey, getActionText(log), getDetailText(log), log.errorMessage)} className="ml-2 text-xs text-app-accent hover:text-app-text-strong">AI</button><button type="button" onClick={() => setSelectedLog(log)} className="ml-2 text-xs text-app-accent hover:text-app-text-strong">详情</button></td>
+                      <td className="max-w-[420px] text-xs text-app-text-soft">
+                        <div>{getDetailText(log)}{aiSummaryMap[summaryKey] ? ` | ${aiSummaryMap[summaryKey].summary}` : ""}</div>
+                        {getLogStage(log) !== "UNKNOWN" ? <div className="mt-1 text-[11px] text-app-text-soft">阶段：{getStageText(getLogStage(log))}</div> : null}
+                        <div className="mt-2 flex items-center gap-2">
+                          <button type="button" onClick={() => void fetchAiSummary(summaryKey, getActionText(log), getDetailText(log), log.errorMessage)} className="text-xs text-app-accent hover:text-app-text-strong">AI</button>
+                          <button type="button" onClick={() => setSelectedLog(log)} className="text-xs text-app-accent hover:text-app-text-strong">详情</button>
+                        </div>
+                      </td>
                       <td>{formatDateTime(log.executedAt)}</td>
                     </tr>
                   );
