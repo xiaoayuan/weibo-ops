@@ -1,11 +1,12 @@
 "use client";
 
-import type { ExecutionLog, WeiboAccount } from "@/generated/prisma/client";
+import type { DailyPlan, ExecutionLog, WeiboAccount } from "@/generated/prisma/client";
 import { getActionTypeText } from "@/lib/display-text";
 import { useState } from "react";
 
 type LogWithRelations = ExecutionLog & {
   account: WeiboAccount | null;
+  plan?: DailyPlan | null;
 };
 
 type UserOption = {
@@ -291,6 +292,34 @@ function getBusinessDetailText(log: LogWithRelations) {
   return getResponseSummary(log.responsePayload);
 }
 
+function getBusinessTargetText(log: LogWithRelations) {
+  const payload = log.requestPayload && typeof log.requestPayload === "object" && !Array.isArray(log.requestPayload)
+    ? (log.requestPayload as Record<string, unknown>)
+    : null;
+
+  const topicName = payload && typeof payload.topicName === "string" ? payload.topicName.trim() : "";
+  if (topicName) {
+    return topicName;
+  }
+
+  const targetUrl = payload && typeof payload.targetUrl === "string" ? payload.targetUrl.trim() : "";
+  if (targetUrl) {
+    return targetUrl;
+  }
+
+  const topicUrl = payload && typeof payload.topicUrl === "string" ? payload.topicUrl.trim() : "";
+  if (topicUrl) {
+    return topicUrl;
+  }
+
+  const plan = log.plan;
+  if (plan?.targetUrl?.trim()) {
+    return plan.targetUrl;
+  }
+
+  return "-";
+}
+
 function getSummaryKey(log: LogWithRelations, users: UserOption[], isAdmin: boolean) {
   const dateText = new Date(log.executedAt).toLocaleDateString("zh-CN");
   const userText = isAdmin ? users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-" : "当前用户";
@@ -551,7 +580,7 @@ function getScheduleSummary(log: LogWithRelations) {
 }
 
 export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogWithRelations[]; users: UserOption[]; isAdmin: boolean }) {
-  const [viewMode, setViewMode] = useState<LogsViewMode>("SUMMARY");
+  const [viewMode, setViewMode] = useState<LogsViewMode>("DETAIL");
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
   const [aiSummaryMap, setAiSummaryMap] = useState<Record<string, AiRiskAssessment>>({});
   const [keyword, setKeyword] = useState("");
@@ -569,7 +598,9 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
       log.actionType.toLowerCase().includes(keyword.trim().toLowerCase()) ||
       getActionTypeText(log.actionType, log.requestPayload).toLowerCase().includes(keyword.trim().toLowerCase()) ||
       (log.account?.nickname || "").toLowerCase().includes(keyword.trim().toLowerCase()) ||
-      (log.errorMessage || "").toLowerCase().includes(keyword.trim().toLowerCase());
+      (log.errorMessage || "").toLowerCase().includes(keyword.trim().toLowerCase()) ||
+      getBusinessTargetText(log).toLowerCase().includes(keyword.trim().toLowerCase()) ||
+      getBusinessDetailText(log).toLowerCase().includes(keyword.trim().toLowerCase());
     const matchesResult =
       resultFilter === "ALL" || (resultFilter === "SUCCESS" ? log.success : !log.success);
     const matchesAction = actionFilter === "ALL" || log.actionType === actionFilter;
@@ -610,7 +641,7 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">执行日志</h2>
-        <p className="mt-1 text-sm text-slate-500">查看最近的计划生成、任务变更和互动任务记录。</p>
+        <p className="mt-1 text-sm text-slate-500">默认优先展示业务动作结果，系统调度汇总放在次级视图。</p>
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -620,14 +651,14 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
             onClick={() => setViewMode("SUMMARY")}
             className={`rounded-lg px-3 py-2 text-sm font-medium ${viewMode === "SUMMARY" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
           >
-            汇总视图
+            系统汇总
           </button>
           <button
             type="button"
             onClick={() => setViewMode("DETAIL")}
             className={`rounded-lg px-3 py-2 text-sm font-medium ${viewMode === "DETAIL" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
           >
-            明细视图
+            业务明细
           </button>
         </div>
         <div className={`grid gap-3 ${isAdmin ? "md:grid-cols-7" : "md:grid-cols-6"}`}>
@@ -789,20 +820,18 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               {isAdmin ? <th className="px-6 py-3 font-medium">用户</th> : null}
-              <th className="px-6 py-3 font-medium">分类</th>
-              <th className="px-6 py-3 font-medium">动作</th>
               <th className="px-6 py-3 font-medium">账号</th>
+              <th className="px-6 py-3 font-medium">超话/目标</th>
+              <th className="px-6 py-3 font-medium">动作</th>
               <th className="px-6 py-3 font-medium">结果</th>
-              <th className="px-6 py-3 font-medium">阶段</th>
-              <th className="px-6 py-3 font-medium">调度说明</th>
-              <th className="px-6 py-3 font-medium">详情</th>
+              <th className="px-6 py-3 font-medium">原因/说明</th>
               <th className="px-6 py-3 font-medium">时间</th>
             </tr>
           </thead>
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
-                  <td colSpan={isAdmin ? 9 : 8} className="px-6 py-8 text-slate-500">
+                  <td colSpan={isAdmin ? 7 : 6} className="px-6 py-8 text-slate-500">
                     当前筛选条件下暂无日志数据。
                   </td>
                 </tr>
@@ -810,13 +839,15 @@ export function LogsManager({ initialLogs, users, isAdmin }: { initialLogs: LogW
               filteredLogs.map((log) => (
                 <tr key={log.id} className="border-t border-slate-200">
                   {isAdmin ? <td className="px-6 py-4">{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
-                  <td className="px-6 py-4">{categoryText[getLogCategory(log)]}</td>
-                  <td className="px-6 py-4">{getBusinessActionText(log)}</td>
                   <td className="px-6 py-4">{log.account?.nickname || "-"}</td>
+                  <td className="max-w-sm px-6 py-4 break-all text-slate-600">{getBusinessTargetText(log)}</td>
+                  <td className="px-6 py-4">{getBusinessActionText(log)}</td>
                   <td className="px-6 py-4">{getBusinessResultText(log)}</td>
-                  <td className="px-6 py-4">{stageText[getLogStage(log)]}</td>
-                  <td className="max-w-md px-6 py-4 text-slate-600">{getScheduleSummary(log)}</td>
-                  <td className="max-w-sm px-6 py-4 text-slate-600">{getBusinessDetailText(log)}</td>
+                  <td className="max-w-md px-6 py-4 text-slate-600">
+                    <div>{getBusinessDetailText(log)}</div>
+                    {getScheduleSummary(log) !== "-" ? <div className="mt-1 text-xs text-slate-400">调度：{getScheduleSummary(log)}</div> : null}
+                    {getLogStage(log) !== "UNKNOWN" ? <div className="mt-1 text-xs text-slate-400">阶段：{stageText[getLogStage(log)]}</div> : null}
+                  </td>
                   <td className="px-6 py-4">{new Date(log.executedAt).toLocaleString("zh-CN")}</td>
                 </tr>
               ))
