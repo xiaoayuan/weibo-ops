@@ -290,6 +290,7 @@ model FirstCommentPostLock {
 
 model DailyPlan {
   id            String               @id @default(cuid())
+  dedupeKey     String?              @unique
   taskId        String?
   accountId     String
   contentId     String?

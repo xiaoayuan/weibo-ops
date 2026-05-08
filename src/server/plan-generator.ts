@@ -103,6 +103,10 @@ function pickRandomId(ids: string[]) {
   return ids[randomInt(0, ids.length - 1)];
 }
 
+function buildPlanDedupeKey(taskId: string, dateText: string, planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST", slot: number) {
+  return `${taskId}:${dateText}:${planType}:${slot}`;
+}
+
 async function acquirePlanGenerationLock(dateText: string, ownerUserId?: string) {
   const key = `plan-generation-lock:${ownerUserId || "global"}:${dateText}`;
   const now = new Date();
@@ -247,10 +251,11 @@ export async function generateDailyPlansWithSummary(
 
       const createPayload: Array<{
         taskId: string;
-        accountId: string;
-        contentId?: string;
-        planDate: Date;
-        planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
+      accountId: string;
+      dedupeKey: string;
+      contentId?: string;
+      planDate: Date;
+      planType: "CHECK_IN" | "FIRST_COMMENT" | "POST" | "LIKE" | "COMMENT" | "REPOST";
         scheduledTime: Date;
         status: "PENDING";
         targetUrl?: string;
@@ -266,6 +271,7 @@ export async function generateDailyPlansWithSummary(
         createPayload.push({
           taskId: task.id,
           accountId: task.accountId,
+          dedupeKey: buildPlanDedupeKey(task.id, dateText, "CHECK_IN", 0),
           planDate,
           planType: "CHECK_IN",
           scheduledTime: randomTimes(planDate, effectiveStartTime, endTime, 1)[0],
@@ -280,10 +286,11 @@ export async function generateDailyPlansWithSummary(
         if (missingCount > 0) {
           const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingCount, task.firstCommentIntervalSec || 1800);
 
-          for (const scheduledTime of times) {
+          for (const [index, scheduledTime] of times.entries()) {
             createPayload.push({
               taskId: task.id,
               accountId: task.accountId,
+              dedupeKey: buildPlanDedupeKey(task.id, dateText, "FIRST_COMMENT", firstCommentCount + index),
               planDate,
               planType: "FIRST_COMMENT",
               scheduledTime,
@@ -299,10 +306,11 @@ export async function generateDailyPlansWithSummary(
       if (missingLike > 0) {
         const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingLike, task.likeIntervalSec || 1200);
 
-        for (const scheduledTime of times) {
+        for (const [index, scheduledTime] of times.entries()) {
           createPayload.push({
             taskId: task.id,
             accountId: task.accountId,
+            dedupeKey: buildPlanDedupeKey(task.id, dateText, "LIKE", likeCount + index),
             planDate,
             planType: "LIKE",
             targetUrl: topicUrl,
@@ -318,10 +326,11 @@ export async function generateDailyPlansWithSummary(
       if (missingComment > 0 && contentIds.length > 0) {
         const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingComment, task.commentIntervalSec || 1800);
 
-        for (const scheduledTime of times) {
+        for (const [index, scheduledTime] of times.entries()) {
           createPayload.push({
             taskId: task.id,
             accountId: task.accountId,
+            dedupeKey: buildPlanDedupeKey(task.id, dateText, "COMMENT", commentCount + index),
             planDate,
             planType: "COMMENT",
             targetUrl: topicUrl,
@@ -339,10 +348,11 @@ export async function generateDailyPlansWithSummary(
       if (missingRepost > 0 && contentIds.length > 0) {
         const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingRepost, task.repostIntervalSec || 1800);
 
-        for (const scheduledTime of times) {
+        for (const [index, scheduledTime] of times.entries()) {
           createPayload.push({
             taskId: task.id,
             accountId: task.accountId,
+            dedupeKey: buildPlanDedupeKey(task.id, dateText, "REPOST", repostCount + index),
             planDate,
             planType: "REPOST",
             scheduledTime,
@@ -353,8 +363,8 @@ export async function generateDailyPlansWithSummary(
       }
 
       if (createPayload.length > 0) {
-        await prisma.dailyPlan.createMany({ data: createPayload });
-        createdCount += createPayload.length;
+        const result = await prisma.dailyPlan.createMany({ data: createPayload, skipDuplicates: true });
+        createdCount += result.count;
       }
     }
 
