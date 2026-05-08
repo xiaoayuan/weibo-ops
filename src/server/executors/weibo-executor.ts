@@ -34,6 +34,35 @@ function translateError(error: unknown): string {
   return m;
 }
 
+function messageLooksLikeNetworkFailure(message: string) {
+  const text = message.toLowerCase();
+  return text.includes("timeout")
+    || text.includes("timed out")
+    || text.includes("econnreset")
+    || text.includes("econnrefused")
+    || text.includes("enotfound")
+    || text.includes("socket")
+    || text.includes("network")
+    || text.includes("连接")
+    || text.includes("超时")
+    || text.includes("解析失败");
+}
+
+function messageLooksLikeProxyFailure(message: string) {
+  const text = message.toLowerCase();
+  return text.includes("代理") || text.includes("ssl") || text.includes("证书") || text.includes("proxy");
+}
+
+function summaryLooksLikePlatformBlocked(summary: unknown) {
+  const text = summarizePayload(summary).toLowerCase();
+  return text.includes("visitor")
+    || text.includes("passport")
+    || text.includes("验证码")
+    || text.includes("验证")
+    || text.includes("异常行为")
+    || text.includes("频繁");
+}
+
 function parseCookieMap(cookie: string): CookieMap {
   return cookie
     .split(";")
@@ -655,12 +684,12 @@ async function buildConnectivityProbe(cookie: string, proxyConfig?: ProxyConfig 
 
 async function resolveExecutionProxy(accountId: string, cookie: string) {
   const candidates = await getProxyExecutionCandidatesForAccount(accountId);
-  const attempts: Array<{ label: string; ok: boolean; status?: number; message?: string }> = [];
+  const attempts: Array<{ label: string; ok: boolean; status?: number; message?: string; summary?: unknown }> = [];
 
   for (const candidate of candidates) {
     try {
       const probe = await buildConnectivityProbe(cookie, candidate.proxyConfig);
-      attempts.push({ label: candidate.label, ok: probe.ok, status: probe.status });
+      attempts.push({ label: candidate.label, ok: probe.ok, status: probe.status, summary: probe.summary });
 
       if (probe.ok) {
         return {
@@ -683,6 +712,44 @@ async function resolveExecutionProxy(accountId: string, cookie: string) {
     probe: null,
     attempts,
   };
+}
+
+function classifyConnectivityFailure(input: {
+  loginStatus: string;
+  attempts: Array<{ label: string; ok: boolean; status?: number; message?: string; summary?: unknown }>;
+}) {
+  if (input.loginStatus !== "ONLINE") {
+    return {
+      reason: "ACCOUNT_NOT_ONLINE",
+      message: "账号当前登录态异常，微博连通性探测未通过。",
+    } as const;
+  }
+
+  if (input.attempts.some((attempt) => summaryLooksLikePlatformBlocked(attempt.summary))) {
+    return {
+      reason: "CONNECTIVITY_PLATFORM_BLOCKED",
+      message: "微博连通性探测被平台拦截，当前更像风控或游客系统限制。",
+    } as const;
+  }
+
+  if (input.attempts.some((attempt) => attempt.message && messageLooksLikeProxyFailure(attempt.message))) {
+    return {
+      reason: "CONNECTIVITY_PROXY_ROUTE_FAILED",
+      message: "微博连通性探测未通过，当前更像代理线路异常而不是全链路断网。",
+    } as const;
+  }
+
+  if (input.attempts.length > 0 && input.attempts.every((attempt) => !attempt.ok && (attempt.message ? messageLooksLikeNetworkFailure(attempt.message) : (attempt.status || 0) === 0))) {
+    return {
+      reason: "CONNECTIVITY_NETWORK_UNREACHABLE",
+      message: "微博连通性探测未通过，所有候选线路都表现为网络不可达或请求超时。",
+    } as const;
+  }
+
+  return {
+    reason: "CONNECTIVITY_PROXY_ROUTE_FAILED",
+    message: "微博连通性探测未通过，当前更像代理线路或平台侧异常。",
+  } as const;
 }
 
 async function sendCheckInRequest(input: ExecutePlanInput, cookie: string, proxyConfig?: ProxyConfig | null) {
@@ -1792,10 +1859,15 @@ export class WeiboExecutor implements SocialExecutor {
       const resolvedProxy = await resolveExecutionProxy(input.accountId, account.cookie);
 
       if (!resolvedProxy.selected || !resolvedProxy.probe?.ok) {
-        return blockedResult("微博连通性探测未通过，无法进入真实执行阶段。", {
+        const connectivityFailure = classifyConnectivityFailure({
+          loginStatus: account.loginStatus,
+          attempts: resolvedProxy.attempts,
+        });
+
+        return blockedResult(connectivityFailure.message, {
           executor: "weibo",
           precheck: "blocked",
-          reason: "CONNECTIVITY_PROBE_FAILED",
+          reason: connectivityFailure.reason,
           planType: input.planType,
           topicName: input.topicName,
           targetUrl: input.targetUrl,
@@ -2001,10 +2073,15 @@ export class WeiboExecutor implements SocialExecutor {
       const resolvedProxy = await resolveExecutionProxy(input.accountId, account.cookie);
 
       if (!resolvedProxy.selected || !resolvedProxy.probe?.ok) {
-        return blockedResult("微博连通性探测未通过，无法进入真实执行阶段。", {
+        const connectivityFailure = classifyConnectivityFailure({
+          loginStatus: account.loginStatus,
+          attempts: resolvedProxy.attempts,
+        });
+
+        return blockedResult(connectivityFailure.message, {
           executor: "weibo",
           precheck: "blocked",
-          reason: "CONNECTIVITY_PROBE_FAILED",
+          reason: connectivityFailure.reason,
           actionType: input.actionType,
           targetUrl: input.targetUrl,
           loginStatus: account.loginStatus,

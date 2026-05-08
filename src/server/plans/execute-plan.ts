@@ -128,6 +128,35 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function extractFailureReasonCode(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const code = (payload as Record<string, unknown>).reason;
+  return typeof code === "string" ? code : null;
+}
+
+function shouldAutoRequeuePlan(input: { errorClass: string; responsePayload: unknown }) {
+  if (input.errorClass === "PLATFORM_BUSY") {
+    return true;
+  }
+
+  if (input.errorClass !== "TRANSIENT_NETWORK") {
+    return false;
+  }
+
+  const reason = extractFailureReasonCode(input.responsePayload);
+
+  return reason === null
+    || reason === "TIMEOUT"
+    || reason === "DNS_ERROR"
+    || reason === "CONNECTION_REFUSED"
+    || reason === "NETWORK_ERROR"
+    || reason === "CHECK_IN_NETWORK_FAILED"
+    || reason === "CONNECTIVITY_NETWORK_UNREACHABLE";
+}
+
 function getNextFirstCommentRetryTime(input: { now: Date; planDate: Date; endTime?: string | null }) {
   const next = new Date(input.now.getTime() + 30 * 60 * 1000);
   const endBoundary = toBusinessDateTime(getBusinessDateText(input.planDate), input.endTime || "18:00");
@@ -726,7 +755,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     riskRules,
   );
 
-  if (!executionResult.success && executionResult.status === "FAILED" && (errorClass === "TRANSIENT_NETWORK" || errorClass === "PLATFORM_BUSY")) {
+  if (!executionResult.success && executionResult.status === "FAILED" && shouldAutoRequeuePlan({ errorClass, responsePayload: executionResult.responsePayload })) {
     const retryCount = await prisma.executionLog.count({
       where: {
         planId: plan.id,
