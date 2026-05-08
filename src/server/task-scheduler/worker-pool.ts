@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { UserQueue } from "@/server/task-scheduler/user-queue";
-import { ScheduledTaskCancelledError, type ScheduledTask, type ScheduledTaskLane, type ScheduledTaskResult } from "@/server/task-scheduler/types";
+import { ScheduledTaskCancelledError, type QueuedTaskResult, type ScheduledTask, type ScheduledTaskLane, type ScheduledTaskResult } from "@/server/task-scheduler/types";
 
 type WorkerState = {
   id: string;
@@ -81,6 +81,38 @@ export class WorkerPool {
         reject,
       });
     });
+  }
+
+  async submitDetached(task: ScheduledTask<unknown>): Promise<QueuedTaskResult> {
+    const worker = this.workers[hashUserId(task.ownerUserId) % this.workers.length];
+    let queue = worker.queues.get(task.ownerUserId);
+    let concurrency = 1;
+
+    if (!queue) {
+      concurrency = await loadUserConcurrency(task.ownerUserId);
+      queue = new UserQueue(concurrency);
+      worker.queues.set(task.ownerUserId, queue);
+    } else {
+      concurrency = await loadUserConcurrency(task.ownerUserId);
+      queue.setConcurrency(concurrency);
+    }
+
+    const queueDepth = queue.getPendingCount() + queue.getRunningCount() + 1;
+    const lane = resolveTaskLane(task);
+
+    queue.enqueueDetached({
+      kind: task.kind,
+      id: task.id,
+      label: task.label,
+      lane,
+      run: task.run,
+    });
+
+    return {
+      workerId: worker.id,
+      userConcurrency: concurrency,
+      queueDepth,
+    };
   }
 
   async cancel(task: Pick<ScheduledTask<unknown>, "kind" | "id" | "ownerUserId">) {

@@ -286,6 +286,7 @@ export function InteractionsManager({
   async function handleExecute(id: string) {
     try {
       setError(null);
+      setNotice(null);
 
       const task = tasks.find((item) => item.id === id);
 
@@ -311,6 +312,7 @@ export function InteractionsManager({
       }
 
       setTasks((current) => current.map((item) => (item.id === id ? normalizeTask(result.data) : item)));
+      setNotice(result.message || "互动任务已入队，正在等待执行");
     } catch (err) {
       setError(err instanceof Error ? err.message : "执行互动任务失败");
     }
@@ -393,7 +395,7 @@ export function InteractionsManager({
         }
       }
 
-      const noticeParts = [`批量执行完成：成功 ${success} 条`];
+      const noticeParts = [`批量入队完成：成功 ${success} 条`];
 
       if (skippedLargeCommentCount > 0) {
         noticeParts.push(`超过 20 条已跳过 ${skippedLargeCommentCount} 条`);

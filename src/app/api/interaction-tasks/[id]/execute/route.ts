@@ -2,8 +2,22 @@ import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/permissions";
 import { executeInteractionTaskById } from "@/server/interactions/execute-task";
 import { writeExecutionLog } from "@/server/logs";
-import { scheduleTask } from "@/server/task-scheduler";
+import { scheduleTaskDetached } from "@/server/task-scheduler";
 import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
+
+const taskInclude = {
+  account: {
+    select: {
+      id: true,
+      nickname: true,
+      status: true,
+      loginStatus: true,
+      ownerUserId: true,
+    },
+  },
+  target: true,
+  content: true,
+} as const;
 
 export async function POST(_request: Request, context: RouteContext<"/api/interaction-tasks/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
@@ -39,12 +53,21 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       return Response.json({ success: false, message: "互动任务不属于当前用户" }, { status: 403 });
     }
 
-    const scheduled = await scheduleTask({
+    const scheduled = await scheduleTaskDetached({
       kind: "INTERACTION",
       id,
       ownerUserId,
       label: `interaction:${id}`,
       run: () => executeInteractionTaskById(id, ownerUserId, executorAccountId),
+    });
+
+    const queuedTask = await prisma.interactionTask.update({
+      where: { id },
+      data: {
+        status: "READY",
+        resultMessage: "手动执行已入队",
+      },
+      include: taskInclude,
     });
 
     await writeExecutionLog({
@@ -57,46 +80,22 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
         workerId: scheduled.workerId,
         userConcurrency: scheduled.userConcurrency,
         queueDepth: scheduled.queueDepth,
+        trigger: "MANUAL_EXECUTE",
       },
       success: true,
     });
 
-    if (!scheduled.data.ok) {
-      return Response.json({
-        success: false,
-        message: scheduled.data.message,
-        workerId: scheduled.workerId,
-        userConcurrency: scheduled.userConcurrency,
-        queueDepth: scheduled.queueDepth,
-      }, { status: scheduled.data.status });
-    }
-
     return Response.json({
-      success: scheduled.data.success,
-      data: scheduled.data.data,
-      message: scheduled.data.message,
+      success: true,
+      data: queuedTask,
+      message: "互动任务已入队，正在等待执行",
       workerId: scheduled.workerId,
       userConcurrency: scheduled.userConcurrency,
       queueDepth: scheduled.queueDepth,
     });
   } catch (error) {
     if (error instanceof ScheduledTaskCancelledError) {
-      const task = await prisma.interactionTask.findUnique({
-        where: { id },
-        include: {
-          account: {
-            select: {
-              id: true,
-              nickname: true,
-              status: true,
-              loginStatus: true,
-              ownerUserId: true,
-            },
-          },
-          target: true,
-          content: true,
-        },
-      });
+      const task = await prisma.interactionTask.findUnique({ where: { id }, include: taskInclude });
 
       return Response.json({ success: false, data: task, message: task?.resultMessage || "互动任务已停止" });
     }

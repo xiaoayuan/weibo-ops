@@ -203,6 +203,14 @@ function getBusinessDetailText(log: LogWithRelations) {
   }
 
   if (log.actionType === "PLAN_SCHEDULED") {
+    const trigger = payload && typeof payload.trigger === "string" ? payload.trigger : null;
+    const queueDepth = payload && typeof payload.queueDepth === "number" ? payload.queueDepth : null;
+    const concurrency = payload && typeof payload.userConcurrency === "number" ? payload.userConcurrency : null;
+
+    if (trigger === "MANUAL_EXECUTE") {
+      return `计划已手动加入执行队列${queueDepth !== null ? `，当前队列深度 ${queueDepth}` : ""}${concurrency !== null ? `，用户并发 ${concurrency}` : ""}。`;
+    }
+
     const date = payload && typeof payload.date === "string" ? payload.date : "未知日期";
     const queuedCount = responsePayload && typeof responsePayload.queuedCount === "number" ? responsePayload.queuedCount : null;
     return `日期 ${date}，已入队 ${queuedCount ?? 0} 条待执行计划。`;

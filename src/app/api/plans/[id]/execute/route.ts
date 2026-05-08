@@ -2,8 +2,26 @@ import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { writeExecutionLog } from "@/server/logs";
 import { executePlanById } from "@/server/plans/execute-plan";
-import { scheduleTask } from "@/server/task-scheduler";
+import { scheduleTaskDetached } from "@/server/task-scheduler";
 import { ScheduledTaskCancelledError } from "@/server/task-scheduler/types";
+
+const planInclude = {
+  account: {
+    select: {
+      id: true,
+      nickname: true,
+      status: true,
+      loginStatus: true,
+      ownerUserId: true,
+    },
+  },
+  content: true,
+  task: {
+    include: {
+      superTopic: true,
+    },
+  },
+} as const;
 
 export async function POST(_request: Request, context: RouteContext<"/api/plans/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
@@ -28,12 +46,21 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       return Response.json({ success: false, message: "计划不存在" }, { status: 404 });
     }
 
-    const scheduled = await scheduleTask({
+    const scheduled = await scheduleTaskDetached({
       kind: "PLAN",
       id,
       ownerUserId: auth.session.id,
       label: `plan:${id}`,
       run: () => executePlanById(id, auth.session.id),
+    });
+
+    const queuedPlan = await prisma.dailyPlan.update({
+      where: { id },
+      data: {
+        status: "READY",
+        resultMessage: "手动执行已入队",
+      },
+      include: planInclude,
     });
 
     await writeExecutionLog({
@@ -46,52 +73,22 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
         workerId: scheduled.workerId,
         userConcurrency: scheduled.userConcurrency,
         queueDepth: scheduled.queueDepth,
+        trigger: "MANUAL_EXECUTE",
       },
       success: true,
     });
 
-    const result = scheduled.data;
-
-    if (!result.ok) {
-      return Response.json({
-        success: false,
-        message: result.message,
-        workerId: scheduled.workerId,
-        userConcurrency: scheduled.userConcurrency,
-        queueDepth: scheduled.queueDepth,
-      }, { status: (result as { status?: number }).status ?? 404 });
-    }
-
     return Response.json({
-      success: result.success,
-      data: result.data,
-      message: result.message,
+      success: true,
+      data: queuedPlan,
+      message: "计划已入队，正在等待执行",
       workerId: scheduled.workerId,
       userConcurrency: scheduled.userConcurrency,
       queueDepth: scheduled.queueDepth,
     });
   } catch (error) {
     if (error instanceof ScheduledTaskCancelledError) {
-      const plan = await prisma.dailyPlan.findUnique({
-        where: { id },
-        include: {
-          account: {
-            select: {
-              id: true,
-              nickname: true,
-              status: true,
-              loginStatus: true,
-              ownerUserId: true,
-            },
-          },
-          content: true,
-          task: {
-            include: {
-              superTopic: true,
-            },
-          },
-        },
-      });
+      const plan = await prisma.dailyPlan.findUnique({ where: { id }, include: planInclude });
 
       return Response.json({ success: false, data: plan, message: plan?.resultMessage || "计划已停止" });
     }

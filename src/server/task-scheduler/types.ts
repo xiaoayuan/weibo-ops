@@ -15,6 +15,12 @@ export type ScheduledTaskResult<T> = {
   data: T;
 };
 
+export type QueuedTaskResult = {
+  workerId: string;
+  userConcurrency: number;
+  queueDepth: number;
+};
+
 export type ScheduledTask<T> = {
   kind: ScheduledTaskKind;
   id: string;

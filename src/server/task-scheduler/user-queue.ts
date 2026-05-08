@@ -42,6 +42,14 @@ export class UserQueue {
     this.drain();
   }
 
+  enqueueDetached(task: Omit<QueueTask<unknown>, "resolve" | "reject">) {
+    this.enqueue({
+      ...task,
+      resolve: () => {},
+      reject: () => {},
+    });
+  }
+
   getPendingCount() {
     return this.pendingUrgent.length + this.pendingSlow.length;
   }

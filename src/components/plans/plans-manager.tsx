@@ -254,6 +254,7 @@ export function PlansManager({
   async function handleExecute(id: string) {
     try {
       setError(null);
+      setNotice(null);
 
       const response = await fetch(`/api/plans/${id}/execute`, {
         method: "POST",
@@ -265,6 +266,7 @@ export function PlansManager({
       }
 
       setPlans((current) => current.map((item) => (item.id === id ? result.data : item)));
+      setNotice(result.message || "计划已入队，正在等待执行");
     } catch (err) {
       setError(err instanceof Error ? err.message : "执行计划失败");
     }
@@ -339,11 +341,13 @@ export function PlansManager({
       return;
     }
 
-    try {
-      setBatchExecuting(true);
-      setError(null);
+      try {
+        setBatchExecuting(true);
+        setError(null);
+        setNotice(null);
 
       let failed = 0;
+      let queued = 0;
 
       for (const plan of candidates) {
         try {
@@ -357,9 +361,14 @@ export function PlansManager({
           }
 
           setPlans((current) => current.map((item) => (item.id === plan.id ? result.data : item)));
+          queued += 1;
         } catch {
           failed += 1;
         }
+      }
+
+      if (queued > 0) {
+        setNotice(`批量入队完成：已加入 ${queued} 条计划`);
       }
 
       if (failed > 0) {
