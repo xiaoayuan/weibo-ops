@@ -4,7 +4,6 @@ import { getActionJobNodeRole, writeNodeHeartbeat } from "@/server/action-job-no
 import { writeExecutionLog } from "@/server/logs";
 import { generateDailyPlansWithSummary } from "@/server/plan-generator";
 import { executePlanById } from "@/server/plans/execute-plan";
-import { taskTierToLane } from "@/server/task-scheduler/rate-limit";
 import { scheduleTask } from "@/server/task-scheduler";
 
 declare global {
@@ -231,7 +230,7 @@ async function runAutoExecute(now: Date) {
         id: plan.id,
         ownerUserId: user.id,
         label: `auto-plan:${plan.id}`,
-        lane: taskTierToLane("B"),
+        lane: "URGENT",
         run: () => executePlanById(plan.id, user.id),
       }).catch(async (error) => {
         const message = error instanceof Error ? error.message : "自动执行入队失败";

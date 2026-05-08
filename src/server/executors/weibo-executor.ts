@@ -481,6 +481,68 @@ function summarizePayload(payload: unknown) {
   }
 }
 
+function toSearchableText(payload: unknown) {
+  if (typeof payload === "string") {
+    return payload.toLowerCase();
+  }
+
+  try {
+    return JSON.stringify(payload).toLowerCase();
+  } catch {
+    return String(payload).toLowerCase();
+  }
+}
+
+function classifyCheckInFailure(input: {
+  topicUrl?: string | null;
+  loginStatus: string;
+  summary: unknown;
+  status: number;
+  ok: boolean;
+}) {
+  const summaryText = toSearchableText(input.summary);
+
+  if (!input.topicUrl?.trim() || !input.topicUrl.includes("/super_index")) {
+    return {
+      message: "签到失败：超话链接配置不完整，请检查是否为 super_index 链接。",
+      reason: "CHECK_IN_TOPIC_CONFIG_INVALID",
+    } as const;
+  }
+
+  if (input.loginStatus !== "ONLINE") {
+    return {
+      message: "签到失败：账号登录态异常，请先重新检测 Cookie。",
+      reason: "CHECK_IN_ACCOUNT_RISK",
+    } as const;
+  }
+
+  if (summaryText.includes("验证码") || summaryText.includes("验证") || summaryText.includes("人机") || summaryText.includes("异常行为") || summaryText.includes("频繁")) {
+    return {
+      message: "签到失败：账号触发风控验证，当前不建议自动重试。",
+      reason: "CHECK_IN_ACCOUNT_RISK",
+    } as const;
+  }
+
+  if (summaryText.includes("参数") || summaryText.includes("super_index") || summaryText.includes("topic") || summaryText.includes("话题不存在") || summaryText.includes("链接")) {
+    return {
+      message: "签到失败：超话参数异常，请检查任务里的超话链接配置。",
+      reason: "CHECK_IN_TOPIC_CONFIG_INVALID",
+    } as const;
+  }
+
+  if (!input.ok || input.status === 0 || input.status >= 500) {
+    return {
+      message: "签到失败：网络或代理异常，未能拿到有效签到结果。",
+      reason: "CHECK_IN_NETWORK_FAILED",
+    } as const;
+  }
+
+  return {
+    message: "签到失败：平台未接受签到请求，疑似被限流或策略拦截。",
+    reason: "CHECK_IN_PLATFORM_REJECTED",
+  } as const;
+}
+
 function readTrafficFromResponse(response: { requestBytes?: number; responseBytes?: number; totalBytes?: number }): TrafficSnapshot {
   const requestBytes = response.requestBytes ?? 0;
   const responseBytes = response.responseBytes ?? 0;
@@ -1756,10 +1818,18 @@ export class WeiboExecutor implements SocialExecutor {
         const businessOk = tryExtractBusinessOk(checkInResult.summary);
 
         if (!checkInResult.ok || businessOk === false || businessOk === undefined) {
-          return blockedResult("签到请求未通过，请检查账号 Cookie 或超话参数。", {
+          const failure = classifyCheckInFailure({
+            topicUrl: input.topicUrl,
+            loginStatus: account.loginStatus,
+            summary: checkInResult.summary,
+            status: checkInResult.status,
+            ok: checkInResult.ok,
+          });
+
+          return blockedResult(failure.message, {
             executor: "weibo",
             precheck: "blocked",
-            reason: "CHECK_IN_REQUEST_FAILED",
+            reason: failure.reason,
             summary: summarizePayload(checkInResult.summary),
             planType: input.planType,
             topicName: input.topicName,

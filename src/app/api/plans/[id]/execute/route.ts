@@ -93,6 +93,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       id,
       ownerUserId: auth.session.id,
       label: `plan:${id}`,
+      lane: "URGENT",
       run: () => executePlanById(id, auth.session.id),
     });
 

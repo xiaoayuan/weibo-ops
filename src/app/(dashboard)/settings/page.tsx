@@ -94,7 +94,7 @@ export default async function SettingsPage() {
   });
 
   const today = toBusinessDate(getBusinessDateText());
-  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, dbHealth, riskRules, executionStrategy, executorStatus, rateLimitSnapshot] = await Promise.all([
+  const [userCount, accountCount, activeCopyCount, todayPlanCount, failedLogCount, recentFailedPlans, recentFailedInteractions, todayPlanStatusCounts, dbHealth, riskRules, executionStrategy, executorStatus, rateLimitSnapshot] = await Promise.all([
     prisma.user.count(),
     prisma.weiboAccount.count({ where: { ownerUserId: session.id } }),
     prisma.copywritingTemplate.count({ where: { status: "ACTIVE" } }),
@@ -142,6 +142,16 @@ export default async function SettingsPage() {
         target: true,
       },
     }),
+    prisma.dailyPlan.groupBy({
+      by: ["status", "planType"],
+      where: {
+        planDate: today,
+        account: {
+          ownerUserId: session.id,
+        },
+      },
+      _count: true,
+    }),
     prisma.$queryRaw`SELECT 1`,
     getRiskRules(),
     getExecutionStrategy(),
@@ -188,6 +198,29 @@ export default async function SettingsPage() {
     { label: "启用文案", value: String(activeCopyCount) },
     { label: "今日计划", value: String(todayPlanCount) },
     { label: "失败日志", value: String(failedLogCount) },
+  ];
+
+  const totalPlanCount = todayPlanStatusCounts.reduce((sum, item) => sum + item._count, 0);
+  const successPlanCount = todayPlanStatusCounts.filter((item) => item.status === "SUCCESS").reduce((sum, item) => sum + item._count, 0);
+  const checkInRows = todayPlanStatusCounts.filter((item) => item.planType === "CHECK_IN");
+  const checkInTotal = checkInRows.reduce((sum, item) => sum + item._count, 0);
+  const checkInSuccess = checkInRows.filter((item) => item.status === "SUCCESS").reduce((sum, item) => sum + item._count, 0);
+  const firstCommentRows = todayPlanStatusCounts.filter((item) => item.planType === "FIRST_COMMENT");
+  const firstCommentTotal = firstCommentRows.reduce((sum, item) => sum + item._count, 0);
+  const firstCommentSuccess = firstCommentRows.filter((item) => item.status === "SUCCESS").reduce((sum, item) => sum + item._count, 0);
+
+  function toPercent(success: number, total: number) {
+    if (total <= 0) {
+      return "-";
+    }
+
+    return `${Math.round((success / total) * 100)}%`;
+  }
+
+  const dailyPlanCompletion = [
+    { label: "今日计划完成率", value: toPercent(successPlanCount, totalPlanCount), detail: `${successPlanCount}/${totalPlanCount || 0}` },
+    { label: "签到完成率", value: toPercent(checkInSuccess, checkInTotal), detail: `${checkInSuccess}/${checkInTotal || 0}` },
+    { label: "首评完成率", value: toPercent(firstCommentSuccess, firstCommentTotal), detail: `${firstCommentSuccess}/${firstCommentTotal || 0}` },
   ];
 
   const configItems = [
@@ -278,6 +311,16 @@ export default async function SettingsPage() {
           <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-500">{item.label}</p>
             <p className="mt-3 text-3xl font-semibold text-slate-900">{item.value}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        {dailyPlanCompletion.map((item) => (
+          <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">{item.label}</p>
+            <p className="mt-3 text-3xl font-semibold text-slate-900">{item.value}</p>
+            <p className="mt-2 text-xs text-slate-500">{item.detail}</p>
           </div>
         ))}
       </section>

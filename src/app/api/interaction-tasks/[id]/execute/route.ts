@@ -100,6 +100,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       id,
       ownerUserId,
       label: `interaction:${id}`,
+      lane: "SLOW",
       run: () => executeInteractionTaskById(id, ownerUserId, executorAccountId),
     });
 
