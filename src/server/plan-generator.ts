@@ -158,6 +158,15 @@ export async function generateDailyPlansWithSummary(
     }),
   ]);
 
+  let userExecuteStartTime: string | null = null;
+  if (ownerUserId) {
+    const user = await prisma.user.findUnique({
+      where: { id: ownerUserId },
+      select: { autoExecuteStartTime: true },
+    });
+    userExecuteStartTime = user?.autoExecuteStartTime || null;
+  }
+
   const contentIds = activeContents.map((item) => item.id);
 
   // 按 taskId 分组现有计划，避免 N+1 查询
@@ -190,7 +199,9 @@ export async function generateDailyPlansWithSummary(
       targetUrl?: string;
     }> = [];
 
-    const startTime = task.startTime || DEFAULT_PLAN_START_TIME;
+    const effectiveStartTime = userExecuteStartTime && userExecuteStartTime > (task.startTime || DEFAULT_PLAN_START_TIME)
+      ? userExecuteStartTime
+      : (task.startTime || DEFAULT_PLAN_START_TIME);
     const endTime = task.endTime || DEFAULT_PLAN_END_TIME;
     const topicUrl = task.superTopic.topicUrl || "https://weibo.com/";
 
@@ -200,7 +211,7 @@ export async function generateDailyPlansWithSummary(
         accountId: task.accountId,
         planDate,
         planType: "CHECK_IN",
-        scheduledTime: randomTimes(planDate, startTime, endTime, 1)[0],
+        scheduledTime: randomTimes(planDate, effectiveStartTime, endTime, 1)[0],
         status: "PENDING",
       });
     }
@@ -210,7 +221,7 @@ export async function generateDailyPlansWithSummary(
       const missingCount = Math.max(0, target - firstCommentCount);
 
       if (missingCount > 0) {
-        const times = randomTimesWithInterval(planDate, startTime, endTime, missingCount, task.firstCommentIntervalSec || 1800);
+        const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingCount, task.firstCommentIntervalSec || 1800);
 
         for (const scheduledTime of times) {
           createPayload.push({
@@ -229,7 +240,7 @@ export async function generateDailyPlansWithSummary(
     const missingLike = Math.max(0, likeTarget - likeCount);
 
     if (missingLike > 0 && contentIds.length > 0) {
-      const times = randomTimesWithInterval(planDate, startTime, endTime, missingLike, task.likeIntervalSec || 1200);
+      const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingLike, task.likeIntervalSec || 1200);
 
       for (const scheduledTime of times) {
         createPayload.push({
@@ -248,7 +259,7 @@ export async function generateDailyPlansWithSummary(
     const missingComment = Math.max(0, commentTarget - commentCount);
 
     if (missingComment > 0 && contentIds.length > 0) {
-      const times = randomTimesWithInterval(planDate, startTime, endTime, missingComment, task.commentIntervalSec || 1800);
+      const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingComment, task.commentIntervalSec || 1800);
 
       for (const scheduledTime of times) {
         createPayload.push({
@@ -269,7 +280,7 @@ export async function generateDailyPlansWithSummary(
     const missingRepost = Math.max(0, repostTarget - repostCount);
 
     if (missingRepost > 0 && contentIds.length > 0) {
-      const times = randomTimesWithInterval(planDate, startTime, endTime, missingRepost, task.repostIntervalSec || 1800);
+      const times = randomTimesWithInterval(planDate, effectiveStartTime, endTime, missingRepost, task.repostIntervalSec || 1800);
 
       for (const scheduledTime of times) {
         createPayload.push({
