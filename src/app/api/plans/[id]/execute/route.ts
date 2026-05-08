@@ -23,6 +23,30 @@ const planInclude = {
   },
 } as const;
 
+function toPlanExecuteResponse(plan: Awaited<ReturnType<typeof prisma.dailyPlan.findUnique>>) {
+  if (!plan) {
+    return Response.json({ success: false, message: "计划不存在" }, { status: 404 });
+  }
+
+  if (plan.status === "READY") {
+    return Response.json({ success: true, data: plan, message: plan.resultMessage || "计划已在队列中" });
+  }
+
+  if (plan.status === "RUNNING") {
+    return Response.json({ success: true, data: plan, message: plan.resultMessage || "计划已在执行中" });
+  }
+
+  if (plan.status === "SUCCESS") {
+    return Response.json({ success: true, data: plan, message: plan.resultMessage || "计划已执行成功" });
+  }
+
+  if (plan.status === "CANCELLED") {
+    return Response.json({ success: false, data: plan, message: plan.resultMessage || "计划已停止" }, { status: 409 });
+  }
+
+  return Response.json({ success: false, data: plan, message: plan.resultMessage || "计划当前不可执行" }, { status: 409 });
+}
+
 export async function POST(_request: Request, context: RouteContext<"/api/plans/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
 
@@ -46,6 +70,24 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       return Response.json({ success: false, message: "计划不存在" }, { status: 404 });
     }
 
+    const queued = await prisma.dailyPlan.updateMany({
+      where: {
+        id,
+        status: {
+          in: ["PENDING", "FAILED"],
+        },
+      },
+      data: {
+        status: "READY",
+        resultMessage: "手动执行已入队",
+      },
+    });
+
+    if (queued.count === 0) {
+      const currentPlan = await prisma.dailyPlan.findUnique({ where: { id }, include: planInclude });
+      return toPlanExecuteResponse(currentPlan);
+    }
+
     const scheduled = await scheduleTaskDetached({
       kind: "PLAN",
       id,
@@ -54,14 +96,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/plans/
       run: () => executePlanById(id, auth.session.id),
     });
 
-    const queuedPlan = await prisma.dailyPlan.update({
-      where: { id },
-      data: {
-        status: "READY",
-        resultMessage: "手动执行已入队",
-      },
-      include: planInclude,
-    });
+    const queuedPlan = await prisma.dailyPlan.findUnique({ where: { id }, include: planInclude });
 
     await writeExecutionLog({
       accountId: plan.account.id,

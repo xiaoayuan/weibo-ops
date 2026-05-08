@@ -43,30 +43,65 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
     }
 
-    const task = await prisma.interactionTask.update({
-      where: { id },
-      data: {
-        status: "CANCELLED",
-        resultMessage: "已人工停止",
-      },
-      include: interactionInclude,
+    if (!existing.account.ownerUserId) {
+      return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
+    }
+
+    const cancelled = await cancelTask({
+      kind: "INTERACTION",
+      id,
+      ownerUserId: existing.account.ownerUserId,
     });
 
-    if (existing.account.ownerUserId) {
-      await cancelTask({
-        kind: "INTERACTION",
-        id,
-        ownerUserId: existing.account.ownerUserId,
+    if (cancelled.removed > 0) {
+      const task = await prisma.interactionTask.update({
+        where: { id },
+        data: {
+          status: "CANCELLED",
+          resultMessage: "已停止（队列中移除）",
+        },
+        include: interactionInclude,
+      });
+
+      await writeExecutionLog({
+        accountId: task.accountId,
+        actionType: "INTERACTION_STOPPED",
+        success: true,
+      });
+
+      return Response.json({ success: true, data: task, message: "互动任务已停止" });
+    }
+
+    if (existing.status === "RUNNING") {
+      const task = await prisma.interactionTask.update({
+        where: { id },
+        data: {
+          resultMessage: "已请求停止；若当前动作已发出，仍可能继续完成",
+        },
+        include: interactionInclude,
+      });
+
+      await writeExecutionLog({
+        accountId: task.accountId,
+        actionType: "INTERACTION_STOPPED",
+        success: true,
+        errorMessage: "运行中互动任务仅记录停止请求，当前动作可能继续完成",
+      });
+
+      return Response.json({
+        success: true,
+        data: task,
+        message: "已记录停止请求；若当前动作已发出，仍可能继续完成",
       });
     }
 
-    await writeExecutionLog({
-      accountId: task.accountId,
-      actionType: "INTERACTION_STOPPED",
-      success: true,
-    });
+    const currentTask = await prisma.interactionTask.findUnique({ where: { id }, include: interactionInclude });
 
-    return Response.json({ success: true, data: task, message: "互动任务已停止" });
+    if (!currentTask) {
+      return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
+    }
+
+    return Response.json({ success: true, data: currentTask, message: currentTask.resultMessage || "互动任务状态未变化" });
   } catch {
     return Response.json({ success: false, message: "停止互动任务失败" }, { status: 500 });
   }

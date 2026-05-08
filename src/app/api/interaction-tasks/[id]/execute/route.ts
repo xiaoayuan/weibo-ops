@@ -19,6 +19,30 @@ const taskInclude = {
   content: true,
 } as const;
 
+function toInteractionExecuteResponse(task: Awaited<ReturnType<typeof prisma.interactionTask.findUnique>>) {
+  if (!task) {
+    return Response.json({ success: false, message: "互动任务不存在" }, { status: 404 });
+  }
+
+  if (task.status === "READY") {
+    return Response.json({ success: true, data: task, message: task.resultMessage || "互动任务已在队列中" });
+  }
+
+  if (task.status === "RUNNING") {
+    return Response.json({ success: true, data: task, message: task.resultMessage || "互动任务已在执行中" });
+  }
+
+  if (task.status === "SUCCESS") {
+    return Response.json({ success: true, data: task, message: task.resultMessage || "互动任务已执行成功" });
+  }
+
+  if (task.status === "CANCELLED") {
+    return Response.json({ success: false, data: task, message: task.resultMessage || "互动任务已停止" }, { status: 409 });
+  }
+
+  return Response.json({ success: false, data: task, message: task.resultMessage || "互动任务当前不可执行" }, { status: 409 });
+}
+
 export async function POST(_request: Request, context: RouteContext<"/api/interaction-tasks/[id]/execute">) {
   const auth = await requireApiRole("OPERATOR");
 
@@ -53,6 +77,24 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       return Response.json({ success: false, message: "互动任务不属于当前用户" }, { status: 403 });
     }
 
+    const queued = await prisma.interactionTask.updateMany({
+      where: {
+        id,
+        status: {
+          in: ["PENDING", "FAILED"],
+        },
+      },
+      data: {
+        status: "READY",
+        resultMessage: "手动执行已入队",
+      },
+    });
+
+    if (queued.count === 0) {
+      const currentTask = await prisma.interactionTask.findUnique({ where: { id }, include: taskInclude });
+      return toInteractionExecuteResponse(currentTask);
+    }
+
     const scheduled = await scheduleTaskDetached({
       kind: "INTERACTION",
       id,
@@ -61,14 +103,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/intera
       run: () => executeInteractionTaskById(id, ownerUserId, executorAccountId),
     });
 
-    const queuedTask = await prisma.interactionTask.update({
-      where: { id },
-      data: {
-        status: "READY",
-        resultMessage: "手动执行已入队",
-      },
-      include: taskInclude,
-    });
+    const queuedTask = await prisma.interactionTask.findUnique({ where: { id }, include: taskInclude });
 
     await writeExecutionLog({
       accountId: task.account.id,
