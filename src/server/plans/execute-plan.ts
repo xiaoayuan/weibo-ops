@@ -128,6 +128,18 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function touchRunningPlanMessage(id: string, resultMessage: string) {
+  await prisma.dailyPlan.updateMany({
+    where: {
+      id,
+      status: "RUNNING",
+    },
+    data: {
+      resultMessage,
+    },
+  });
+}
+
 function extractFailureReasonCode(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return null;
@@ -508,11 +520,15 @@ export async function executePlanById(id: string, ownerUserId?: string) {
 
     console.log(`[首评] 共获取 ${candidates.length} 篇候选帖子，开始检查 0 回复帖子`);
 
-    for (const candidate of candidates) {
+    for (const [candidateIndex, candidate] of candidates.entries()) {
       const cancelledBeforeCandidate = await getCancelledPlan(id);
 
       if (cancelledBeforeCandidate) {
         return toCancelledResult(cancelledBeforeCandidate);
+      }
+
+      if (candidateIndex === 0 || candidateIndex % 3 === 0) {
+        await touchRunningPlanMessage(id, `执行中，正在检查第 ${candidateIndex + 1}/${candidates.length} 篇候选帖子是否为 0 回复...`);
       }
 
       if (usedIds.has(candidate.id)) {
@@ -543,6 +559,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
       }
 
       const commentText = pickRandomTemplate(templates);
+      await touchRunningPlanMessage(id, `执行中，已命中 0 回复帖子，正在发送首评（${candidateIndex + 1}/${candidates.length}）...`);
       const commentResult = await sendFirstComment(candidate.id, candidate.targetUrl || topicUrl, commentText, cookie, proxyConfig);
       const commentErrorClass = classifyExecutionOutcome(
         {
