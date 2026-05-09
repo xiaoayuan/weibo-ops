@@ -10,7 +10,7 @@ export default async function LogsPage() {
   const session = await requireSession();
 
   const [logsResponse, usersResponse, plansResponse] = await Promise.all([
-    fetchServerApi<ExecutionLog[]>("/api/logs"),
+    fetchServerApi<ExecutionLog[]>(`/api/logs?date=${getBusinessDateText()}&limit=1000`),
     session.role === "ADMIN" ? fetchServerApi<UserListItem[]>("/api/users") : Promise.resolve(null),
     fetchServerApi<Plan[]>(`/api/plans?date=${getBusinessDateText()}`),
   ]);

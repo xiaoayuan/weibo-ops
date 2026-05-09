@@ -1,5 +1,6 @@
 import { requireApiRole } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { toBusinessDateTime } from "@/lib/business-date";
 
 async function maskForeignAccounts(
   logs: Array<{ account: { id: string; nickname: string; ownerUserId: string | null; actualNickname?: string | null } | null }>,
@@ -37,6 +38,16 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId")?.trim() || undefined;
+  const date = searchParams.get("date")?.trim() || undefined;
+  const limitParam = Number(searchParams.get("limit") || 0);
+  const take = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 2000) : (date ? 1000 : 50);
+
+  const executedAtFilter = date
+    ? {
+        gte: toBusinessDateTime(date, "00:00"),
+        lt: toBusinessDateTime(date, "23:59"),
+      }
+    : undefined;
 
   const isAdmin = auth.session.role === "ADMIN";
 
@@ -52,8 +63,18 @@ export async function GET(request: Request) {
                   ],
                 }
               : {}),
+            ...(executedAtFilter
+              ? {
+                  executedAt: executedAtFilter,
+                }
+              : {}),
           }
         : {
+            ...(executedAtFilter
+              ? {
+                  executedAt: executedAtFilter,
+                }
+              : {}),
             OR: [
               { account: { ownerUserId: auth.session.id } },
               { userId: auth.session.id },
@@ -80,7 +101,7 @@ export async function GET(request: Request) {
       },
     },
     orderBy: { executedAt: "desc" },
-    take: 50,
+    take,
   });
 
   if (isAdmin) {
