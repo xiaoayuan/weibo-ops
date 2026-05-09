@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AppNotice } from "@/components/app-notice";
 import { EmptyState } from "@/components/empty-state";
@@ -9,6 +9,7 @@ import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
+import { Pagination, type PaginationInfo } from "@/components/pagination";
 import { LogDetailModal } from "@/components/log-detail-modal";
 import { LogStats, TimelineLog, type LogLevel } from "@/components/log-display";
 import { ProgressBar, CircularProgress } from "@/components/progress-indicators";
@@ -403,6 +404,8 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
   const [aiError, setAiError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<ExecutionLog | null>(null);
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const logFilterConfigs: FilterConfig[] = [
     { name: "keyword", label: "搜索关键词", type: "text", placeholder: "搜索动作、账号、错误信息" },
@@ -444,6 +447,34 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
 
   const summaryRows = useMemo(() => buildSummaryRows(filteredLogs), [filteredLogs]);
   const planProgressRows = useMemo(() => buildPlanProgressRows(initialPlans), [initialPlans]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, actionFilter, resultFilter, stageFilter, userFilter, startDate, endDate, viewMode]);
+
+  const activeItems = viewMode === "SUMMARY" ? summaryRows : filteredLogs;
+  const pagination = useMemo<PaginationInfo>(() => {
+    const total = activeItems.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+
+    return {
+      page: safePage,
+      pageSize,
+      total,
+      totalPages,
+    };
+  }, [activeItems.length, page, pageSize]);
+
+  const pagedSummaryRows = useMemo(() => {
+    const start = (pagination.page - 1) * pagination.pageSize;
+    return summaryRows.slice(start, start + pagination.pageSize);
+  }, [pagination.page, pagination.pageSize, summaryRows]);
+
+  const pagedLogs = useMemo(() => {
+    const start = (pagination.page - 1) * pagination.pageSize;
+    return filteredLogs.slice(start, start + pagination.pageSize);
+  }, [filteredLogs, pagination.page, pagination.pageSize]);
 
   const logStats = useMemo(() => {
     const total = filteredLogs.length;
@@ -575,7 +606,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
         />
         {viewMode === "TIMELINE" ? (
           <TimelineLog
-            logs={filteredLogs.map((log) => ({
+            logs={pagedLogs.map((log) => ({
               id: log.id,
               level: (log.success ? "success" : getOutcomeMeta(log).tone === "warning" ? "warning" : "error") as LogLevel,
               title: getActionText(log),
@@ -589,13 +620,14 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
           summaryRows.length === 0 ? (
             <div className="mt-5"><EmptyState title="当前筛选下暂无汇总数据" description="调整筛选条件后再试。" /></div>
           ) : (
+            <>
             <TableShell className="mt-5">
               <table className="app-table min-w-[1180px]">
                 <thead>
                   <tr><th>动作</th><th>总数</th><th>已完成</th><th>延后</th><th>已入队</th><th>失败</th><th>预检拦截</th><th>说明</th><th>最近时间</th><th>AI</th></tr>
                 </thead>
                 <tbody>
-                  {summaryRows.flatMap((row) => {
+                  {pagedSummaryRows.flatMap((row) => {
                     const expanded = expandedSummaryId === row.id;
                     return [
                       <tr key={row.id}>
@@ -652,24 +684,27 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
                 </tbody>
               </table>
             </TableShell>
+            <Pagination pagination={pagination} onPageChange={setPage} onPageSizeChange={setPageSize} />
+            </>
           )
         ) : filteredLogs.length === 0 ? (
           <div className="mt-5"><EmptyState title="当前筛选下暂无日志" description="调整筛选条件后再试。" /></div>
         ) : (
+          <>
           <TableShell className="mt-5">
-            <table className="app-table min-w-[1380px]">
+            <table className="app-table min-w-[1120px]">
               <thead><tr>{isAdmin ? <th>用户</th> : null}<th>账号</th><th>超话/目标</th><th>动作</th><th>结果</th><th>原因/说明</th><th>时间</th></tr></thead>
               <tbody>
-                {filteredLogs.map((log) => {
+                {pagedLogs.map((log) => {
                   const summaryKey = `${log.id}:detail`;
                   return (
                     <tr key={log.id}>
                       {isAdmin ? <td>{users.find((user) => user.id === log.account?.ownerUserId)?.username || log.account?.ownerUserId || "-"}</td> : null}
                       <td>{getAccountText(log, isAdmin, userFilter)}</td>
-                      <td className="max-w-[280px] break-all text-xs text-app-text-soft">{getTargetText(log)}</td>
-                      <td className="font-medium text-app-text-strong">{getActionText(log)}</td>
+                      <td className="max-w-[180px] break-all text-xs text-app-text-soft">{getTargetText(log)}</td>
+                      <td className="font-medium text-app-text-strong whitespace-nowrap">{getActionText(log)}</td>
                       <td><StatusBadge tone={getOutcomeMeta(log).tone}>{getOutcomeMeta(log).label}</StatusBadge></td>
-                      <td className="max-w-[420px] text-xs text-app-text-soft">
+                      <td className="max-w-[300px] text-xs text-app-text-soft whitespace-normal break-words">
                         <div>{getDetailText(log)}{aiSummaryMap[summaryKey] ? ` | ${aiSummaryMap[summaryKey].summary}` : ""}</div>
                         {getLogStage(log) !== "UNKNOWN" ? <div className="mt-1 text-[11px] text-app-text-soft">阶段：{getStageText(getLogStage(log))}</div> : null}
                         <div className="mt-2 flex items-center gap-2">
@@ -684,6 +719,8 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
               </tbody>
             </table>
           </TableShell>
+          <Pagination pagination={pagination} onPageChange={setPage} onPageSizeChange={setPageSize} />
+          </>
         )}
       </SurfaceCard>
 
