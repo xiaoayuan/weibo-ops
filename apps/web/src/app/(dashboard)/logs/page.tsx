@@ -8,9 +8,12 @@ export const dynamic = "force-dynamic";
 
 export default async function LogsPage() {
   const session = await requireSession();
+  const logsQuery = session.role === "ADMIN"
+    ? `/api/logs?date=${getBusinessDateText()}&limit=1000&userId=${session.id}`
+    : `/api/logs?date=${getBusinessDateText()}&limit=1000`;
 
   const [logsResponse, usersResponse, plansResponse] = await Promise.all([
-    fetchServerApi<ExecutionLog[]>(`/api/logs?date=${getBusinessDateText()}&limit=1000`),
+    fetchServerApi<ExecutionLog[]>(logsQuery),
     session.role === "ADMIN" ? fetchServerApi<UserListItem[]>("/api/users") : Promise.resolve(null),
     fetchServerApi<Plan[]>(`/api/plans?date=${getBusinessDateText()}`),
   ]);
