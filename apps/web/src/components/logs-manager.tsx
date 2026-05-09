@@ -390,14 +390,14 @@ function buildPlanProgressRows(plans: Plan[]) {
   return Array.from(map.values()).sort((a, b) => a.accountText.localeCompare(b.accountText, "zh-CN"));
 }
 
-export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { initialLogs: ExecutionLog[]; initialPlans: Plan[]; users: UserOption[]; isAdmin: boolean }) {
+export function LogsManager({ initialLogs, initialPlans, users, isAdmin, currentUserId, businessDate }: { initialLogs: ExecutionLog[]; initialPlans: Plan[]; users: UserOption[]; isAdmin: boolean; currentUserId: string; businessDate: string }) {
   const [viewMode, setViewMode] = useState<"SUMMARY" | "DETAIL" | "TIMELINE">("DETAIL");
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [actionFilter, setActionFilter] = useState("ALL");
   const [resultFilter, setResultFilter] = useState<"ALL" | "SUCCESS" | "FAILED">("ALL");
   const [stageFilter, setStageFilter] = useState<"ALL" | LogStage>("ALL");
-  const [userFilter, setUserFilter] = useState("ALL");
+  const [userFilter, setUserFilter] = useState(isAdmin ? currentUserId : "ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [aiSummaryMap, setAiSummaryMap] = useState<Record<string, AiRiskAssessment>>({});
@@ -406,6 +406,8 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [logsData, setLogsData] = useState(initialLogs);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const logFilterConfigs: FilterConfig[] = [
     { name: "keyword", label: "搜索关键词", type: "text", placeholder: "搜索动作、账号、错误信息" },
@@ -421,11 +423,57 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
     if (typeof values.endDate === "string") setEndDate(values.endDate);
   };
 
-  const actionOptions = useMemo(() => Array.from(new Set(initialLogs.map((log) => log.actionType))), [initialLogs]);
+  useEffect(() => {
+    setLogsData(initialLogs);
+  }, [initialLogs]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const effectiveUserId = userFilter === "ALL" ? currentUserId : userFilter;
+    let active = true;
+
+    setLogsLoading(true);
+    setAiError(null);
+
+    void fetch(`/api/logs?date=${businessDate}&limit=1000&userId=${encodeURIComponent(effectiveUserId)}`, { cache: "no-store" })
+      .then((response) => readJsonResponse<{ success: boolean; data?: ExecutionLog[]; message?: string }>(response).then((payload) => ({ response, payload })))
+      .then(({ response, payload }) => {
+        if (!active) {
+          return;
+        }
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || "获取日志失败");
+        }
+
+        setLogsData(payload.data || []);
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+
+        setAiError(error instanceof Error ? error.message : "获取日志失败");
+      })
+      .finally(() => {
+        if (active) {
+          setLogsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [businessDate, currentUserId, isAdmin, userFilter]);
+
+  const actionOptions = useMemo(() => Array.from(new Set(logsData.map((log) => log.actionType))), [logsData]);
 
   const filteredLogs = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
-    return initialLogs.filter((log) => {
+    return logsData.filter((log) => {
       const matchesKeyword =
         normalizedKeyword === "" ||
         log.actionType.toLowerCase().includes(normalizedKeyword) ||
@@ -443,7 +491,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
       const matchesEndDate = endDate === "" || logDate <= new Date(`${endDate}T23:59:59`);
       return matchesKeyword && matchesAction && matchesResult && matchesStage && matchesUser && matchesStartDate && matchesEndDate;
     });
-  }, [actionFilter, endDate, initialLogs, isAdmin, keyword, resultFilter, stageFilter, startDate, userFilter]);
+  }, [actionFilter, endDate, logsData, isAdmin, keyword, resultFilter, stageFilter, startDate, userFilter]);
 
   const summaryRows = useMemo(() => buildSummaryRows(filteredLogs), [filteredLogs]);
   const planProgressRows = useMemo(() => buildPlanProgressRows(initialPlans), [initialPlans]);
@@ -539,7 +587,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
           </select>
           {isAdmin ? (
             <select value={userFilter} onChange={(event) => setUserFilter(event.target.value)} className="app-input">
-              <option value="ALL">全部用户</option>
+              <option value="ALL">当前用户</option>
               {users.map((user) => <option key={user.id} value={user.id}>{user.username}</option>)}
             </select>
           ) : null}
@@ -559,6 +607,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin }: { ini
       </SurfaceCard>
 
       {aiError ? <AppNotice tone="error">{aiError}</AppNotice> : null}
+      {logsLoading ? <AppNotice tone="info">正在加载日志...</AppNotice> : null}
 
       <SurfaceCard>
         <SectionHeader title="日志统计" description="基于当前筛选条件的实时统计" />

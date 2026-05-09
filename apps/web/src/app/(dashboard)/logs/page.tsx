@@ -22,5 +22,5 @@ export default async function LogsPage() {
   const users = usersResponse?.ok && usersResponse.payload?.success ? usersResponse.payload.data ?? [] : [];
   const plans = plansResponse.ok && plansResponse.payload?.success ? plansResponse.payload.data ?? [] : [];
 
-  return <LogsManager initialLogs={logs} initialPlans={plans} users={users.map((item) => ({ id: item.id, username: item.username }))} isAdmin={session.role === "ADMIN"} />;
+  return <LogsManager initialLogs={logs} initialPlans={plans} users={users.map((item) => ({ id: item.id, username: item.username }))} isAdmin={session.role === "ADMIN"} currentUserId={session.id} businessDate={getBusinessDateText()} />;
 }
