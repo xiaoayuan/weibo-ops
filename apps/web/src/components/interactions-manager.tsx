@@ -50,6 +50,7 @@ export function InteractionsManager({
   const [targetInput, setTargetInput] = useState("");
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [selectedContentIds, setSelectedContentIds] = useState<string[]>([]);
+  const [ignoreCommentCountLimit, setIgnoreCommentCountLimit] = useState(false);
   const [actionType, setActionType] = useState<InteractionTask["actionType"]>("LIKE");
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<InteractionTask["status"] | "ALL">("ALL");
@@ -111,6 +112,7 @@ export function InteractionsManager({
               : undefined,
           accountIds: selectedAccounts,
           contentIds: actionType === "COMMENT" ? selectedContentIds : undefined,
+          ignoreCommentCountLimit: actionType === "COMMENT" ? ignoreCommentCountLimit : undefined,
           actionType,
         }),
       });
@@ -124,6 +126,7 @@ export function InteractionsManager({
       setTargetInput("");
       setSelectedAccounts([]);
       setSelectedContentIds([]);
+      setIgnoreCommentCountLimit(false);
       setNotice(result.message || `已创建 ${result.meta?.createdCount || 0} 条互动任务`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "创建互动任务失败");
@@ -275,6 +278,19 @@ export function InteractionsManager({
             {actionType === "COMMENT" ? (
               <div>
                 <p className="text-sm text-app-text-muted">选择文案</p>
+                <p className="mt-1 text-xs leading-6 text-app-text-soft">执行前默认会检查评论数；若已大于 20 条，则直接跳过回复。你也可以为本次新建任务临时关闭这条限制。</p>
+                <label className="mt-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <input
+                    type="checkbox"
+                    checked={ignoreCommentCountLimit}
+                    onChange={(event) => setIgnoreCommentCountLimit(event.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium">忽略评论数限制，直接回复</span>
+                    <span className="mt-1 block text-xs leading-5 text-amber-800">默认关闭。开启后，这批新建的回复任务即使评论数已大于 20 条，也会继续尝试回复；不影响已有任务。</span>
+                  </span>
+                </label>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   {contents.map((item) => (
                     <label key={item.id} className={`app-option-card ${selectedContentIds.includes(item.id) ? "app-option-card-active" : ""}`}>
@@ -359,7 +375,14 @@ export function InteractionsManager({
                     <td>{getActionText(task.actionType)}</td>
                     <td className="font-medium text-app-text-strong">{task.account.nickname}</td>
                     <td className="max-w-[280px] text-xs leading-6 text-app-text-muted">{task.target.targetUrl}</td>
-                    <td>{task.content?.title || "-"}</td>
+                    <td>
+                      <div className="space-y-1">
+                        <div>{task.content?.title || "-"}</div>
+                        {task.actionType === "COMMENT" && task.ignoreCommentCountLimit ? (
+                          <div className="text-xs text-amber-700">已开启忽略评论数限制</div>
+                        ) : null}
+                      </div>
+                    </td>
                     <td>
                       <StatusBadge tone={task.status === "SUCCESS" ? "success" : task.status === "FAILED" ? "danger" : task.status === "RUNNING" ? "info" : task.status === "CANCELLED" ? "warning" : task.status === "READY" ? "accent" : "neutral"}>
                         {getStatusText(task.status)}

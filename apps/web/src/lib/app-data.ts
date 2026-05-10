@@ -218,6 +218,7 @@ export type InteractionTarget = {
 export type InteractionTask = {
   id: string;
   actionType: "LIKE" | "POST" | "COMMENT" | "REPOST";
+  ignoreCommentCountLimit?: boolean;
   status: "PENDING" | "READY" | "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
   resultMessage: string | null;
   createdAt: string;
