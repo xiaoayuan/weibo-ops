@@ -32,6 +32,7 @@ export type ExecuteInteractionInput = {
   targetUrl: string;
   repostContent?: string | null;
   commentText?: string | null;
+  ignoreCommentCountLimit?: boolean;
   superTopicId?: string;
 };
 

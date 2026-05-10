@@ -89,6 +89,7 @@ export async function POST(request: Request) {
             accountId,
             contentId: parsed.data.actionType === "COMMENT" ? pickRandom(contents)?.id || null : null,
             actionType: parsed.data.actionType,
+            ignoreCommentCountLimit: parsed.data.actionType === "COMMENT" ? parsed.data.ignoreCommentCountLimit : false,
             status: "PENDING",
           },
           select: { id: true },
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
             targetUrl,
             actionType: parsed.data.actionType,
             contentIds: parsed.data.actionType === "COMMENT" ? parsed.data.contentIds || [] : undefined,
+            ignoreCommentCountLimit: parsed.data.actionType === "COMMENT" ? parsed.data.ignoreCommentCountLimit : undefined,
           },
           success: true,
         });

@@ -55,6 +55,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
 
   const interactionActionType = task.actionType === "REPOST" || task.actionType === "POST" ? "POST" : task.actionType;
   const interactionContent = task.content?.content || null;
+  const ignoreCommentCountLimit = (task as { ignoreCommentCountLimit?: boolean }).ignoreCommentCountLimit === true;
 
   const scheduleDecision = await reserveRateLimitedExecution({ ownerUserId, taskType: resolveInteractionTaskType(interactionActionType), baseTier: "A" });
   if (scheduleDecision.delayMs > 0) {
@@ -96,6 +97,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     targetUrl: task.target.targetUrl,
     repostContent: task.actionType === "REPOST" || task.actionType === "POST" ? interactionContent : undefined,
     commentText: task.actionType === "COMMENT" ? interactionContent : undefined,
+    ignoreCommentCountLimit: task.actionType === "COMMENT" ? ignoreCommentCountLimit : undefined,
   });
 
   const updated = await prisma.interactionTask.update({
@@ -116,6 +118,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
       actionType: updated.actionType,
       targetUrl: updated.target.targetUrl,
       contentId: updated.contentId,
+      ignoreCommentCountLimit,
       sourceTaskAccountId: updated.accountId,
       executionAccountId: executionAccount.id,
       stage: executionResult.stage,

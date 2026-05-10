@@ -331,8 +331,9 @@ model InteractionTask {
   id            String            @id @default(cuid())
   targetId      String
   accountId     String
-   contentId     String?
+  contentId     String?
   actionType    PlanType
+  ignoreCommentCountLimit Boolean @default(false)
   scheduledTime DateTime?
   status        TaskStatus        @default(PENDING)
   resultMessage String?

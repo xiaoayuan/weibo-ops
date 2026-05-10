@@ -100,6 +100,7 @@ export function InteractionsManager({
   const [targetInput, setTargetInput] = useState("");
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [selectedContentIds, setSelectedContentIds] = useState<string[]>([]);
+  const [ignoreCommentCountLimit, setIgnoreCommentCountLimit] = useState(false);
   const [executorAccountId, setExecutorAccountId] = useState("");
   const [actionType, setActionType] = useState<InteractionActionType>("LIKE");
   const [keyword, setKeyword] = useState("");
@@ -256,6 +257,7 @@ export function InteractionsManager({
               : undefined,
           accountIds: selectedAccounts,
           contentIds: actionType === "COMMENT" ? selectedContentIds : undefined,
+          ignoreCommentCountLimit: actionType === "COMMENT" ? ignoreCommentCountLimit : undefined,
           actionType,
         }),
       });
@@ -276,6 +278,7 @@ export function InteractionsManager({
       setTargetInput("");
       setSelectedAccounts([]);
       setSelectedContentIds([]);
+      setIgnoreCommentCountLimit(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "创建互动任务失败");
     } finally {
@@ -578,6 +581,18 @@ export function InteractionsManager({
             <div className="rounded-lg border border-slate-200 p-4">
               <p className="text-sm font-medium text-slate-700">选择回复文案</p>
               <p className="mt-1 text-xs text-slate-500">执行前会检查评论数；若已大于 20 条，则直接标记完成并备注“已大于20条”。同账号同微博的未完成回复任务会自动跳过，避免重复创建。</p>
+              <label className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={ignoreCommentCountLimit}
+                  onChange={(event) => setIgnoreCommentCountLimit(event.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-medium text-amber-800">忽略评论数限制，直接回复</span>
+                  <span className="mt-1 block text-xs text-amber-700">仅对本次新建的回复任务生效。开启后，即使目标微博评论数已大于 20 条，也会继续尝试回复。</span>
+                </span>
+              </label>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 {contents.map((content) => (
                   <label key={content.id} className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">

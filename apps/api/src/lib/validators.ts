@@ -279,6 +279,7 @@ export const createInteractionBatchSchema = z
     accountIds: z.array(z.string().min(1)).min(1, "至少选择一个账号"),
     contentIds: z.array(z.string().min(1)).optional(),
     actionType: z.enum(["LIKE", "POST", "COMMENT"]).default("LIKE"),
+    ignoreCommentCountLimit: z.boolean().default(false),
   })
   .superRefine((value, ctx) => {
     const targetCount = (value.targetUrls?.length || 0) + (value.targetUrl ? 1 : 0);

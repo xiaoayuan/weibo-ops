@@ -54,6 +54,7 @@ export function InteractionTaskCard({
             <p>动作：{getActionTypeText(task.actionType)}</p>
             <p>状态：{statusText[task.status]}</p>
             <p>文案：{task.content?.title || "-"}</p>
+            {task.actionType === "COMMENT" && task.ignoreCommentCountLimit ? <p className="text-amber-700">回复策略：忽略评论数限制</p> : null}
             <p>创建时间：{new Date(task.createdAt).toLocaleString("zh-CN")}</p>
           </div>
         </div>

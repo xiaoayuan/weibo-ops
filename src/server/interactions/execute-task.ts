@@ -151,6 +151,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
     targetUrl: task.target.targetUrl,
     repostContent: task.actionType === "REPOST" || task.actionType === "POST" ? interactionContent : undefined,
     commentText: task.actionType === "COMMENT" ? interactionContent : undefined,
+    ignoreCommentCountLimit: task.actionType === "COMMENT" ? task.ignoreCommentCountLimit : undefined,
   });
 
   let retryCount = 0;
@@ -174,6 +175,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
       targetUrl: task.target.targetUrl,
       repostContent: task.actionType === "REPOST" || task.actionType === "POST" ? interactionContent : undefined,
       commentText: task.actionType === "COMMENT" ? interactionContent : undefined,
+      ignoreCommentCountLimit: task.actionType === "COMMENT" ? task.ignoreCommentCountLimit : undefined,
     });
   }
 
@@ -214,6 +216,7 @@ export async function executeInteractionTaskById(id: string, ownerUserId: string
       actionType: updated.actionType,
       targetUrl: updated.target.targetUrl,
       contentId: updated.contentId,
+      ignoreCommentCountLimit: updated.ignoreCommentCountLimit,
       sourceTaskAccountId: updated.accountId,
       executionAccountId: executionAccount.id,
       retryCount,

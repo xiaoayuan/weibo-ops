@@ -917,8 +917,8 @@ export class WeiboExecutor implements SocialExecutor {
         }
 
         const commentsCount = await fetchStatusCommentsCount(statusId, account.cookie, input.targetUrl, proxyConfig);
-        if (typeof commentsCount === "number" && commentsCount > 20) {
-          return successResult("已大于20条", { probe, statusId, commentsCount, skipReason: "COMMENTS_GT_20" });
+        if (!input.ignoreCommentCountLimit && typeof commentsCount === "number" && commentsCount > 20) {
+          return successResult("已大于20条", { probe, statusId, commentsCount, ignoreCommentCountLimit: false, skipReason: "COMMENTS_GT_20" });
         }
 
         const result = await sendStatusComment(statusId, input.targetUrl, input.commentText || "", account.cookie, proxyConfig);
@@ -926,7 +926,7 @@ export class WeiboExecutor implements SocialExecutor {
           return blockedResult("回复请求未通过，请检查目标链接、文案和账号登录态。", withFailurePayload({ code: "COMMENT_REQUEST_FAILED", reason: "COMMENT_REQUEST_FAILED", raw: result.payload, traffic: mergeTraffic(probe.traffic, result.traffic), probe, statusId, commentsCount, result }));
         }
 
-        return successResult(`已发起回复请求：${input.accountNickname}`, { probe, statusId, commentsCount, commentText: input.commentText, result });
+        return successResult(`已发起回复请求：${input.accountNickname}`, { probe, statusId, commentsCount, ignoreCommentCountLimit: input.ignoreCommentCountLimit === true, commentText: input.commentText, result });
       }
 
       return {

@@ -2255,7 +2255,7 @@ export class WeiboExecutor implements SocialExecutor {
 
         const commentsCount = await fetchStatusCommentsCount(statusId, account.cookie, input.targetUrl, proxyConfig);
 
-        if (typeof commentsCount === "number" && commentsCount > 20) {
+        if (!input.ignoreCommentCountLimit && typeof commentsCount === "number" && commentsCount > 20) {
           return successResult("已大于20条", "SUCCESS", {
             executor: "weibo",
             action: "COMMENT_SKIPPED",
@@ -2265,6 +2265,7 @@ export class WeiboExecutor implements SocialExecutor {
             probe,
             statusId,
             commentsCount,
+            ignoreCommentCountLimit: false,
             skipReason: "COMMENTS_GT_20",
           });
         }
@@ -2282,6 +2283,7 @@ export class WeiboExecutor implements SocialExecutor {
             probe,
             statusId,
             commentsCount,
+            ignoreCommentCountLimit: input.ignoreCommentCountLimit === true,
             commentResult,
           });
         }
@@ -2295,6 +2297,7 @@ export class WeiboExecutor implements SocialExecutor {
           probe,
           statusId,
           commentsCount,
+          ignoreCommentCountLimit: input.ignoreCommentCountLimit === true,
           commentText: input.commentText,
           commentResult,
         });
