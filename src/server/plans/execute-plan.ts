@@ -498,13 +498,11 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     let executed = false;
     let message = "未找到可用的 0 回复帖子";
     let payload: unknown;
-    let postsSearched = 0;
 
     // 渐进式获取帖子：先查10条，快速响应；找不到0回复就继续扩大范围
     const allCandidates = await fetchLatestPostsIncremental(topicUrl, cookie, proxyConfig, {
       batchSizes: [10, 30, 60, 100],
       onBatch: (count, total) => {
-        postsSearched = count;
         console.log(`[首评] 已获取 ${count}/${total} 篇候选帖子，继续扩大搜索范围`);
       },
     });

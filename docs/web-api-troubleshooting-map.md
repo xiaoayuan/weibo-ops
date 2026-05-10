@@ -30,6 +30,12 @@
 
 前端主要通过 `/api/*` 调 `apps/api`。
 
+当前默认链路说明：
+
+1. `apps/api` 默认运行时是 `apps/api/src/server.ts`（`Hono`）
+2. 现阶段多数请求仍会由 `apps/api` 转发到根目录 `app`
+3. `apps/api/src/app/api/**` 下的 Next Route Handler 当前不应默认视为线上生效实现
+
 优先看：
 
 1. 浏览器 Network 面板

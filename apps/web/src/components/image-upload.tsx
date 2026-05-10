@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 
 interface ImageUploadOptions {
@@ -47,15 +48,18 @@ export function ImageUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 压缩图片
-  const compressImage = async (file: File): Promise<File> => {
-    try {
-      const compressed = await imageCompression(file, compressionOptions);
-      return compressed;
-    } catch (error) {
-      console.error("图片压缩失败:", error);
-      return file;
-    }
-  };
+  const compressImage = useCallback(
+    async (file: File): Promise<File> => {
+      try {
+        const compressed = await imageCompression(file, compressionOptions);
+        return compressed;
+      } catch (error) {
+        console.error("图片压缩失败:", error);
+        return file;
+      }
+    },
+    [compressionOptions],
+  );
 
   // 处理文件选择
   const handleFileChange = useCallback(
@@ -101,7 +105,7 @@ export function ImageUpload({
         setProgress(0);
       }
     },
-    [disabled, maxSize, onUpload, onChange, compressionOptions],
+    [compressImage, disabled, maxSize, onUpload, onChange],
   );
 
   return (
@@ -138,7 +142,7 @@ export function ImageUpload({
       >
         {preview ? (
           <>
-            <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+            <Image src={preview} alt="Preview" fill className="object-cover" unoptimized />
             {!disabled && (
               <button
                 onClick={(e) => {

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 export function AuthShell({
@@ -17,9 +18,11 @@ export function AuthShell({
 
       <div className="relative w-full max-w-xl">
         <div className="flex items-center gap-4 mb-8">
-          <img
+          <Image
             src="/txw-logo.png"
             alt="logo"
+            width={56}
+            height={56}
             className="h-14 w-14 rounded-full border border-app-line object-cover shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
           />
         </div>

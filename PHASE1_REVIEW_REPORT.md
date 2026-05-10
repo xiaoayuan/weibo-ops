@@ -1,5 +1,9 @@
 # 微博运营台 - 第一阶段代码审查报告
 
+> 历史说明：这是 2026-05-04 的阶段性审查快照，不是当前实现状态的唯一事实来源。
+> 阅读本报告时，请同时参考：`apps/api/README.md`、`docs/session-handoff.md`、`docs/ops-runbook.md`。
+> 特别是涉及 `apps/api/src/app/api/**` 的结论，需要结合当前 `apps/api` 的 `proxy-first` 运行定位理解。
+
 > 审查日期：2026-05-04
 > 审查范围：后端 ~70 文件 + 前端 ~90 组件 + 21 个 Markdown 文档
 

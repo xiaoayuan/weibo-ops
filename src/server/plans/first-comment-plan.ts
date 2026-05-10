@@ -289,8 +289,6 @@ export async function fetchLatestPostsIncremental(
     // 后续批次：从 API 获取更多帖子
     const containerId = extractTopicContainerId(topicUrl);
     const endpoints = getTimelineEndpoints(topicUrl, containerId);
-    const remaining = targetSize - allPosts.length;
-
     for (const endpoint of endpoints) {
       if (allPosts.length >= targetSize) {
         break;

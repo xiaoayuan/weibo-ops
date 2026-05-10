@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 type UserAvatarProps = {
   base64: string | null | undefined;
   username: string;
@@ -11,13 +13,14 @@ export function UserAvatar({ base64, username, size = 36 }: UserAvatarProps) {
 
   if (base64) {
     return (
-      <img
+      <Image
         src={base64}
         alt={username}
         width={size}
         height={size}
         className="rounded-full object-cover flex-shrink-0"
         style={{ width: size, height: size }}
+        unoptimized
       />
     );
   }

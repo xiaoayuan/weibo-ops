@@ -6,12 +6,11 @@ import { AppNotice } from "@/components/app-notice";
 import { EmptyState } from "@/components/empty-state";
 import { HotCommentsExtractor } from "@/components/hot-comments-extractor";
 import { PageHeader } from "@/components/page-header";
-import { RepostRotationForm } from "@/components/repost-rotation-form";
 import { SectionHeader } from "@/components/section-header";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
-import { BatchActions, type BatchAction } from "@/components/batch-actions";
+import { BatchActions } from "@/components/batch-actions";
 import { VirtualList } from "@/components/virtual-list";
 import { useConfirm } from "@/lib/confirm-context";
 import type { ActionJob, CommentPoolItem, WeiboAccount } from "@/lib/app-data";
@@ -44,14 +43,6 @@ function getJobNodeLabel(job: ActionJob) {
   return "待分配";
 }
 
-type HotCommentPreviewItem = {
-  commentId: string;
-  sourceUrl: string;
-  text: string;
-  author: string;
-  likeCount?: number;
-};
-
 export function OpsManager({
   accounts,
   initialPoolItems,
@@ -75,18 +66,12 @@ export function OpsManager({
   const [batchText, setBatchText] = useState("");
   const [batchNote, setBatchNote] = useState("");
   const [batchTags, setBatchTags] = useState("");
-  const [hotCommentTargetUrl, setHotCommentTargetUrl] = useState("");
-  const [hotCommentLimit, setHotCommentLimit] = useState(20);
-  const [hotCommentKeywords, setHotCommentKeywords] = useState("");
-  const [hotCommentPreview, setHotCommentPreview] = useState<HotCommentPreviewItem[]>([]);
-  const [selectedHotCommentIds, setSelectedHotCommentIds] = useState<string[]>([]);
   const [rotationTargetUrl, setRotationTargetUrl] = useState("");
   const [rotationTimes, setRotationTimes] = useState(5);
   const [rotationIntervalSec, setRotationIntervalSec] = useState<0 | 3 | 5 | 10>(3);
   const [rotationCopyTexts, setRotationCopyTexts] = useState("1\n2\n3\n4\n5");
   const [jobStatusFilter, setJobStatusFilter] = useState<"ALL" | ActionJob["status"]>("ALL");
   const [submitting, setSubmitting] = useState(false);
-  const [hotCommentLoading, setHotCommentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const confirm = useConfirm();
@@ -139,18 +124,6 @@ export function OpsManager({
   const handlePoolChanged = () => {
     void refreshPool();
   };
-
-  function toggleAllPoolItems() {
-    setSelectedPoolIds((current) =>
-      current.length === filteredPoolItems.length ? [] : filteredPoolItems.map((item) => item.id),
-    );
-  }
-
-  function toggleAllJobs() {
-    setSelectedJobIds((current) =>
-      current.length === filteredJobs.length ? [] : filteredJobs.map((job) => job.id),
-    );
-  }
 
   async function createSinglePoolItem() {
     try {
@@ -224,71 +197,6 @@ export function OpsManager({
       setNotice(`导入 ${result.data.imported.length} 条，跳过 ${result.data.skipped.length} 条`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "批量导入失败");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function fetchHotComments() {
-    try {
-      setHotCommentLoading(true);
-      setError(null);
-      setNotice(null);
-
-      const response = await fetch("/api/comment-pool/hot-comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetUrl: hotCommentTargetUrl,
-          limit: hotCommentLimit,
-          keywords: hotCommentKeywords
-            .split(/[,\n]/)
-            .map((item) => item.trim())
-            .filter(Boolean),
-        }),
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "提取热门评论失败");
-      }
-
-      setHotCommentPreview(result.data);
-      setSelectedHotCommentIds(result.data.map((item: HotCommentPreviewItem) => item.commentId));
-      setNotice(`提取到 ${result.data.length} 条热门评论`);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "提取热门评论失败");
-    } finally {
-      setHotCommentLoading(false);
-    }
-  }
-
-  async function importSelectedHotComments() {
-    try {
-      setSubmitting(true);
-      setError(null);
-      setNotice(null);
-
-      const selected = hotCommentPreview.filter((item) => selectedHotCommentIds.includes(item.commentId));
-      const response = await fetch("/api/comment-pool/batch-import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceUrls: selected.map((item) => item.sourceUrl),
-          note: "热门评论导入",
-          tags: ["热门评论"],
-        }),
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "导入热门评论失败");
-      }
-
-      await refreshPool();
-      setNotice(`已导入 ${result.data.imported.length} 条热门评论`);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "导入热门评论失败");
     } finally {
       setSubmitting(false);
     }

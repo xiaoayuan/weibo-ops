@@ -2,6 +2,19 @@
 
 一个基于 `Next.js 16 + Prisma + PostgreSQL` 的后台项目，用于管理多账号、超话任务、文案库、每日计划、互动任务和执行日志。
 
+## 文档入口
+
+- 文档导航：`docs/README.md`
+- 运维手册：`docs/ops-runbook.md`
+- 会话交接：`docs/session-handoff.md`
+- `apps/api` 当前运行定位：`apps/api/README.md`
+
+文档职责边界：
+
+- `README.md` 只负责项目概览、本地开发与常用命令
+- 生产部署、恢复、自检以 `docs/ops-runbook.md` 为准
+- 当前阶段状态、线上约定与待办以 `docs/session-handoff.md` 为准
+
 ## 功能概览
 
 - 登录鉴权
@@ -75,6 +88,8 @@ npm run dev
 
 ## Docker 启动
 
+生产部署、双节点更新、恢复与安全基线不要只看本节，统一以 `docs/ops-runbook.md` 为准。
+
 直接启动完整环境：
 
 ```bash
@@ -107,7 +122,17 @@ npm run db:push
 npm run db:migrate
 npm run db:studio
 npm run seed
+bash scripts/check-critical-path.sh
 ```
+
+说明：
+
+- `bash scripts/check-critical-path.sh`：执行关键路径自检，覆盖环境变量、lint/build、`app/api/web` 健康检查与 `apps/api` 当前运行时检查
+- 如果你当前还没启动本地服务，可先用：`bash scripts/check-critical-path.sh --skip-http`
+- 如果你只想跑某一组检查，可用：
+  - `bash scripts/check-critical-path.sh --only=env`
+  - `bash scripts/check-critical-path.sh --only=build`
+  - `bash scripts/check-critical-path.sh --only=http`
 
 ## 独立前端开发
 
@@ -117,7 +142,7 @@ npm run seed
 
 - 后端管理服务仍使用当前根目录应用
 - 独立前端使用 `apps/web`
-- 独立 API 骨架使用 `apps/api`
+- 独立 API 当前以 `proxy-first` 方式运行在 `apps/api`
 - 默认建议后端跑在 `http://127.0.0.1:3007`
 - 独立前端默认跑在 `http://127.0.0.1:3008`
 - 独立 API 默认跑在 `http://127.0.0.1:3009`
@@ -142,6 +167,12 @@ npm run dev:web
 ```bash
 npm run dev:api
 ```
+
+说明：
+
+- `apps/api` 当前默认运行时是 `src/server.ts`（`Hono`）
+- 当前主链路仍然是 `apps/web -> apps/api -> 根目录 app`
+- `apps/api/src/app/api/**` 下仍保留了一批 Next Route Handler，但目前属于迁移停放代码，不在默认运行链路中
 
 前端会通过 `apps/web/.env.example` 中的 `BACKEND_ORIGIN` 代理到后端 API。
 
@@ -172,10 +203,12 @@ LEGACY_BACKEND_ORIGIN="http://127.0.0.1:3007"
 说明：
 
 - `app` 仍然是当前旧后端主体
-- `api` 是正在逐步原生化的新后端入口
+- `api` 当前是 `proxy-first` 的新后端入口，正在逐步原生化
 - `web` 统一只对 `api` 发请求
 
 这样可以逐步减少 `api -> app` 的转发比例，而不需要一次性推翻线上链路。
+
+如果你在维护 `apps/api`，请同时阅读：`apps/api/README.md`。
 
 ## 环境变量
 
@@ -214,6 +247,8 @@ openssl rand -base64 48
 ## 当前状态
 
 当前项目已经具备一套可演示的一期 MVP 后台，适合继续接真实执行逻辑、权限体系和部署流程。
+
+更贴近当前线上状态的说明，请以 `docs/session-handoff.md` 为准。
 
 ## 执行器说明
 

@@ -159,11 +159,13 @@ export async function reserveRateLimitedExecution(input: {
   };
 }
 
-export function resolvePlanTaskType(_planType: PlanType): ManagedTaskType {
+export function resolvePlanTaskType(planType: PlanType): ManagedTaskType {
+  void planType;
   return "DAILY_PLAN";
 }
 
-export function resolveInteractionTaskType(_actionType: InteractionActionType): ManagedTaskType {
+export function resolveInteractionTaskType(actionType: InteractionActionType): ManagedTaskType {
+  void actionType;
   return "QUICK_REPLY";
 }
 

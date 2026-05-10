@@ -217,11 +217,6 @@ function getStageText(stage: LogStage) {
   return "未标记";
 }
 
-function getResultTone(log: ExecutionLog): "success" | "danger" | "warning" {
-  if (!log.success) return "danger";
-  return getLogStage(log) === "PRECHECK_BLOCKED" ? "warning" : "success";
-}
-
 function getOutcomeMeta(log: ExecutionLog) {
   const detail = getDetailText(log);
   const actionText = getActionText(log);
@@ -401,13 +396,21 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [aiSummaryMap, setAiSummaryMap] = useState<Record<string, AiRiskAssessment>>({});
-  const [aiError, setAiError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<ExecutionLog | null>(null);
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [logsData, setLogsData] = useState(initialLogs);
-  const [logsLoading, setLogsLoading] = useState(false);
+  const effectiveUserId = userFilter === "ALL" ? currentUserId : userFilter;
+  const adminLogsRequestKey = `${businessDate}:${effectiveUserId}`;
+  const [pageState, setPageState] = useState({ resetKey: "", page: 1 });
+  const [adminLogsState, setAdminLogsState] = useState<{
+    requestKey: string | null;
+    data: ExecutionLog[];
+    error: string | null;
+  }>({
+    requestKey: null,
+    data: initialLogs,
+    error: null,
+  });
 
   const logFilterConfigs: FilterConfig[] = [
     { name: "keyword", label: "搜索关键词", type: "text", placeholder: "搜索动作、账号、错误信息" },
@@ -424,19 +427,11 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
   };
 
   useEffect(() => {
-    setLogsData(initialLogs);
-  }, [initialLogs]);
-
-  useEffect(() => {
     if (!isAdmin) {
       return;
     }
 
-    const effectiveUserId = userFilter === "ALL" ? currentUserId : userFilter;
     let active = true;
-
-    setLogsLoading(true);
-    setAiError(null);
 
     void fetch(`/api/logs?date=${businessDate}&limit=1000&userId=${encodeURIComponent(effectiveUserId)}`, { cache: "no-store" })
       .then((response) => readJsonResponse<{ success: boolean; data?: ExecutionLog[]; message?: string }>(response).then((payload) => ({ response, payload })))
@@ -449,25 +444,38 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
           throw new Error(payload.message || "获取日志失败");
         }
 
-        setLogsData(payload.data || []);
+        setAdminLogsState({
+          requestKey: adminLogsRequestKey,
+          data: payload.data || [],
+          error: null,
+        });
       })
       .catch((error) => {
         if (!active) {
           return;
         }
 
-        setAiError(error instanceof Error ? error.message : "获取日志失败");
-      })
-      .finally(() => {
-        if (active) {
-          setLogsLoading(false);
-        }
+        setAdminLogsState((current) => ({
+          requestKey: adminLogsRequestKey,
+          data: current.data,
+          error: error instanceof Error ? error.message : "获取日志失败",
+        }));
       });
 
     return () => {
       active = false;
     };
-  }, [businessDate, currentUserId, isAdmin, userFilter]);
+  }, [adminLogsRequestKey, businessDate, effectiveUserId, isAdmin]);
+
+  const pageResetKey = `${keyword}\u0000${actionFilter}\u0000${resultFilter}\u0000${stageFilter}\u0000${userFilter}\u0000${startDate}\u0000${endDate}\u0000${viewMode}`;
+  const currentPage = pageState.resetKey === pageResetKey ? pageState.page : 1;
+  const logsData = isAdmin
+    ? adminLogsState.requestKey === adminLogsRequestKey
+      ? adminLogsState.data
+      : initialLogs
+    : initialLogs;
+  const logsLoading = isAdmin && adminLogsState.requestKey !== adminLogsRequestKey;
+  const aiError = adminLogsState.error;
 
   const actionOptions = useMemo(() => Array.from(new Set(logsData.map((log) => log.actionType))), [logsData]);
 
@@ -496,15 +504,11 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
   const summaryRows = useMemo(() => buildSummaryRows(filteredLogs), [filteredLogs]);
   const planProgressRows = useMemo(() => buildPlanProgressRows(initialPlans), [initialPlans]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [keyword, actionFilter, resultFilter, stageFilter, userFilter, startDate, endDate, viewMode]);
-
   const activeItems = viewMode === "SUMMARY" ? summaryRows : filteredLogs;
   const pagination = useMemo<PaginationInfo>(() => {
     const total = activeItems.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const safePage = Math.min(page, totalPages);
+    const safePage = Math.min(currentPage, totalPages);
 
     return {
       page: safePage,
@@ -512,7 +516,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
       total,
       totalPages,
     };
-  }, [activeItems.length, page, pageSize]);
+  }, [activeItems.length, currentPage, pageSize]);
 
   const pagedSummaryRows = useMemo(() => {
     const start = (pagination.page - 1) * pagination.pageSize;
@@ -539,7 +543,6 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
     }
 
     try {
-      setAiError(null);
       const response = await fetch("/api/ai-risk/log-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -553,7 +556,10 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
 
       setAiSummaryMap((current) => ({ ...current, [key]: result.data! }));
     } catch (reason) {
-      setAiError(reason instanceof Error ? reason.message : "AI 总结失败");
+      setAdminLogsState((current) => ({
+        ...current,
+        error: reason instanceof Error ? reason.message : "AI 总结失败",
+      }));
     }
   }
 
@@ -733,7 +739,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
                 </tbody>
               </table>
             </TableShell>
-            <Pagination pagination={pagination} onPageChange={setPage} onPageSizeChange={setPageSize} />
+            <Pagination pagination={pagination} onPageChange={(nextPage) => setPageState({ resetKey: pageResetKey, page: nextPage })} onPageSizeChange={setPageSize} />
             </>
           )
         ) : filteredLogs.length === 0 ? (
@@ -768,7 +774,7 @@ export function LogsManager({ initialLogs, initialPlans, users, isAdmin, current
               </tbody>
             </table>
           </TableShell>
-          <Pagination pagination={pagination} onPageChange={setPage} onPageSizeChange={setPageSize} />
+          <Pagination pagination={pagination} onPageChange={(nextPage) => setPageState({ resetKey: pageResetKey, page: nextPage })} onPageSizeChange={setPageSize} />
           </>
         )}
       </SurfaceCard>

@@ -131,7 +131,7 @@ export async function executePlanById(id: string, ownerUserId?: string) {
     const proxyConfig = await getProxyConfigForAccount(plan.accountId);
     const latestPosts = await fetchLatestPosts(topicUrl, cookie, 50, proxyConfig);
     await prisma.dailyPlan.update({ where: { id }, data: { resultMessage: `执行中，已获取 ${latestPosts.length} 篇候选，正在逐个检查...` } });
-    const _riskRules = await getRiskRules();
+    await getRiskRules();
     const locks = await prisma.firstCommentPostLock.findMany({
       where: { planDate: plan.planDate, superTopicId: plan.task.superTopicId },
       select: { statusId: true },

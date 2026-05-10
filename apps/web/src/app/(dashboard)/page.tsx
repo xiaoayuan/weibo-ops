@@ -6,8 +6,8 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { getAccounts, getLogs, getTodayPlans, getTopicTasks } from "@/lib/app-data";
-import { formatDateTime, formatTime, getBusinessDateText } from "@/lib/date";
-import { getActionTypeText, getPlanStatusText } from "@/lib/text";
+import { formatDateTime, getBusinessDateText } from "@/lib/date";
+import { getActionTypeText } from "@/lib/text";
 import { requireSession } from "@/lib/auth";
 import { DashboardPlanCard } from "@/components/dashboard-plan-card";
 

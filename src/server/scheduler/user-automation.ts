@@ -37,16 +37,6 @@ function parseHmToMinutes(hm: string) {
   return Number(matched[1]) * 60 + Number(matched[2]);
 }
 
-function stableHash(input: string) {
-  let hash = 0;
-
-  for (let index = 0; index < input.length; index += 1) {
-    hash = (hash * 33 + input.charCodeAt(index)) >>> 0;
-  }
-
-  return hash;
-}
-
 function toHmFromMinutes(totalMinutes: number) {
   const hour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
   const minute = String(totalMinutes % 60).padStart(2, "0");

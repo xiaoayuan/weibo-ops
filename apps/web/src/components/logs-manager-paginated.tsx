@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { AppNotice } from "@/components/app-notice";
 import { EmptyState } from "@/components/empty-state";

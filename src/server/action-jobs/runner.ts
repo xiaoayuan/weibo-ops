@@ -151,24 +151,6 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * @deprecated 已废弃，请使用 simulateBrowsePause() 或 simulateTypingDelay()
- * 仅保留原签名用于兼容已调用 sleep(simulateBrowsePauseMs()) 的旧代码。
- */
-function simulateBrowsePauseMs() {
-  console.warn("[runner] simulateBrowsePauseMs() 已废弃，请改用 await simulateBrowsePause()");
-  return 1000 + Math.floor(Math.random() * 4000);
-}
-
-/**
- * @deprecated 已废弃，请使用 simulateTypingDelay() 或 simulateTypingDelayMs() 同步版本
- * 仅保留用于兼容已调用 sleep(simulateTypingDelayMs()) 的旧代码。
- */
-function simulateTypingDelayMs(_contentLength: number) {
-  console.warn("[runner] simulateTypingDelayMs() 已废弃，请改用 await simulateTypingDelay()");
-  return 0;
-}
-
 /** 拟人化浏览暂停（异步，推荐） */
 async function simulateBrowsePause(): Promise<void> {
   const ms = 1000 + Math.floor(Math.random() * 4000);

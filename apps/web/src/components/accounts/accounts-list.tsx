@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { SectionHeader } from "@/components/section-header";
 import { SurfaceCard } from "@/components/surface-card";

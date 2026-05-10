@@ -1,7 +1,9 @@
 "use client";
 
-import { List, type ListImperativeAPI } from "react-window";
+import { List, type ListImperativeAPI, type RowComponentProps } from "react-window";
 import { useRef } from "react";
+
+type EmptyRowProps = Record<string, never>;
 
 /**
  * 虚拟列表属性
@@ -37,20 +39,20 @@ export function VirtualList<T>({
     );
   }
 
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties; ariaAttributes?: unknown }) => (
+  const Row = ({ index, style }: RowComponentProps<EmptyRowProps>) => (
     <div style={style}>{renderItem(items[index], index)}</div>
   );
 
   return (
     <div className={className}>
-      <List
+      <List<EmptyRowProps>
         listRef={listRef}
         defaultHeight={height}
         style={{ height, width: "100%" }}
         rowCount={items.length}
         rowHeight={itemHeight}
-        rowComponent={Row as any}
-        rowProps={{} as any}
+        rowComponent={Row}
+        rowProps={{}}
       />
     </div>
   );

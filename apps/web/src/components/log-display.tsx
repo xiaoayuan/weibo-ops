@@ -142,7 +142,7 @@ export function TimelineLog({ logs, onViewDetails }: TimelineLogProps) {
 
       {/* 日志列表 */}
       <div className="space-y-4">
-        {logs.map((log, index) => {
+        {logs.map((log) => {
           const config = levelConfig[log.level];
           const Icon = config.icon;
 

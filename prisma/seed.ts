@@ -25,40 +25,51 @@ async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }
 
+const allowDemoSeedPasswordReset = process.env.ALLOW_DEMO_SEED === "true";
+
+async function upsertDemoUser(params: {
+  username: string;
+  role: "ADMIN" | "OPERATOR" | "VIEWER";
+  passwordHash: string;
+}) {
+  return prisma.user.upsert({
+    where: { username: params.username },
+    update: allowDemoSeedPasswordReset
+      ? {
+          passwordHash: params.passwordHash,
+          role: params.role,
+        }
+      : {
+          role: params.role,
+        },
+    create: {
+      username: params.username,
+      passwordHash: params.passwordHash,
+      role: params.role,
+    },
+  });
+}
+
 async function main() {
   const [adminPasswordHash, demoPasswordHash] = await Promise.all([
     hashPassword("admin123456"),
     hashPassword("demo123456"),
   ]);
 
-  const adminUser = await prisma.user.upsert({
-    where: { username: "admin" },
-    update: {
-      passwordHash: adminPasswordHash,
-      role: "ADMIN",
-    },
-    create: {
-      username: "admin",
-      passwordHash: adminPasswordHash,
-      role: "ADMIN",
-    },
+  const adminUser = await upsertDemoUser({
+    username: "admin",
+    passwordHash: adminPasswordHash,
+    role: "ADMIN",
   });
 
   for (const userSeed of [
     { username: "operator", role: "OPERATOR" as const },
     { username: "viewer", role: "VIEWER" as const },
   ]) {
-    await prisma.user.upsert({
-      where: { username: userSeed.username },
-      update: {
-        passwordHash: demoPasswordHash,
-        role: userSeed.role,
-      },
-      create: {
-        username: userSeed.username,
-        passwordHash: demoPasswordHash,
-        role: userSeed.role,
-      },
+    await upsertDemoUser({
+      username: userSeed.username,
+      passwordHash: demoPasswordHash,
+      role: userSeed.role,
     });
   }
 
@@ -279,8 +290,11 @@ async function main() {
     });
   }
 
-  console.log("已初始化管理员账号：admin / admin123456");
-  console.log("已初始化演示账号：operator / demo123456，viewer / demo123456");
+  if (allowDemoSeedPasswordReset) {
+    console.log("已重置演示账号密码：admin / admin123456，operator / demo123456，viewer / demo123456");
+  } else {
+    console.log("已保留现有演示账号密码；如需重置默认密码，请设置 ALLOW_DEMO_SEED=true 后再执行 seed");
+  }
   console.log("已写入演示数据：账号、超话、文案、任务、计划、互动任务、日志");
 }
 

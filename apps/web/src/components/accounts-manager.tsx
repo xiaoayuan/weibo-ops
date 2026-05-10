@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { SurfaceCard } from "@/components/surface-card";
 import { TableShell } from "@/components/table-shell";
 import { ExportButtonWithFields } from "@/components/export-button";
-import { ACCOUNT_EXPORT_FIELDS, DataExporter } from "@/lib/data-exporter";
+import { DataExporter } from "@/lib/data-exporter";
 import type { WeiboAccount } from "@/lib/app-data";
 import { formatDateTime } from "@/lib/date";
 import { readJsonResponse } from "@/lib/http";

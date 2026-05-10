@@ -47,7 +47,10 @@ app.get("/api", (c) => {
     success: true,
     data: {
       service: "weibo-ops-api",
+      runtime: "hono",
       legacyBackendOrigin: process.env.LEGACY_BACKEND_ORIGIN || "http://127.0.0.1:3007",
+      nextRoutesActive: false,
+      message: "Current apps/api runtime is Hono proxy-first. src/app/api/** is not on the default runtime path.",
     },
   });
 });

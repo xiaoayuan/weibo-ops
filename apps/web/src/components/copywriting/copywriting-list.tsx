@@ -9,7 +9,6 @@ import { TableShell } from "@/components/table-shell";
 import type { CopywritingTemplate } from "@/lib/app-data";
 import { getCopywritingSourceText } from "./utils";
 import type { AiBusinessType } from "./types";
-import { AI_BUSINESS_TYPE_TEXT } from "./types";
 
 type CopywritingListProps = {
   items: CopywritingTemplate[];

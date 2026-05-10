@@ -151,28 +151,6 @@ function toNumber(value: unknown) {
   return undefined;
 }
 
-function _tryExtractUidFromStatusUrl(targetUrl?: string | null) {
-  if (!targetUrl) return undefined;
-  const candidates: string[] = [targetUrl.trim()];
-  let decoded = targetUrl;
-  for (let i = 0; i < 2; i += 1) {
-    try {
-      const next = decodeURIComponent(decoded);
-      if (next === decoded) break;
-      decoded = next;
-      candidates.push(decoded);
-    } catch {
-      break;
-    }
-  }
-
-  for (const candidate of candidates) {
-    const matched = candidate.match(/weibo\.com\/(\d{5,20})\/[0-9a-zA-Z]{6,20}/i);
-    if (matched?.[1]) return matched[1];
-  }
-  return undefined;
-}
-
 const BASE62_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 function decodeBase62(value: string) {

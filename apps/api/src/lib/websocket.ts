@@ -70,6 +70,7 @@ export class WebSocketManager {
    * 处理新连接
    */
   private handleConnection(ws: WebSocket, request: IncomingMessage): void {
+    void request;
     const client: WSClient = {
       ws,
       subscriptions: new Set(),

@@ -36,7 +36,7 @@ Copywriting and AI features are auxiliary. Do not let them override the core exe
 ```
 
 - `app`（根目录）：旧后端主体，承载数据库、调度、执行器
-- `api`（`apps/api`）：独立 API 骨架，逐步原生化新后端入口
+- `api`（`apps/api`）：当前默认运行时为 Hono `proxy-first` 入口，逐步原生化新后端能力
 - `web`（`apps/web`）：独立前端，通过 `api` 访问后端
 
 ### 双节点执行

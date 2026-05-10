@@ -8,6 +8,8 @@
 
 2. 独立 API 可启动
    - 命令：`npm run dev:api`
+   - 当前默认运行时：`apps/api/src/server.ts`（`Hono`，`proxy-first`）
+   - 说明：`apps/api/src/app/api/**` 仍在仓库中，但当前不属于默认生效链路
 
 3. 独立前端指向独立 API
    - `apps/web/.env.local`
