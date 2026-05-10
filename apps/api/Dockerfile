@@ -14,6 +14,7 @@ FROM deps AS builder
 RUN mkdir -p apps/api && rm -rf apps/api/node_modules
 COPY prisma ./prisma
 COPY apps/api ./apps/api
+COPY src/shared ./src/shared
 # Re-link node_modules in builder stage (deps stage symlink is for COPY efficiency only)
 RUN ln -sfn /repo/node_modules apps/api/node_modules
 RUN npx prisma generate --schema prisma/schema.prisma && mkdir -p apps/api/src/generated && cp -r src/generated/prisma apps/api/src/generated/ && mkdir -p node_modules/.prisma/client && cp -r src/generated/prisma/* node_modules/.prisma/client/ && cd apps/api && PATH="/repo/node_modules/.bin:$PATH" npm run build
@@ -27,6 +28,7 @@ COPY --from=builder --chown=node:node /repo/package.json ./package.json
 COPY --from=builder --chown=node:node /repo/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev && apk add --no-cache netcat-openbsd
 COPY --from=builder --chown=node:node /repo/apps/api ./apps/api
+COPY --from=builder --chown=node:node /repo/src/shared ./src/shared
 COPY --from=builder --chown=node:node /repo/src/generated ./src/generated
 COPY --from=builder --chown=node:node /repo/node_modules/.prisma ./node_modules/.prisma
 EXPOSE 3009
