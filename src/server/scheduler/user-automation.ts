@@ -155,7 +155,8 @@ async function runAutoExecute(now: Date) {
   });
 
   for (const user of users) {
-    if (!isAfterOrEqualHm(hm, user.autoExecuteStartTime) || hm >= user.autoExecuteEndTime) {
+    // 结束时间不应阻止当天已到点的计划继续执行，否则 18:00 后的重试/补跑计划会永久卡在 PENDING。
+    if (!isAfterOrEqualHm(hm, user.autoExecuteStartTime)) {
       continue;
     }
 
