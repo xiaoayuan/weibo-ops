@@ -62,7 +62,7 @@ export async function recordExecutionOutcome(input: { accountId?: string | null;
   const proxyPauseMs = strategy.circuitBreaker.proxyPauseMinutes * 60 * 1000;
   const now = Date.now();
   const failureClass = input.success ? undefined : input.errorClass ?? "UNKNOWN_FAILURE";
-  const accountFailureRelevant = failureClass === "ACCOUNT_RISK" || failureClass === "UNKNOWN_FAILURE";
+  const accountFailureRelevant = failureClass === "ACCOUNT_RISK";
   const proxyFailureRelevant = failureClass === "TRANSIENT_NETWORK" || failureClass === "PLATFORM_BUSY";
 
   if (input.accountId) {
@@ -71,7 +71,7 @@ export async function recordExecutionOutcome(input: { accountId?: string | null;
     const pausedUntil = parseDate(current.pausedUntil);
     const pausedActive = Boolean(pausedUntil && pausedUntil.getTime() > now);
 
-    if (input.success || accountFailureRelevant) {
+    if (input.success || !accountFailureRelevant) {
       await upsertSettingValue(key, {
         consecutiveFailures: 0,
         pausedUntil: pausedActive ? pausedUntil?.toISOString() : undefined,

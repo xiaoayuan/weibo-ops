@@ -108,6 +108,16 @@ function includesAny(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword.toLowerCase()));
 }
 
+function isExplicitAccountVerificationRisk(text: string) {
+  return (
+    text.includes("for your safety, please verify your account") ||
+    text.includes('"error_code":20067') ||
+    text.includes('"ok":-100') ||
+    text.includes("weibo.com/newlogin") ||
+    text.includes("weibo.com/login.php")
+  );
+}
+
 export function classifyExecutionOutcome(input: ClassifyInput, rules: RiskRules): ExecutionErrorClass {
   if (input.success) {
     return "SUCCESS";
@@ -126,6 +136,10 @@ export function classifyExecutionOutcome(input: ClassifyInput, rules: RiskRules)
   const payloadText = JSON.stringify(input.responsePayload || "").toLowerCase();
   const messageText = String(input.message || "").toLowerCase();
   const text = `${messageText} ${payloadText}`;
+
+  if (isExplicitAccountVerificationRisk(text)) {
+    return "ACCOUNT_RISK";
+  }
 
   if (includesAny(text, rules.keywords.accountRisk)) {
     return "ACCOUNT_RISK";

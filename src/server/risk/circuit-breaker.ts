@@ -90,7 +90,7 @@ export async function recordExecutionOutcome(input: {
   const proxyPauseMs = strategy.circuitBreaker.proxyPauseMinutes * 60 * 1000;
   const now = Date.now();
   const failureClass = input.success ? undefined : input.errorClass ?? "UNKNOWN_FAILURE";
-  const accountFailureRelevant = failureClass === "UNKNOWN_FAILURE";
+  const accountFailureRelevant = failureClass === "ACCOUNT_RISK";
   const proxyFailureRelevant = failureClass === "TRANSIENT_NETWORK" || failureClass === "PLATFORM_BUSY";
 
   if (input.accountId) {
@@ -99,15 +99,14 @@ export async function recordExecutionOutcome(input: {
     const pausedUntil = parseDate(current.pausedUntil);
     const pausedActive = Boolean(pausedUntil && pausedUntil.getTime() > now);
 
-    if (input.success || accountFailureRelevant) {
-      // success → 计数器归零
-      // UNKNOWN_FAILURE → 宽容处理，重置计数器（因为可能是网络抖动等临时原因）
+    if (input.success || !accountFailureRelevant) {
+      // 只有明确的账号风险才累计账号熔断，其他失败不应该把账号打进熔断。
       await upsertSettingValue(key, {
         consecutiveFailures: 0,
         pausedUntil: pausedActive ? pausedUntil?.toISOString() : undefined,
       });
     } else if (failureClass) {
-      // ACCOUNT_RISK 或其他已知失败类型 → 严格计数，触发熔断
+      // 明确账号风险才严格计数，达到阈值后暂停账号执行。
       const consecutiveFailures = (current.consecutiveFailures || 0) + 1;
       const nextPausedUntil =
         consecutiveFailures >= accountFailureThreshold
